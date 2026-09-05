@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Архитектура: карта системы</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&display=swap');
+
+:root{
+  --bg-page:#1B0F18;
+  --bg-panel:#241220;
+  --bg-card:#34172E;
+  --bg-card-2:#3E1D38;
+  --line-idle:#4A2A46;
+  --accent-coral:#FF7A6B;
+  --accent-gold:#F0B860;
+  --accent-android:#8FD9A8;
+  --accent-ios:#9FC2FF;
+  --text-cream:#FBEDE4;
+  --text-muted:#C9A8B8;
+  --text-faint:#8C6B7C;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:radial-gradient(ellipse 1100px 600px at 50% -10%, #3E1D38 0%, transparent 60%), var(--bg-page);
+  font-family:'Inter',sans-serif;
+  color:var(--text-cream);
+  padding:36px 28px 60px;
+}
+.wrap{max-width:1320px;margin:0 auto;}
+
+.head{max-width:760px;margin-bottom:24px;}
+.head h1{font-family:'Fraunces',serif;font-weight:600;font-size:27px;margin:0 0 8px;letter-spacing:-0.01em;}
+.head p{color:var(--text-muted);font-size:14px;line-height:1.6;margin:0;}
+
+.controls{
+  display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 22px;align-items:center;
+}
+.flow-btn{
+  padding:10px 18px;border-radius:100px;font-size:13.5px;font-weight:600;cursor:pointer;
+  border:1px solid rgba(255,255,255,0.08);background:var(--bg-card);color:var(--text-muted);
+  transition:background .2s, color .2s, border-color .2s;
+  user-select:none;
+}
+.flow-btn:hover{border-color:rgba(255,255,255,0.2);}
+.flow-btn.active[data-flow="delivery"]{background:var(--accent-coral);color:#2A0F0C;border-color:var(--accent-coral);}
+.flow-btn.active[data-flow="pairing-ios"]{background:var(--accent-ios);color:#0E1A2E;border-color:var(--accent-ios);}
+.flow-btn.active[data-flow="pairing-android"]{background:var(--accent-android);color:#0F2417;border-color:var(--accent-android);}
+.reset-btn{
+  margin-left:auto;font-size:12.5px;color:var(--text-faint);cursor:pointer;padding:8px 6px;
+}
+.reset-btn:hover{color:var(--text-cream);}
+
+.layout{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;}
+
+.canvas-holder{
+  flex:1;min-width:640px;
+  background:var(--bg-panel);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:24px;
+  padding:8px;
+}
+svg{width:100%;height:auto;display:block;}
+
+.node-box{
+  rx:16;
+  fill:var(--bg-card);
+  stroke:var(--line-idle);
+  stroke-width:1.4;
+  transition:stroke .25s, fill .25s;
+}
+.node.active .node-box{stroke:var(--accent-coral);stroke-width:2.2;fill:var(--bg-card-2);}
+.node.active-ios .node-box{stroke:var(--accent-ios);stroke-width:2.2;fill:var(--bg-card-2);}
+.node.active-android .node-box{stroke:var(--accent-android);stroke-width:2.2;fill:var(--bg-card-2);}
+.node{cursor:pointer;}
+.node-icon{font-size:20px;}
+.node-title{font-family:'Fraunces',serif;font-size:13.5px;fill:var(--text-cream);}
+.node-sub{font-size:10px;fill:var(--text-faint);}
+.node.selected .node-box{stroke:var(--accent-gold);stroke-width:2.4;}
+
+.group-label{
+  font-size:10.5px;fill:var(--text-faint);letter-spacing:0.02em;
+}
+
+.edge{
+  fill:none;stroke:var(--line-idle);stroke-width:1.6;
+  transition:stroke .2s, stroke-width .2s, opacity .2s;
+  opacity:0.55;
+}
+.edge.dashed{stroke-dasharray:5 5;}
+.edge.lit-delivery{stroke:var(--accent-coral);stroke-width:2.4;opacity:1;}
+.edge.lit-pairing-ios{stroke:var(--accent-ios);stroke-width:2.4;opacity:1;}
+.edge.lit-pairing-android{stroke:var(--accent-android);stroke-width:2.4;opacity:1;}
+.edge.dimmed{opacity:0.12;}
+
+.step-badge{
+  font-size:10px;font-weight:600;fill:var(--bg-page);
+  opacity:0;transition:opacity .2s;
+}
+.step-badge.show{opacity:1;}
+.step-badge-bg{
+  opacity:0;transition:opacity .2s;
+}
+.step-badge-bg.show{opacity:1;}
+
+.legend{
+  display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;padding:0 6px;
+  font-size:12px;color:var(--text-faint);
+}
+.legend span{display:inline-flex;align-items:center;gap:6px;}
+.swatch{width:18px;height:2.5px;border-radius:2px;display:inline-block;}
+.swatch.dash{background:repeating-linear-gradient(90deg,var(--text-faint) 0 5px, transparent 5px 9px);}
+
+.sidebar{
+  width:320px;
+  background:var(--bg-panel);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:24px;
+  padding:22px;
+  min-height:420px;
+}
+.sidebar-title{font-family:'Fraunces',serif;font-size:19px;margin-bottom:6px;}
+.sidebar-tag{
+  display:inline-block;font-size:11px;color:var(--text-faint);
+  background:rgba(255,255,255,0.05);padding:3px 10px;border-radius:100px;margin-bottom:14px;
+}
+.sidebar-body{font-size:13.5px;color:var(--text-muted);line-height:1.65;}
+.sidebar-body b{color:var(--text-cream);font-weight:600;}
+.sidebar-list{margin:10px 0 0;padding-left:18px;}
+.sidebar-list li{margin-bottom:6px;}
+.step-log{margin-top:18px;border-top:1px solid rgba(255,255,255,0.06);padding-top:14px;}
+.step-log-title{font-size:11.5px;color:var(--text-faint);margin-bottom:8px;letter-spacing:0.02em;}
+.step-log-item{
+  font-size:12.5px;color:var(--text-faint);padding:5px 0;
+  opacity:0.4;transition:opacity .25s, color .25s;
+}
+.step-log-item.done{opacity:1;color:var(--text-cream);}
+.step-log-item b{font-weight:600;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <h1>Карта системы: валентинки на рабочем столе</h1>
+    <p>Кликните узел, чтобы увидеть детали. Нажмите на кнопку сценария ниже, чтобы проиграть путь данных шаг за шагом — так видно, где приложение находится в общей картине и что происходит на каждой платформе.</p>
+  </div>
+
+  <div class="controls">
+    <div class="flow-btn" data-flow="delivery" onclick="playFlow('delivery')">💌 Доставка валентинки</div>
+    <div class="flow-btn" data-flow="pairing-ios" onclick="playFlow('pairing-ios')">🍎 Первая настройка · iOS</div>
+    <div class="flow-btn" data-flow="pairing-android" onclick="playFlow('pairing-android')">🤖 Первая настройка · Android</div>
+    <div class="flow-btn" data-flow="pairing-android" onclick="window.open('C:/Users/nasty/Downloads/brief/all-screens-mockup.html', '_blank')">🤖 Мокап</div>
+    <div class="reset-btn" onclick="resetView()">Сбросить</div>
+  </div>
+
+  <div class="layout">
+    <div class="canvas-holder">
+      <svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--line-idle)"></path>
+          </marker>
+        </defs>
+
+        <!-- group labels -->
+        <text x="60" y="70" class="group-label">КЛИЕНТ</text>
+        <text x="500" y="70" class="group-label">БЭКЕНД</text>
+        <text x="760" y="70" class="group-label">PUSH-ИНФРАСТРУКТУРА</text>
+        <text x="1000" y="46" class="group-label">iOS</text>
+        <text x="1000" y="396" class="group-label">ANDROID</text>
+
+        <!-- EDGES (drawn first, under nodes) -->
+        <g id="edges">
+          <!-- delivery flow -->
+          <path id="e1" class="edge" data-flow="delivery" data-order="1" d="M200,180 C320,180 320,150 440,150" marker-end="url(#arrow)"></path>
+          <path id="e2" class="edge" data-flow="delivery" data-order="2" d="M560,150 C620,150 620,110 620,90" marker-end="url(#arrow)"></path>
+          <path id="e3" class="edge" data-flow="delivery" data-order="3" d="M620,180 C700,220 740,150 800,150" marker-end="url(#arrow)"></path>
+          <path id="e4" class="edge" data-flow="delivery" data-order="4" d="M620,180 C700,320 740,470 800,470" marker-end="url(#arrow)"></path>
+          <path id="e5" class="edge" data-flow="delivery" data-order="5" d="M920,150 C980,150 980,150 1040,150" marker-end="url(#arrow)"></path>
+          <path id="e6" class="edge" data-flow="delivery" data-order="6" d="M1160,150 C1200,150 1200,240 1160,270" marker-end="url(#arrow)"></path>
+          <path id="e7" class="edge" data-flow="delivery" data-order="5" d="M920,470 C980,470 980,470 1040,470" marker-end="url(#arrow)"></path>
+          <path id="e8" class="edge" data-flow="delivery" data-order="6" d="M1160,470 C1200,470 1200,560 1160,590" marker-end="url(#arrow)"></path>
+
+          <!-- pairing iOS -->
+          <path id="p1" class="edge dashed" data-flow="pairing-ios" data-order="1" d="M200,240 C500,240 800,220 1040,180" marker-end="url(#arrow)"></path>
+          <path id="p2" class="edge dashed" data-flow="pairing-ios" data-order="2" d="M1040,190 C700,240 500,240 210,220" marker-end="url(#arrow)"></path>
+          <path id="p3" class="edge dashed" data-flow="pairing-ios" data-order="3" d="M1100,180 C1100,220 1100,240 1100,270" marker-end="url(#arrow)"></path>
+
+          <!-- pairing Android -->
+          <path id="a1" class="edge dashed" data-flow="pairing-android" data-order="1" d="M200,260 C500,420 800,440 1040,500" marker-end="url(#arrow)"></path>
+          <path id="a2" class="edge dashed" data-flow="pairing-android" data-order="2" d="M1040,510 C700,440 500,420 210,240" marker-end="url(#arrow)"></path>
+          <path id="a3" class="edge dashed" data-flow="pairing-android" data-order="3" d="M1100,500 C1100,540 1100,560 1100,590" marker-end="url(#arrow)"></path>
+        </g>
+
+        <!-- badges (numbers on edges) -->
+        <g id="badges">
+          <circle class="step-badge-bg" data-flow="delivery" data-order="1" cx="330" cy="165" r="10" fill="var(--accent-coral)"></circle>
+          <text class="step-badge" data-flow="delivery" data-order="1" x="330" y="169" text-anchor="middle">1</text>
+
+          <circle class="step-badge-bg" data-flow="delivery" data-order="2" cx="640" cy="115" r="10" fill="var(--accent-coral)"></circle>
+          <text class="step-badge" data-flow="delivery" data-order="2" x="640" y="119" text-anchor="middle">2</text>
+
+          <circle class="step-badge-bg" data-flow="delivery" data-order="3" cx="710" cy="180" r="10" fill="var(--accent-coral)"></circle>
+          <text class="step-badge" data-flow="delivery" data-order="3" x="710" y="184" text-anchor="middle">3</text>
+
+          <circle class="step-badge-bg" data-flow="delivery" data-order="4" cx="710" cy="360" r="10" fill="var(--accent-coral)"></circle>
+          <text class="step-badge" data-flow="delivery" data-order="4" x="710" y="364" text-anchor="middle">3</text>
+
+          <circle class="step-badge-bg" data-flow="delivery" data-order="5" cx="985" cy="150" r="10" fill="var(--accent-coral)"></circle>
+          <text class="step-badge" data-flow="delivery" data-order="5" x="985" y="154" text-anchor="middle">4</text>
+
+          <circle class="step-badge-bg" data-flow="delivery" data-order="6" cx="1195" cy="200" r="10" fill="var(--accent-coral)"></circle>
+          <text class="step-badge" data-flow="delivery" data-order="6" x="1195" y="204" text-anchor="middle">5</text>
+
+          <circle class="step-badge-bg" data-flow="delivery" data-order="5" cx="985" cy="470" r="10" fill="var(--accent-coral)"></circle>
+          <text class="step-badge" data-flow="delivery" data-order="5" x="985" y="474" text-anchor="middle">4</text>
+
+          <circle class="step-badge-bg" data-flow="delivery" data-order="6" cx="1195" cy="520" r="10" fill="var(--accent-coral)"></circle>
+          <text class="step-badge" data-flow="delivery" data-order="6" x="1195" y="524" text-anchor="middle">5</text>
+        </g>
+
+        <!-- NODES -->
+        <g id="nodes">
+
+          <g class="node" data-id="miniapp" transform="translate(30,140)" onclick="selectNode('miniapp')">
+            <rect class="node-box" width="170" height="80" rx="16"></rect>
+            <text class="node-icon" x="16" y="32">📱</text>
+            <text class="node-title" x="16" y="52">Telegram Mini App</text>
+            <text class="node-sub" x="16" y="68">лента, отправка, addToHomeScreen</text>
+          </g>
+
+          <g class="node" data-id="backend" transform="translate(440,110)" onclick="selectNode('backend')">
+            <rect class="node-box" width="120" height="80" rx="16"></rect>
+            <text class="node-icon" x="14" y="32">🗄️</text>
+            <text class="node-title" x="14" y="52">Backend API</text>
+            <text class="node-sub" x="14" y="68">auth, valentine svc</text>
+          </g>
+
+          <g class="node" data-id="postgres" transform="translate(560,40)" onclick="selectNode('postgres')">
+            <rect class="node-box" width="120" height="60" rx="14"></rect>
+            <text class="node-icon" x="12" y="26">🐘</text>
+            <text class="node-title" x="12" y="44">Postgres</text>
+          </g>
+
+          <g class="node" data-id="apns" transform="translate(800,110)" onclick="selectNode('apns')">
+            <rect class="node-box" width="120" height="80" rx="16"></rect>
+            <text class="node-icon" x="14" y="32">🔔</text>
+            <text class="node-title" x="14" y="52">APNs</text>
+            <text class="node-sub" x="14" y="68">visible + silent</text>
+          </g>
+
+          <g class="node" data-id="fcm" transform="translate(800,430)" onclick="selectNode('fcm')">
+            <rect class="node-box" width="120" height="80" rx="16"></rect>
+            <text class="node-icon" x="14" y="32">🔔</text>
+            <text class="node-title" x="14" y="52">FCM</text>
+            <text class="node-sub" x="14" y="68">visible + data</text>
+          </g>
+
+          <g class="node" data-id="ios_app" transform="translate(1040,110)" onclick="selectNode('ios_app')">
+            <rect class="node-box" width="120" height="80" rx="16"></rect>
+            <text class="node-icon" x="14" y="32">🍎</text>
+            <text class="node-title" x="14" y="52">Companion iOS</text>
+            <text class="node-sub" x="14" y="68">App Group, BG refresh</text>
+          </g>
+
+          <g class="node" data-id="ios_widget" transform="translate(1100,240)" onclick="selectNode('ios_widget')">
+            <rect class="node-box" width="120" height="60" rx="14"></rect>
+            <text class="node-icon" x="12" y="26">🧩</text>
+            <text class="node-title" x="12" y="44">WidgetKit</text>
+          </g>
+
+          <g class="node" data-id="android_app" transform="translate(1040,430)" onclick="selectNode('android_app')">
+            <rect class="node-box" width="120" height="80" rx="16"></rect>
+            <text class="node-icon" x="14" y="32">🤖</text>
+            <text class="node-title" x="14" y="52">Companion Android</text>
+            <text class="node-sub" x="14" y="68">FCM receiver</text>
+          </g>
+
+          <g class="node" data-id="android_widget" transform="translate(1100,560)" onclick="selectNode('android_widget')">
+            <rect class="node-box" width="120" height="60" rx="14"></rect>
+            <text class="node-icon" x="12" y="26">🧩</text>
+            <text class="node-title" x="12" y="44">AppWidget</text>
+          </g>
+
+        </g>
+      </svg>
+
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--accent-coral)"></span> доставка валентинки</span>
+        <span><span class="swatch dash" style="background:var(--accent-ios)"></span> первая настройка · iOS</span>
+        <span><span class="swatch dash" style="background:var(--accent-android)"></span> первая настройка · Android</span>
+      </div>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-title">Обзор системы</div>
+      <div class="sidebar-tag">кликните узел или сценарий</div>
+      <div class="sidebar-body" id="sidebar-body">
+        Слева — Mini App внутри Telegram, дальше бэкенд и очередь пушей, справа — две независимые ветки: iOS-компаньон с WidgetKit и Android-компаньон с AppWidget.
+        <br><br>
+        Пунктирные линии — разовые действия пользователя (пэйринг, добавление виджета), сплошные — автоматическая доставка данных.
+      </div>
+      <div class="step-log" id="step-log" style="display:none;">
+        <div class="step-log-title">ШАГИ СЦЕНАРИЯ</div>
+        <div id="step-log-items"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const nodeInfo = {
+  miniapp: {
+    title: "Telegram Mini App",
+    tag: "клиент",
+    body: `Единственное место, где живёт вся логика продукта: лента валентинок, выбор анимации, отправка.
+    <ul class="sidebar-list">
+      <li>Разовый вызов <b>addToHomeScreen()</b> — ярлык на столе, не виджет</li>
+      <li>Генерирует одноразовый токен пэйринга для companion-приложений</li>
+      <li>Не имеет доступа к WidgetKit/AppWidget — это ограничение платформы, не архитектуры</li>
+    </ul>`
+  },
+  backend: {
+    title: "Backend API",
+    tag: "бэкенд",
+    body: `Принимает событие отправки, сохраняет, ставит в очередь на доставку в оба push-канала одновременно.
+    <ul class="sidebar-list">
+      <li>Payload лёгкий: <b>{from, type, sent_at}</b>, без медиа</li>
+      <li>Обменивает pairing-токен companion-приложения на сессию</li>
+    </ul>`
+  },
+  postgres: {
+    title: "Postgres",
+    tag: "данные",
+    body: `Пары, валентинки, статусы delivered/seen. На масштабе MVP (10k пар) — без шардирования, обычный managed instance.`
+  },
+  apns: {
+    title: "APNs",
+    tag: "push-инфраструктура",
+    body: `Получает от бэкенда сразу два пуша на одно событие: обычный (гарантированно показывается) и silent (best-effort, будит приложение в фоне).
+    <ul class="sidebar-list"><li>Apple не гарантирует доставку silent push — отсюда fallback-pull в виджете</li></ul>`
+  },
+  fcm: {
+    title: "FCM",
+    tag: "push-инфраструктура",
+    body: `Аналогично APNs, но data-message на Android доставляется охотнее — меньше системных ограничений, если приложение не выкинуто OEM-оптимизацией батареи.`
+  },
+  ios_app: {
+    title: "Companion iOS",
+    tag: "iOS-компаньон",
+    body: `Тонкое нативное приложение: только пэйринг, push-разрешение, запись данных в App Group для виджета.
+    <ul class="sidebar-list">
+      <li>Будится silent push-ом → пишет в shared container → зовёт reloadTimelines</li>
+      <li>Нет API для авто-добавления виджета — только ручной гайд</li>
+    </ul>`
+  },
+  ios_widget: {
+    title: "WidgetKit",
+    tag: "поверхность рендера",
+    body: `Рисует заранее упакованную анимацию (enum-тип) + имя/время. Ограничен системным бюджетом обновлений — отсюда периодический pull как страховка.`
+  },
+  android_app: {
+    title: "Companion Android",
+    tag: "Android-компаньон",
+    body: `Та же роль, что у iOS-версии, но с более мягкими системными ограничениями и без App Store review для мелких обновлений (если Play Store используется без строгой политики).
+    <ul class="sidebar-list">
+      <li>FCM data-message → BroadcastReceiver → сразу updateAppWidget</li>
+      <li>requestPinAppWidget() — воркфлоу пиннинга в один тап</li>
+    </ul>`
+  },
+  android_widget: {
+    title: "AppWidget",
+    tag: "поверхность рендера",
+    body: `RemoteViews с ограниченной анимацией (AnimatedVectorDrawable) — тот же принцип, что и на iOS: тип + метаданные с сервера, графика уже на устройстве.`
+  }
+};
+
+const flowSteps = {
+  delivery: [
+    "1 · Mini App отправляет событие на Backend",
+    "2 · Backend сохраняет в Postgres",
+    "3 · Backend шлёт push в APNs и FCM параллельно",
+    "4 · Push доходит до companion-приложений (visible + silent/data)",
+    "5 · Приложение обновляет виджет локально"
+  ],
+  "pairing-ios": [
+    "1 · Mini App открывает companion по диплинку с токеном",
+    "2 · Companion обменивает токен на сессию у Backend",
+    "3 · Пользователь вручную добавляет виджет через галерею iOS"
+  ],
+  "pairing-android": [
+    "1 · Mini App открывает companion по диплинку с токеном",
+    "2 · Companion обменивает токен на сессию у Backend",
+    "3 · Приложение вызывает requestPinAppWidget — один тап"
+  ]
+};
+
+const flowNodeSequence = {
+  delivery: [
+    {id:"miniapp", cls:"active"},
+    {id:"backend", cls:"active"},
+    {id:"postgres", cls:"active"},
+    {id:"apns", cls:"active"},
+    {id:"fcm", cls:"active"},
+    {id:"ios_app", cls:"active"},
+    {id:"android_app", cls:"active"},
+    {id:"ios_widget", cls:"active"},
+    {id:"android_widget", cls:"active"}
+  ],
+  "pairing-ios": [
+    {id:"miniapp", cls:"active-ios"},
+    {id:"ios_app", cls:"active-ios"},
+    {id:"backend", cls:"active-ios"},
+    {id:"ios_widget", cls:"active-ios"}
+  ],
+  "pairing-android": [
+    {id:"miniapp", cls:"active-android"},
+    {id:"android_app", cls:"active-android"},
+    {id:"backend", cls:"active-android"},
+    {id:"android_widget", cls:"active-android"}
+  ]
+};
+
+let currentTimeouts = [];
+
+function clearAll(){
+  currentTimeouts.forEach(t => clearTimeout(t));
+  currentTimeouts = [];
+  document.querySelectorAll('.edge').forEach(e => e.classList.remove('lit-delivery','lit-pairing-ios','lit-pairing-android','dimmed'));
+  document.querySelectorAll('.step-badge, .step-badge-bg').forEach(b => b.classList.remove('show'));
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('active','active-ios','active-android'));
+  document.querySelectorAll('.flow-btn').forEach(b => b.classList.remove('active'));
+}
+
+function resetView(){
+  clearAll();
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+  document.getElementById('sidebar-body').innerHTML = `Слева — Mini App внутри Telegram, дальше бэкенд и очередь пушей, справа — две независимые ветки: iOS-компаньон с WidgetKit и Android-компаньон с AppWidget.<br><br>Пунктирные линии — разовые действия пользователя (пэйринг, добавление виджета), сплошные — автоматическая доставка данных.`;
+  document.querySelector('.sidebar-title').textContent = "Обзор системы";
+  document.querySelector('.sidebar-tag').textContent = "кликните узел или сценарий";
+  document.getElementById('step-log').style.display = "none";
+}
+
+function selectNode(id){
+  clearAll();
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+  const el = document.querySelector('.node[data-id="'+id+'"]');
+  if(el) el.classList.add('selected');
+  const info = nodeInfo[id];
+  document.querySelector('.sidebar-title').textContent = info.title;
+  document.querySelector('.sidebar-tag').textContent = info.tag;
+  document.getElementById('sidebar-body').innerHTML = info.body;
+  document.getElementById('step-log').style.display = "none";
+}
+
+function playFlow(flowName){
+  clearAll();
+  document.querySelector('.flow-btn[data-flow="'+flowName+'"]').classList.add('active');
+
+  const litClass = flowName === "delivery" ? "lit-delivery" : (flowName === "pairing-ios" ? "lit-pairing-ios" : "lit-pairing-android");
+
+  // dim all edges not part of this flow
+  document.querySelectorAll('.edge').forEach(e => {
+    if(e.dataset.flow !== flowName) e.classList.add('dimmed');
+  });
+
+  document.querySelector('.sidebar-title').textContent = flowName === "delivery" ? "Сценарий: доставка валентинки" : (flowName === "pairing-ios" ? "Сценарий: настройка на iOS" : "Сценарий: настройка на Android");
+  document.querySelector('.sidebar-tag').textContent = "проигрывается";
+  document.getElementById('sidebar-body').innerHTML = "Шаги подсвечиваются по порядку слева направо — так видно, где именно каждая система вступает в дело.";
+
+  const stepLog = document.getElementById('step-log');
+  const stepItemsEl = document.getElementById('step-log-items');
+  stepLog.style.display = "block";
+  stepItemsEl.innerHTML = flowSteps[flowName].map((s,i) => `<div class="step-log-item" id="log-${flowName}-${i}">${s}</div>`).join('');
+
+  const maxOrder = Math.max(...Array.from(document.querySelectorAll('.edge[data-flow="'+flowName+'"]')).map(e => parseInt(e.dataset.order)));
+
+  for(let order = 1; order <= maxOrder; order++){
+    const t = setTimeout(() => {
+      document.querySelectorAll('.edge[data-flow="'+flowName+'"][data-order="'+order+'"]').forEach(e => e.classList.add(litClass));
+      document.querySelectorAll('.step-badge[data-flow="'+flowName+'"][data-order="'+order+'"], .step-badge-bg[data-flow="'+flowName+'"][data-order="'+order+'"]').forEach(b => b.classList.add('show'));
+      const logItem = document.getElementById('log-'+flowName+'-'+(order-1));
+      if(logItem) logItem.classList.add('done');
+    }, order * 550);
+    currentTimeouts.push(t);
+  }
+
+  flowNodeSequence[flowName].forEach((n, i) => {
+    const t = setTimeout(() => {
+      const el = document.querySelector('.node[data-id="'+n.id+'"]');
+      if(el) el.classList.add(n.cls);
+    }, (i+1) * 350);
+    currentTimeouts.push(t);
+  });
+}
+</script>
+</body>
+</html>

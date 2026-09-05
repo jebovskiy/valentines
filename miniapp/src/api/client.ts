@@ -1,0 +1,67 @@
+import { getInitData } from '../utils/telegram';
+import type {
+  Pair,
+  Valentine,
+  ValentineWithSender,
+  SendValentineRequest,
+  PairingInitResult,
+  CompletePairingResult,
+  ApiResponse,
+} from '../types';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  const initData = getInitData();
+  const headers = new Headers(options.headers);
+  headers.set('Content-Type', 'application/json');
+  if (initData) {
+    headers.set('Authorization', `tma ${initData}`);
+  }
+
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { error: data.error || `HTTP ${response.status}` };
+    }
+
+    return { data };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+}
+
+export const api = {
+  // Pairs
+  getMyPair: () => fetchWithAuth<{ pair: Pair }>('/api/pairs/me'),
+  createPair: (partnerTelegramId: number) =>
+    fetchWithAuth<{ pair_id: string }>('/api/pairs', {
+      method: 'POST',
+      body: JSON.stringify({ partner_telegram_id: partnerTelegramId }),
+    }),
+
+  // Pairing
+  initiatePairing: () => fetchWithAuth<PairingInitResult>('/api/pairs/pairing/initiate', { method: 'POST' }),
+  completePairing: (token: string, platform: 'ios' | 'android', pushToken: string) =>
+    fetchWithAuth<CompletePairingResult>('/api/pairs/pairing/complete', {
+      method: 'POST',
+      body: JSON.stringify({ token, platform, push_token: pushToken }),
+    }),
+
+  // Valentines
+  getValentines: () => fetchWithAuth<{ valentines: Valentine[] }>('/api/valentines'),
+  getValentine: (id: string) => fetchWithAuth<{ valentine: Valentine }>(`/api/valentines/${id}`),
+  sendValentine: (payload: SendValentineRequest) =>
+    fetchWithAuth<{ valentine: Valentine }>('/api/valentines', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  markSeen: (id: string) =>
+    fetchWithAuth<{ success: boolean }>(`/api/valentines/${id}/seen`, { method: 'POST' }),
+};
