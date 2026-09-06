@@ -36,44 +36,7 @@ export function ListScreen() {
     );
   }
 
-  if (error) {
-    if (error.toLowerCase().includes('pair not found')) {
-      return (
-        <CreatePairForm
-          inviteCode={inviteCode}
-          joinCode={joinCode}
-          setJoinCode={setJoinCode}
-          isBusy={isBusy}
-          error={localError}
-          onCreateInvite={async () => {
-            setIsBusy(true);
-            setLocalError(null);
-            const code = await createInvite();
-            setIsBusy(false);
-            if (code) {
-              setInviteCode(code);
-              hapticFeedback('notification', 'success');
-              navigator.clipboard?.writeText(code);
-            } else {
-              setLocalError('Не удалось создать приглашение. Попробуйте снова.');
-            }
-          }}
-          onJoin={async () => {
-            const code = joinCode.trim().toUpperCase();
-            if (code.length < 6) {
-              setLocalError('Введите код приглашения');
-              return;
-            }
-            setIsBusy(true);
-            setLocalError(null);
-            const ok = await joinInvite(code);
-            setIsBusy(false);
-            if (!ok) setLocalError('Код неверный или истёк. Проверьте и попробуйте снова.');
-          }}
-        />
-      );
-    }
-
+  if (error && !error.toLowerCase().includes('pair not found')) {
     return (
       <div style={styles.errorContainer}>
         <p style={styles.errorText}>{error}</p>
@@ -86,15 +49,39 @@ export function ListScreen() {
 
   if (!pair) {
     return (
-      <div style={styles.emptyContainer}>
-        <div style={styles.emptyIcon}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-          </svg>
-        </div>
-        <h2 style={styles.emptyTitle}>Пара не создана</h2>
-        <p style={styles.emptyText}>Пригласите партнера, чтобы начать обмениваться валентинками</p>
-      </div>
+      <CreatePairForm
+        inviteCode={inviteCode}
+        joinCode={joinCode}
+        setJoinCode={setJoinCode}
+        isBusy={isBusy}
+        error={localError}
+        onCreateInvite={async () => {
+          setIsBusy(true);
+          setLocalError(null);
+          const code = await createInvite();
+          setIsBusy(false);
+          if (code) {
+            setInviteCode(code);
+            hapticFeedback('notification', 'success');
+            navigator.clipboard?.writeText(code);
+          } else {
+            const currentError = useValentinesStore.getState().error;
+            setLocalError(currentError || 'Не удалось создать приглашение. Попробуйте снова.');
+          }
+        }}
+        onJoin={async () => {
+          const code = joinCode.trim().toUpperCase();
+          if (code.length < 6) {
+            setLocalError('Введите код приглашения');
+            return;
+          }
+          setIsBusy(true);
+          setLocalError(null);
+          const ok = await joinInvite(code);
+          setIsBusy(false);
+          if (!ok) setLocalError('Код неверный или истёк. Проверьте и попробуйте снова.');
+        }}
+      />
     );
   }
 
