@@ -5,7 +5,7 @@ import { setMainButton, hapticFeedback } from '../utils/telegram';
 import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
 
 export function ListScreen() {
-  const { valentines, isLoading, error, fetchValentines, markSeen, pair, createInvite, joinInvite } = useValentinesStore();
+  const { valentines, isLoading, error, fetchValentines, markSeen, pair, checkPair, createInvite, joinInvite } = useValentinesStore();
   const navigate = useNavigate();
   const [inviteCode, setInviteCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -23,6 +23,18 @@ export function ListScreen() {
       isVisible: true,
     });
   }, [navigate]);
+
+  useEffect(() => {
+    if (!inviteCode) return;
+    const interval = setInterval(() => {
+      checkPair();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [inviteCode, checkPair]);
+
+  useEffect(() => {
+    if (pair) setInviteCode('');
+  }, [pair]);
 
   const received = valentines.filter((v) => !v.is_own);
   const sent = valentines.filter((v) => v.is_own);

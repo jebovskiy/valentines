@@ -12,6 +12,7 @@ interface ValentinesState {
   realtimeChannel: ReturnType<typeof subscribeToValentines> | null;
 
   fetchPair: () => Promise<void>;
+  checkPair: () => Promise<Pair | null>;
   createInvite: () => Promise<string | null>;
   joinInvite: (code: string) => Promise<boolean>;
   fetchValentines: () => Promise<void>;
@@ -51,6 +52,14 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       return;
     }
     set({ pair: result.data!.pair, isLoading: false });
+  },
+
+  checkPair: async () => {
+    const result = await api.getMyPair();
+    if (result.error) return null;
+    const pair = result.data!.pair;
+    set({ pair });
+    return pair;
   },
 
   createInvite: async () => {
