@@ -129,7 +129,13 @@ export async function createValentine(
 ): Promise<Valentine> {
   const { data, error } = await supabase
     .from('valentines')
-    .insert({ pair_id: pairId, sender_telegram_id: senderTelegramId, animation_type: animationType, message })
+    .insert({
+      pair_id: pairId,
+      sender_telegram_id: senderTelegramId,
+      animation_type: animationType,
+      message,
+      delivered_at: new Date().toISOString(),
+    })
     .select()
     .single();
 
