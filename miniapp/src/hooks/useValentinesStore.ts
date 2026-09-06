@@ -12,6 +12,7 @@ interface ValentinesState {
   realtimeChannel: ReturnType<typeof subscribeToValentines> | null;
 
   fetchPair: () => Promise<void>;
+  createPair: (partnerTelegramId: number) => Promise<string | null>;
   fetchValentines: () => Promise<void>;
   sendValentine: (animationType: string, message: string | null) => Promise<ValentineWithSender | null>;
   markSeen: (id: string) => Promise<void>;
@@ -49,6 +50,22 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       return;
     }
     set({ pair: result.data!.pair, isLoading: false });
+  },
+
+  createPair: async (partnerTelegramId) => {
+    set({ isLoading: true, error: null });
+    const result = await api.createPair(partnerTelegramId);
+    if (result.error) {
+      set({ error: result.error, isLoading: false });
+      return null;
+    }
+    const pairResult = await api.getMyPair();
+    if (pairResult.error) {
+      set({ error: pairResult.error, isLoading: false });
+      return null;
+    }
+    set({ pair: pairResult.data!.pair, isLoading: false });
+    return pairResult.data!.pair.id;
   },
 
   fetchValentines: async () => {

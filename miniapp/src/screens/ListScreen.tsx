@@ -1,12 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { setMainButton, hapticFeedback } from '../utils/telegram';
 import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
 
 export function ListScreen() {
-  const { valentines, isLoading, error, fetchValentines, markSeen, pair } = useValentinesStore();
+  const { valentines, isLoading, error, fetchValentines, markSeen, pair, createPair } = useValentinesStore();
   const navigate = useNavigate();
+  const [partnerId, setPartnerId] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     setMainButton({
@@ -33,6 +36,29 @@ export function ListScreen() {
   }
 
   if (error) {
+    if (error.toLowerCase().includes('pair not found')) {
+      return (
+        <CreatePairForm
+          partnerId={partnerId}
+          setPartnerId={setPartnerId}
+          isCreating={isCreating}
+          error={createError}
+          onCreate={async () => {
+            const id = Number(partnerId.trim());
+            if (!Number.isInteger(id) || id <= 0) {
+              setCreateError('Введите корректный Telegram ID');
+              return;
+            }
+            setIsCreating(true);
+            setCreateError(null);
+            const result = await createPair(id);
+            setIsCreating(false);
+            if (!result) setCreateError('Не удалось создать пару. Возможно, у партнера уже есть пара.');
+          }}
+        />
+      );
+    }
+
     return (
       <div style={styles.errorContainer}>
         <p style={styles.errorText}>{error}</p>
@@ -171,6 +197,60 @@ function formatTime(iso: string): string {
   if (hours < 24) return `${hours} ч. назад`;
   if (days < 7) return `${days} дн. назад`;
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
+function CreatePairForm({
+  partnerId,
+  setPartnerId,
+  isCreating,
+  error,
+  onCreate,
+}: {
+  partnerId: string;
+  setPartnerId: (v: string) => void;
+  isCreating: boolean;
+  error: string | null;
+  onCreate: () => void;
+}) {
+  return (
+    <div style={styles.createContainer}>
+      <div style={styles.createIcon}>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 21s-6.7-4.35-9.83-8.62C.44 9.27 1.55 4.94 5.1 3.89 7.4 3.13 9.95 3.98 12 5.67c2.05-1.69 4.6-2.54 6.9-1.78 3.55 1.05 4.66 5.38 2.93 8.49C18.7 16.65 12 21 12 21z" />
+          <path d="M20.5 4.5 3 22" stroke="#333" />
+        </svg>
+      </div>
+      <h2 style={styles.createTitle}>Создайте пару</h2>
+      <p style={styles.createText}>
+        Введите Telegram ID вашего партнёра. Партнёр получит от вас валентинки, и наоборот.
+      </p>
+      <div style={styles.createInputWrapper}>
+        <input
+          value={partnerId}
+          onChange={(e) => setPartnerId(e.target.value.replace(/[^0-9]/g, ''))}
+          placeholder="Telegram ID партнёра"
+          style={styles.createInput}
+          inputMode="numeric"
+          autoComplete="off"
+          disabled={isCreating}
+        />
+      </div>
+      {error && <p style={styles.createError}>{error}</p>}
+      <button
+        onClick={onCreate}
+        disabled={isCreating || !partnerId.trim()}
+        style={{
+          ...styles.createButton,
+          opacity: isCreating || !partnerId.trim() ? 0.6 : 1,
+        }}
+      >
+        {isCreating ? 'Создание...' : 'Создать пару'}
+      </button>
+      <p style={styles.createHint}>
+        Найти свой Telegram ID: оставьте любое сообщение боту <b>@userinfobot</b>
+      </p>
+    </div>
+  );
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -370,5 +450,72 @@ const styles: Record<string, React.CSSProperties> = {
   statusText: {
     fontSize: '12px',
     color: 'var(--text-secondary)',
+  },
+  createContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100vh',
+    padding: '24px',
+    textAlign: 'center',
+  },
+  createIcon: {
+    color: 'var(--primary)',
+    opacity: 0.9,
+    marginBottom: '16px',
+  },
+  createTitle: {
+    fontSize: '22px',
+    fontWeight: '700',
+    marginBottom: '8px',
+  },
+  createText: {
+    fontSize: '15px',
+    color: 'var(--text-secondary)',
+    lineHeight: 1.5,
+    maxWidth: '300px',
+    marginBottom: '20px',
+  },
+  createInputWrapper: {
+    width: '100%',
+    maxWidth: '300px',
+    marginBottom: '12px',
+  },
+  createInput: {
+    width: '100%',
+    padding: '16px',
+    fontSize: '16px',
+    textAlign: 'center',
+    background: 'var(--surface-elevated)',
+    color: 'var(--text-primary)',
+    borderRadius: '12px',
+    border: '1px solid var(--border)',
+    boxShadow: 'var(--shadow)',
+  },
+  createError: {
+    fontSize: '13px',
+    color: '#f44336',
+    marginBottom: '12px',
+    maxWidth: '300px',
+  },
+  createButton: {
+    width: '100%',
+    maxWidth: '300px',
+    padding: '16px',
+    background: 'var(--primary)',
+    color: 'var(--tg-button-text-color)',
+    borderRadius: '12px',
+    fontWeight: '600',
+    fontSize: '16px',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  createHint: {
+    marginTop: '16px',
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
+    maxWidth: '300px',
+    lineHeight: 1.5,
   },
 };
