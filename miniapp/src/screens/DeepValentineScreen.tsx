@@ -15,7 +15,6 @@ export function DeepValentineScreen() {
   useEffect(() => {
     setMainButton({ isVisible: false });
     setBackButton(true, () => {
-      window.Telegram?.WebApp?.close?.();
       navigate('/', { replace: true });
     });
   }, [navigate]);
@@ -56,7 +55,6 @@ export function DeepValentineScreen() {
         <BackButton
           to="/"
           onBack={() => {
-            window.Telegram?.WebApp?.close?.();
             navigate('/', { replace: true });
           }}
         />
@@ -94,7 +92,6 @@ export function DeepValentineScreen() {
       <BackButton
         to="/"
         onBack={() => {
-          window.Telegram?.WebApp?.close?.();
           navigate('/', { replace: true });
         }}
       />

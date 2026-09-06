@@ -69,6 +69,12 @@ export function DetailScreen() {
           <div style={styles.receivedTime}>
             {isTodayThenTime(valentine.sent_at) ? `сегодня, ${timeDate}` : timeDate}
           </div>
+
+          {valentine.is_own && (
+            <div style={valentine.seen_at ? styles.readStatus : styles.unreadStatus}>
+              {valentine.seen_at ? '✓ прочитано' : 'ещё не прочитано'}
+            </div>
+          )}
         </div>
       </div>
 
@@ -196,6 +202,14 @@ const styles: Record<string, React.CSSProperties> = {
   receivedTime: {
     fontSize: '12px',
     color: 'var(--text-faint)',
+  },
+  readStatus: {
+    fontSize: '12px',
+    color: 'var(--mute)',
+  },
+  unreadStatus: {
+    fontSize: '12px',
+    color: 'var(--ash)',
   },
   replyBtn: {
     marginTop: '8px',

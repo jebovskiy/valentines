@@ -203,17 +203,40 @@ function formatDays(days: number): string {
 function ValentineCard({ valentine, onPress }: { valentine: any; onPress: () => void }) {
   const anim = getAnimation(valentine.animation_type);
   const senderLabel = valentine.is_own ? 'Вы' : valentine.sender_name;
+  const isUnread = !valentine.is_own && !valentine.seen_at;
 
   return (
-    <Link to={`/valentine/${valentine.id}`} onClick={onPress} style={styles.feedItem}>
+    <Link
+      to={`/valentine/${valentine.id}`}
+      onClick={onPress}
+      style={{
+        ...styles.feedItem,
+        background: valentine.is_own ? 'var(--surface-card)' : 'var(--surface-elevated)',
+        borderLeft: isUnread
+          ? '3px solid var(--primary)'
+          : valentine.is_own
+            ? '3px solid transparent'
+            : '3px solid var(--hairline)',
+      }}
+    >
       <div style={styles.feedIc}>{anim.emoji}</div>
       <div style={styles.feedText}>
-        <div style={styles.feedName}>{senderLabel}</div>
+        <div style={styles.feedNameRow}>
+          <div style={styles.feedName}>{senderLabel}</div>
+          {isUnread && <div style={styles.feedNewBadge}>новое</div>}
+        </div>
         <div style={styles.feedSnippet}>
           {valentine.message || anim.label}
         </div>
       </div>
-      <div style={styles.feedTime}>{formatFeedTime(valentine.sent_at)}</div>
+      <div style={styles.feedRight}>
+        <div style={styles.feedTime}>{formatFeedTime(valentine.sent_at)}</div>
+        {valentine.is_own && (
+          <div style={valentine.seen_at ? styles.feedRead : styles.feedUnread}>
+            {valentine.seen_at ? '✓ прочитано' : 'не прочитано'}
+          </div>
+        )}
+      </div>
     </Link>
   );
 }
@@ -511,6 +534,21 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: '600',
     color: 'var(--ink-soft)',
   },
+  feedNameRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  feedNewBadge: {
+    background: 'var(--primary)',
+    color: 'var(--on-primary)',
+    fontSize: '11px',
+    fontWeight: '700',
+    lineHeight: '18px',
+    padding: '0 8px',
+    borderRadius: '9999px',
+    flexShrink: 0,
+  },
   feedSnippet: {
     fontSize: '13px',
     color: 'var(--text-faint)',
@@ -519,11 +557,25 @@ const styles: Record<string, React.CSSProperties> = {
     textOverflow: 'ellipsis',
     maxWidth: '180px',
   },
-  feedTime: {
+  feedRight: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: '4px',
     marginLeft: 'auto',
+    flexShrink: 0,
+  },
+  feedTime: {
     fontSize: '12px',
     color: 'var(--text-faint)',
-    flexShrink: 0,
+  },
+  feedRead: {
+    fontSize: '11px',
+    color: 'var(--mute)',
+  },
+  feedUnread: {
+    fontSize: '11px',
+    color: 'var(--ash)',
   },
   feedFab: {
     position: 'fixed',
