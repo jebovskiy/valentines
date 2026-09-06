@@ -44,9 +44,15 @@ async function callBot<T>(method: string, body: Record<string, unknown>): Promis
   }
 }
 
+const AVATAR_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
 export async function getAvatarFilePath(telegramUserId: number, forceRefresh = false): Promise<string | null> {
   const existing = await getUserProfile(telegramUserId).catch(() => null);
-  if (!forceRefresh && existing?.avatar_file_path) {
+
+  const cachedAgeMs = existing?.updated_at
+    ? Date.now() - new Date(existing.updated_at).getTime()
+    : Number.POSITIVE_INFINITY;
+  if (!forceRefresh && existing?.avatar_file_path && cachedAgeMs < AVATAR_CACHE_TTL_MS) {
     return existing.avatar_file_path;
   }
 
@@ -65,7 +71,10 @@ export async function getAvatarFilePath(telegramUserId: number, forceRefresh = f
   const filePath = fileResult?.ok ? fileResult.result?.file_path : undefined;
   if (!filePath) return null;
 
-  await upsertUserProfile({ telegram_user_id: telegramUserId, avatar_file_path: filePath }).catch(() => {});
+  await upsertUserProfile(
+    { telegram_user_id: telegramUserId, avatar_file_path: filePath },
+    { refreshUpdatedAt: true }
+  ).catch(() => {});
   return filePath;
 }
 

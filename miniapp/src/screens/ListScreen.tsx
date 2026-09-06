@@ -138,19 +138,39 @@ export function ListScreen() {
       </header>
 
       {feed.length > 0 ? (
-        <div style={styles.feedList}>
-          {feed.map((valentine, i) => (
-            <ValentineCard
-              key={valentine.id}
-              valentine={valentine}
-              index={i}
-              onPress={() => {
-                hapticFeedback('impact', 'light');
-                if (!valentine.seen_at) markSeen(valentine.id);
-                navigate(`/valentine/${valentine.id}`);
-              }}
-            />
-          ))}
+        <div style={styles.feedColumns}>
+          <div style={styles.feedColumn}>
+            {feed
+              .filter((_, i) => i % 2 === 0)
+              .map((valentine, colIndex) => (
+                <ValentineCard
+                  key={valentine.id}
+                  valentine={valentine}
+                  isTall={colIndex % 2 === 0}
+                  onPress={() => {
+                    hapticFeedback('impact', 'light');
+                    if (!valentine.seen_at) markSeen(valentine.id);
+                    navigate(`/valentine/${valentine.id}`);
+                  }}
+                />
+              ))}
+          </div>
+          <div style={styles.feedColumn}>
+            {feed
+              .filter((_, i) => i % 2 === 1)
+              .map((valentine, colIndex) => (
+                <ValentineCard
+                  key={valentine.id}
+                  valentine={valentine}
+                  isTall={colIndex % 2 === 0}
+                  onPress={() => {
+                    hapticFeedback('impact', 'light');
+                    if (!valentine.seen_at) markSeen(valentine.id);
+                    navigate(`/valentine/${valentine.id}`);
+                  }}
+                />
+              ))}
+          </div>
         </div>
       ) : (
         <div style={styles.emptyContainer}>
@@ -202,18 +222,18 @@ function formatDays(days: number): string {
   return 'дней';
 }
 
-function ValentineCard({ valentine, index, onPress }: { valentine: any; index: number; onPress: () => void }) {
+function ValentineCard({ valentine, isTall, onPress }: { valentine: any; isTall: boolean; onPress: () => void }) {
   const anim = getAnimation(valentine.animation_type);
   const senderLabel = valentine.is_own ? 'Вы' : valentine.sender_name;
   const isUnread = !valentine.is_own && !valentine.seen_at;
   const gradient = animationGradient(valentine.animation_type);
-  const tall = index % 2 === 0;
+  const tall = isTall;
 
   return (
     <Link
       to={`/valentine/${valentine.id}`}
       onClick={onPress}
-      style={{ ...styles.feedItem, height: tall ? 196 : 94, background: gradient }}
+      style={{ ...styles.feedItem, minHeight: tall ? 196 : 94, background: gradient }}
     >
       <div style={styles.feedEmoji}>
         <AppleEmoji emoji={anim.emoji} size={tall ? 40 : 26} />
@@ -494,15 +514,23 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     color: 'var(--text-faint)',
   },
-  feedList: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
+  feedColumns: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: '12px',
     padding: '14px 0',
     overflowY: 'auto',
     flex: 1,
     minHeight: 0,
-    alignContent: 'start',
+  },
+  feedColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: '12px',
+    flex: 1,
+    minWidth: 0,
   },
   feedItem: {
     display: 'flex',

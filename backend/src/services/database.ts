@@ -54,15 +54,21 @@ export interface UserProfile {
   first_name: string | null;
   display_name: string | null;
   avatar_file_path: string | null;
+  updated_at?: string;
 }
 
 export async function upsertUserProfile(
   profile: Pick<UserProfile, 'telegram_user_id'> &
-    Partial<Pick<UserProfile, 'username' | 'first_name' | 'display_name' | 'avatar_file_path'>>
+    Partial<Pick<UserProfile, 'username' | 'first_name' | 'display_name' | 'avatar_file_path'>> &
+    Partial<Pick<UserProfile, 'updated_at'>>,
+  options: { refreshUpdatedAt?: boolean } = {}
 ): Promise<void> {
   const { error } = await supabase
     .from('user_profiles')
-    .upsert({ ...profile, updated_at: new Date().toISOString() }, { onConflict: 'telegram_user_id' });
+    .upsert(
+      options.refreshUpdatedAt ? { ...profile, updated_at: new Date().toISOString() } : profile,
+      { onConflict: 'telegram_user_id' }
+    );
   if (error) throw error;
 }
 
