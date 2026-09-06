@@ -15,7 +15,7 @@ export function ListScreen() {
         hapticFeedback('impact', 'light');
         navigate('/send');
       },
-      color: 'var(--tg-button-color)',
+      color: '#E91E63',
       isVisible: true,
     });
   }, [navigate]);

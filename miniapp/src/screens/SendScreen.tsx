@@ -19,7 +19,7 @@ export function SendScreen() {
     setMainButton({
       text: 'Отправить',
       onClick: handleSend,
-      color: 'var(--tg-button-color)',
+      color: '#E91E63',
       isVisible: true,
     });
     setBackButton(true, () => navigate(-1));
