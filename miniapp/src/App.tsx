@@ -7,6 +7,7 @@ import { ListScreen } from './screens/ListScreen';
 import { SendScreen } from './screens/SendScreen';
 import { DetailScreen } from './screens/DetailScreen';
 import { PairingScreen } from './screens/PairingScreen';
+import { CompanionRedirect } from './screens/CompanionRedirect';
 import './styles/global.css';
 
 function App() {
@@ -59,6 +60,7 @@ function App() {
           <Route path="valentine/:id" element={<DetailScreen />} />
           <Route path="pairing" element={<PairingScreen />} />
         </Route>
+        <Route path="/c/:token" element={<CompanionRedirect />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

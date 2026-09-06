@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.valentines.companion",
+      "sha256_cert_fingerprints": [
+        "96:E6:1F:03:7F:F9:F0:33:04:F0:4A:8A:A5:8D:5E:E7:54:47:B6:46:38:EF:9B:AE:D7:D1:23:19:CF:BD:D2:72"
+      ]
+    }
+  }
+]
