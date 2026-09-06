@@ -272,6 +272,17 @@ export async function consumePairingToken(token: string): Promise<{ telegram_use
   return { telegram_user_id: data.telegram_user_id };
 }
 
+export async function getPairingTokenByValue(token: string): Promise<{ telegram_user_id: number; expires_at: string } | null> {
+  const { data, error } = await supabase
+    .from('pairing_tokens')
+    .select('telegram_user_id, expires_at')
+    .eq('token', token)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ?? null;
+}
+
 export async function getPartnerTelegramId(pairId: string, currentUserId: number): Promise<number | null> {
   const pair = await getPairById(pairId);
   if (!pair) return null;

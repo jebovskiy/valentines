@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser } from '../services/database';
-import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite } from '../services/pairing';
+import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite, getPairingStatus } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 
 const createPairSchema = z.object({
@@ -83,6 +83,16 @@ export async function pairsRoutes(app: FastifyInstance) {
     const body = completePairingSchema.parse(request.body);
     try {
       const result = await completePairing(body.token, body.platform, body.push_token);
+      return result;
+    } catch (error) {
+      return reply.code(400).send({ error: (error as Error).message });
+    }
+  });
+
+  app.get('/pairing/:token/status', async (request, reply) => {
+    const params = z.object({ token: z.string().uuid() }).parse(request.params);
+    try {
+      const result = await getPairingStatus(params.token);
       return result;
     } catch (error) {
       return reply.code(400).send({ error: (error as Error).message });

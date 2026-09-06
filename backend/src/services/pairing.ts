@@ -1,4 +1,4 @@
-import { createPairingToken, consumePairingToken, getPairByUser, createPair, registerDevice, getPartnerTelegramId, createInviteCode, consumeInviteCode } from './database';
+import { createPairingToken, consumePairingToken, getPairByUser, createPair, registerDevice, getPartnerTelegramId, createInviteCode, consumeInviteCode, getPairingTokenByValue } from './database';
 import { validateTelegramInitData, TelegramInitData } from '../utils/telegram';
 
 export interface PairingInitResult {
@@ -31,6 +31,17 @@ export async function initiatePairing(initData: string): Promise<PairingInitResu
     token: tokenData.token,
     expiresAt: tokenData.expires_at,
   };
+}
+
+export interface PairingStatusResult {
+  status: 'pending' | 'completed' | 'expired';
+}
+
+export async function getPairingStatus(token: string): Promise<PairingStatusResult> {
+  const tokenData = await getPairingTokenByValue(token);
+  if (!tokenData) return { status: 'completed' };
+  if (new Date(tokenData.expires_at) < new Date()) return { status: 'expired' };
+  return { status: 'pending' };
 }
 
 export interface CompletePairingResult {

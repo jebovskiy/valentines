@@ -1,11 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
-import { useValentinesStore } from '../hooks/useValentinesStore';
 import { api } from '../api/client';
 import { setMainButton, setBackButton, hapticFeedback, webApp } from '../utils/telegram';
 
 export function PairingScreen() {
-  const { pair } = useValentinesStore();
-  const [step, setStep] = useState<'init' | 'qr' | 'waiting' | 'success' | 'error'>('init');
+  const [step, setStep] = useState<'init' | 'qr' | 'success' | 'error'>('init');
   const [pairingUrl, setPairingUrl] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [token, setToken] = useState<string>('');
@@ -13,12 +11,8 @@ export function PairingScreen() {
   useEffect(() => {
     setMainButton({ isVisible: false });
     setBackButton(true);
-    if (!pair) {
-      initPairing();
-    } else {
-      setStep('success');
-    }
-  }, [pair]);
+    initPairing();
+  }, []);
 
   const initPairing = async () => {
     setStep('init');
@@ -47,6 +41,23 @@ export function PairingScreen() {
     }
   };
 
+  useEffect(() => {
+    if (step !== 'qr' || !token) return;
+    const poll = setInterval(async () => {
+      const result = await api.getPairingStatus(token);
+      if (result.data?.status === 'completed') {
+        clearInterval(poll);
+        setStep('success');
+        hapticFeedback('notification', 'success');
+      } else if (result.data?.status === 'expired') {
+        clearInterval(poll);
+        setError('Ссылка истекла. Создайте новую.');
+        setStep('error');
+      }
+    }, 3000);
+    return () => clearInterval(poll);
+  }, [step, token]);
+
   return (
     <div style={styles.container}>
       {step === 'init' && (
@@ -63,12 +74,8 @@ export function PairingScreen() {
         />
       )}
 
-      {step === 'waiting' && (
-        <WaitingState onRetry={initPairing} />
-      )}
-
       {step === 'success' && (
-        <SuccessState pair={pair!} onRetry={initPairing} />
+        <SuccessState onRetry={initPairing} />
       )}
 
       {step === 'error' && (
@@ -127,7 +134,7 @@ function QRStep({
       </div>
 
       <p style={styles.hint}>
-        Ссылка действует 10 минут. Если приложение не установлено, откроется страница в App Store / Google Play.
+        Ссылка действует 10 минут. Если приложение не установлено, откроется страница с инструкцией.
       </p>
 
       <button onClick={onRetry} style={styles.retryButton}>
@@ -137,22 +144,7 @@ function QRStep({
   );
 }
 
-function WaitingState({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div style={styles.centerContainer}>
-      <div style={styles.spinnerLarge} />
-      <h2 style={styles.title}>Ожидание подключения...</h2>
-      <p style={styles.description}>
-        Откройте ссылку в companion-приложении. Экран обновится автоматически после успешного пэйринга.
-      </p>
-      <button onClick={onRetry} style={styles.retryButton}>
-        Отмена
-      </button>
-    </div>
-  );
-}
-
-function SuccessState({ pair, onRetry }: { pair: any; onRetry: () => void }) {
+function SuccessState({ onRetry }: { onRetry: () => void }) {
   return (
     <div style={styles.centerContainer}>
       <div style={styles.successIcon}>
@@ -163,11 +155,8 @@ function SuccessState({ pair, onRetry }: { pair: any; onRetry: () => void }) {
       </div>
       <h2 style={styles.title}>Виджет настроен!</h2>
       <p style={styles.description}>
-        Парная связь установлена. Валентинки теперь будут появляться на виджете партнера мгновенно.
+        Парная связь установлена. Валентинки теперь будут появляться на виджете мгновенно.
       </p>
-      <div style={styles.pairInfo}>
-        <p style={styles.pairId}>ID пары: <code>{pair.id.slice(0, 8)}...</code></p>
-      </div>
       <button onClick={onRetry} style={styles.retryButton}>
         Пересвязать устройство
       </button>

@@ -1,23 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { hapticFeedback } from '../utils/telegram';
 
 export function CompanionRedirect() {
   const { token } = useParams<{ token: string }>();
   const [copied, setCopied] = useState(false);
+  const [attempted, setAttempted] = useState(false);
 
-  useEffect(() => {
-    if (token) {
-      const timer = setTimeout(() => {
-        try {
-          window.location.href = `valentines://pair?token=${encodeURIComponent(token)}`;
-        } catch (_) {
-          // ignore
-        }
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [token]);
+  const deepLink = token ? `valentines://pair?token=${encodeURIComponent(token)}` : '';
+  const httpsLink = token ? `https://valentines-sigma-neon.vercel.app/c/${encodeURIComponent(token)}` : '';
 
   const copyToken = async () => {
     if (!token) return;
@@ -42,23 +33,35 @@ export function CompanionRedirect() {
     }
   };
 
-  const openApp = () => {
-    if (token) {
-      window.location.href = `valentines://pair?token=${encodeURIComponent(token)}`;
-    }
-  };
-
   return (
     <div style={styles.container}>
       <div style={styles.bigHeart}>💌</div>
-      <h1 style={styles.title}>Открываем приложение…</h1>
+      <h1 style={styles.title}>Открыть приложение «Валентинки»</h1>
       <p style={styles.description}>
-        Если ничего не произошло — приложение «Валентинки» не установлено. Установите APK и нажмите ещё раз.
+        Нажмите кнопку — приложение установит связь с вашей парой. Если оно не установлено, откройте страницу в браузере: она так же приведёт в приложение.
       </p>
 
-      <button style={styles.primaryButton} onClick={openApp}>
-        Открыть в приложении
-      </button>
+      {!attempted ? (
+        <a
+          href={deepLink}
+          style={styles.primaryButton}
+          onClick={() => setAttempted(true)}
+        >
+          Открыть приложение
+        </a>
+      ) : (
+        <div style={styles.fallback}>
+          <p style={styles.description}>
+            Не открылось? Возможно, приложение не установлено. Попробуйте вариант ниже.
+          </p>
+          <a href={httpsLink} style={styles.primaryButton} onClick={() => window.location.reload()}>
+            Открыть ещё раз
+          </a>
+          <p style={styles.hint}>
+            Перед первым открытием установите APK «Валентинки» на этот телефон.
+          </p>
+        </div>
+      )}
 
       <div style={styles.tokenRow}>
         <code style={styles.token}>{token ? `${token.slice(0, 10)}…` : ''}</code>
@@ -115,6 +118,20 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '15px',
     border: 'none',
     cursor: 'pointer',
+    textDecoration: 'none',
+  },
+  fallback: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  hint: {
+    fontSize: '12px',
+    color: 'var(--text-faint)',
+    lineHeight: 1.5,
+    maxWidth: '240px',
+    margin: 0,
   },
   tokenRow: {
     display: 'flex',

@@ -67,6 +67,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ token, platform, push_token: pushToken }),
     }),
+  getPairingStatus: (token: string) =>
+    fetchWithAuth<{ status: 'pending' | 'completed' | 'expired' }>(`/api/pairs/pairing/${token}/status`),
 
   // Valentines
   getValentines: () => fetchWithAuth<{ valentines: Valentine[] }>('/api/valentines'),
