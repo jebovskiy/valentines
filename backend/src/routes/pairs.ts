@@ -1,11 +1,15 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser } from '../services/database';
-import { initiatePairing, completePairing, createPairForUsers } from '../services/pairing';
+import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 
 const createPairSchema = z.object({
   partner_telegram_id: z.number().int().positive(),
+});
+
+const joinInviteSchema = z.object({
+  code: z.string().min(6).max(12),
 });
 
 const completePairingSchema = z.object({
@@ -35,6 +39,25 @@ export async function pairsRoutes(app: FastifyInstance) {
 
     try {
       const pairId = await createPairForUsers(userId, body.partner_telegram_id);
+      return { pair_id: pairId };
+    } catch (error) {
+      return reply.code(400).send({ error: (error as Error).message });
+    }
+  });
+
+  app.post('/invite', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    try {
+      const result = await createInvite(request.telegramUser!.id);
+      return result;
+    } catch (error) {
+      return reply.code(400).send({ error: (error as Error).message });
+    }
+  });
+
+  app.post('/join', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const body = joinInviteSchema.parse(request.body);
+    try {
+      const pairId = await joinByInvite(body.code, request.telegramUser!.id);
       return { pair_id: pairId };
     } catch (error) {
       return reply.code(400).send({ error: (error as Error).message });

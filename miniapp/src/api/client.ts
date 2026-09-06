@@ -50,6 +50,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ partner_telegram_id: partnerTelegramId }),
     }),
+  createInvite: () => fetchWithAuth<{ code: string; expires_at: string }>('/api/pairs/invite', { method: 'POST' }),
+  joinInvite: (code: string) =>
+    fetchWithAuth<{ pair_id: string }>('/api/pairs/join', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
 
   // Pairing
   initiatePairing: () => fetchWithAuth<PairingInitResult>('/api/pairs/pairing/initiate', { method: 'POST' }),

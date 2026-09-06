@@ -12,7 +12,8 @@ interface ValentinesState {
   realtimeChannel: ReturnType<typeof subscribeToValentines> | null;
 
   fetchPair: () => Promise<void>;
-  createPair: (partnerTelegramId: number) => Promise<string | null>;
+  createInvite: () => Promise<string | null>;
+  joinInvite: (code: string) => Promise<boolean>;
   fetchValentines: () => Promise<void>;
   sendValentine: (animationType: string, message: string | null) => Promise<ValentineWithSender | null>;
   markSeen: (id: string) => Promise<void>;
@@ -52,20 +53,31 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     set({ pair: result.data!.pair, isLoading: false });
   },
 
-  createPair: async (partnerTelegramId) => {
+  createInvite: async () => {
     set({ isLoading: true, error: null });
-    const result = await api.createPair(partnerTelegramId);
+    const result = await api.createInvite();
     if (result.error) {
       set({ error: result.error, isLoading: false });
       return null;
     }
+    set({ isLoading: false });
+    return result.data!.code;
+  },
+
+  joinInvite: async (code) => {
+    set({ isLoading: true, error: null });
+    const result = await api.joinInvite(code);
+    if (result.error) {
+      set({ error: result.error, isLoading: false });
+      return false;
+    }
     const pairResult = await api.getMyPair();
     if (pairResult.error) {
       set({ error: pairResult.error, isLoading: false });
-      return null;
+      return false;
     }
     set({ pair: pairResult.data!.pair, isLoading: false });
-    return pairResult.data!.pair.id;
+    return true;
   },
 
   fetchValentines: async () => {

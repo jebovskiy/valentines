@@ -1,5 +1,5 @@
 import { config } from '../config';
-import { createPairingToken, consumePairingToken, getPairByUser, createPair, registerDevice, getPartnerTelegramId } from './database';
+import { createPairingToken, consumePairingToken, getPairByUser, createPair, registerDevice, getPartnerTelegramId, createInviteCode, consumeInviteCode } from './database';
 import { validateTelegramInitData, TelegramInitData } from '../utils/telegram';
 
 export interface PairingInitResult {
@@ -73,5 +73,27 @@ export async function createPairForUsers(userA: number, userB: number): Promise<
   }
 
   const pair = await createPair(userA, userB);
+  return pair.id;
+}
+
+export async function createInvite(telegramUserId: number): Promise<{ code: string; expires_at: string }> {
+  const existing = await getPairByUser(telegramUserId);
+  if (existing) throw new Error('Already in a pair');
+
+  return createInviteCode(telegramUserId);
+}
+
+export async function joinByInvite(code: string, joinerTelegramId: number): Promise<string> {
+  const existing = await getPairByUser(joinerTelegramId);
+  if (existing) throw new Error('Already in a pair');
+
+  const invite = await consumeInviteCode(code);
+  if (!invite) throw new Error('Invalid or expired invite code');
+  if (invite.creator_telegram_id === joinerTelegramId) throw new Error('Cannot join your own invite');
+
+  const creatorHasPair = await getPairByUser(invite.creator_telegram_id);
+  if (creatorHasPair) throw new Error('Invite creator already joined another pair');
+
+  const pair = await createPair(invite.creator_telegram_id, joinerTelegramId);
   return pair.id;
 }

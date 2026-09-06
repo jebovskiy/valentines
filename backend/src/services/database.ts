@@ -247,3 +247,43 @@ export async function getPartnerTelegramId(pairId: string, currentUserId: number
   if (!pair) return null;
   return pair.telegram_user_a === currentUserId ? pair.telegram_user_b : pair.telegram_user_a;
 }
+
+const INVITE_CODE_LENGTH = 8;
+
+function generateInviteCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < INVITE_CODE_LENGTH; i++) {
+    code += chars[crypto.getRandomValues(new Uint32Array(1))[0] % chars.length];
+  }
+  return code;
+}
+
+export async function createInviteCode(telegramUserId: number, validMinutes = 30): Promise<{ code: string; expires_at: string }> {
+  const code = generateInviteCode();
+  const expiresAt = new Date(Date.now() + validMinutes * 60 * 1000).toISOString();
+
+  const { error } = await supabase.from('pair_invites').insert({
+    code,
+    creator_telegram_id: telegramUserId,
+    expires_at: expiresAt,
+  });
+  if (error) throw error;
+
+  return { code, expires_at: expiresAt };
+}
+
+export async function consumeInviteCode(code: string): Promise<{ creator_telegram_id: number } | null> {
+  const { data, error } = await supabase
+    .from('pair_invites')
+    .select('creator_telegram_id')
+    .eq('code', code.toUpperCase())
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  await supabase.from('pair_invites').delete().eq('code', code.toUpperCase());
+  return { creator_telegram_id: data.creator_telegram_id };
+}

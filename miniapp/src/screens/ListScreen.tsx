@@ -5,11 +5,12 @@ import { setMainButton, hapticFeedback } from '../utils/telegram';
 import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
 
 export function ListScreen() {
-  const { valentines, isLoading, error, fetchValentines, markSeen, pair, createPair } = useValentinesStore();
+  const { valentines, isLoading, error, fetchValentines, markSeen, pair, createInvite, joinInvite } = useValentinesStore();
   const navigate = useNavigate();
-  const [partnerId, setPartnerId] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [isBusy, setIsBusy] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     setMainButton({
@@ -39,21 +40,35 @@ export function ListScreen() {
     if (error.toLowerCase().includes('pair not found')) {
       return (
         <CreatePairForm
-          partnerId={partnerId}
-          setPartnerId={setPartnerId}
-          isCreating={isCreating}
-          error={createError}
-          onCreate={async () => {
-            const id = Number(partnerId.trim());
-            if (!Number.isInteger(id) || id <= 0) {
-              setCreateError('Введите корректный Telegram ID');
+          inviteCode={inviteCode}
+          joinCode={joinCode}
+          setJoinCode={setJoinCode}
+          isBusy={isBusy}
+          error={localError}
+          onCreateInvite={async () => {
+            setIsBusy(true);
+            setLocalError(null);
+            const code = await createInvite();
+            setIsBusy(false);
+            if (code) {
+              setInviteCode(code);
+              hapticFeedback('notification', 'success');
+              navigator.clipboard?.writeText(code);
+            } else {
+              setLocalError('Не удалось создать приглашение. Попробуйте снова.');
+            }
+          }}
+          onJoin={async () => {
+            const code = joinCode.trim().toUpperCase();
+            if (code.length < 6) {
+              setLocalError('Введите код приглашения');
               return;
             }
-            setIsCreating(true);
-            setCreateError(null);
-            const result = await createPair(id);
-            setIsCreating(false);
-            if (!result) setCreateError('Не удалось создать пару. Возможно, у партнера уже есть пара.');
+            setIsBusy(true);
+            setLocalError(null);
+            const ok = await joinInvite(code);
+            setIsBusy(false);
+            if (!ok) setLocalError('Код неверный или истёк. Проверьте и попробуйте снова.');
           }}
         />
       );
@@ -200,17 +215,21 @@ function formatTime(iso: string): string {
 }
 
 function CreatePairForm({
-  partnerId,
-  setPartnerId,
-  isCreating,
+  inviteCode,
+  joinCode,
+  setJoinCode,
+  isBusy,
   error,
-  onCreate,
+  onCreateInvite,
+  onJoin,
 }: {
-  partnerId: string;
-  setPartnerId: (v: string) => void;
-  isCreating: boolean;
+  inviteCode: string;
+  joinCode: string;
+  setJoinCode: (v: string) => void;
+  isBusy: boolean;
   error: string | null;
-  onCreate: () => void;
+  onCreateInvite: () => void;
+  onJoin: () => void;
 }) {
   return (
     <div style={styles.createContainer}>
@@ -220,35 +239,50 @@ function CreatePairForm({
           <path d="M20.5 4.5 3 22" stroke="#333" />
         </svg>
       </div>
-      <h2 style={styles.createTitle}>Создайте пару</h2>
-      <p style={styles.createText}>
-        Введите Telegram ID вашего партнёра. Партнёр получит от вас валентинки, и наоборот.
-      </p>
-      <div style={styles.createInputWrapper}>
-        <input
-          value={partnerId}
-          onChange={(e) => setPartnerId(e.target.value.replace(/[^0-9]/g, ''))}
-          placeholder="Telegram ID партнёра"
-          style={styles.createInput}
-          inputMode="numeric"
-          autoComplete="off"
-          disabled={isCreating}
-        />
+      <h2 style={styles.createTitle}>Свяжите вашу пару</h2>
+
+      <div style={styles.inviteSection}>
+        <h3 style={styles.sectionLabel}>1. Создать приглашение</h3>
+        {!inviteCode ? (
+          <button
+            onClick={onCreateInvite}
+            disabled={isBusy}
+            style={{ ...styles.createButton, opacity: isBusy ? 0.6 : 1 }}
+          >
+            {isBusy ? 'Создание...' : 'Создать код приглашения'}
+          </button>
+        ) : (
+          <div style={styles.inviteCodeBox}>
+            <div style={styles.inviteCode} onClick={() => navigator.clipboard?.writeText(inviteCode)}>
+              {inviteCode}
+            </div>
+            <div style={styles.inviteCodeHint}>Код скопирован. Отправьте его партнёру.</div>
+          </div>
+        )}
       </div>
+
+      <div style={styles.inviteSection}>
+        <h3 style={styles.sectionLabel}>2. Или введите код партнёра</h3>
+        <div style={styles.createInputWrapper}>
+          <input
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+            placeholder="Код (например ABC123XY)"
+            style={styles.createInput}
+            autoComplete="off"
+            disabled={isBusy}
+          />
+        </div>
+        <button
+          onClick={onJoin}
+          disabled={isBusy || joinCode.trim().length < 6}
+          style={{ ...styles.createButton, opacity: isBusy || joinCode.trim().length < 6 ? 0.6 : 1 }}
+        >
+          {isBusy ? 'Подключение...' : 'Подключиться'}
+        </button>
+      </div>
+
       {error && <p style={styles.createError}>{error}</p>}
-      <button
-        onClick={onCreate}
-        disabled={isCreating || !partnerId.trim()}
-        style={{
-          ...styles.createButton,
-          opacity: isCreating || !partnerId.trim() ? 0.6 : 1,
-        }}
-      >
-        {isCreating ? 'Создание...' : 'Создать пару'}
-      </button>
-      <p style={styles.createHint}>
-        Найти свой Telegram ID: оставьте любое сообщение боту <b>@userinfobot</b>
-      </p>
     </div>
   );
 }
@@ -517,5 +551,38 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-secondary)',
     maxWidth: '300px',
     lineHeight: 1.5,
+  },
+  inviteSection: {
+    width: '100%',
+    maxWidth: '300px',
+    marginBottom: '20px',
+  },
+  sectionLabel: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: 'var(--text-secondary)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginBottom: '10px',
+    textAlign: 'left',
+  },
+  inviteCodeBox: {
+    textAlign: 'center',
+  },
+  inviteCode: {
+    fontSize: '28px',
+    fontWeight: '800',
+    letterSpacing: '6px',
+    color: 'var(--primary)',
+    background: 'var(--primary-light)',
+    borderRadius: '12px',
+    padding: '14px 16px',
+    cursor: 'pointer',
+    userSelect: 'all',
+    marginBottom: '8px',
+  },
+  inviteCodeHint: {
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
   },
 };
