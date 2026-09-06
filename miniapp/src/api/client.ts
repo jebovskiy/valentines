@@ -13,9 +13,12 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const initData = getInitData();
   const headers = new Headers(options.headers);
-  headers.set('Content-Type', 'application/json');
   if (initData) {
     headers.set('Authorization', `tma ${initData}`);
+  }
+  const hasBody = options.body !== undefined && options.body !== null;
+  if (hasBody) {
+    headers.set('Content-Type', 'application/json');
   }
 
   try {
