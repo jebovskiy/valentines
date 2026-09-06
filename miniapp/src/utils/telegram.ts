@@ -186,6 +186,6 @@ export function hapticFeedback(type: 'impact' | 'notification' | 'selection', st
 
 export function applyTheme(): void {
   if (!webApp) return;
-  webApp.setHeaderColor('#1B0F18');
-  webApp.setBackgroundColor('#1B0F18');
+  webApp.setHeaderColor('#fbfbf9');
+  webApp.setBackgroundColor('#fbfbf9');
 }

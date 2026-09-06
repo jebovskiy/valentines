@@ -84,15 +84,17 @@ export function DeepValentineScreen() {
   return (
     <div style={styles.container} className={isAnimating ? 'animate-slide-up' : ''}>
       <div style={styles.receivedBody}>
-        <div style={styles.receivedHeart} className="animate-pulse">{anim.emoji}</div>
-        <div style={styles.receivedFrom}>от {senderLabel}</div>
+        <div style={styles.receivedCard}>
+          <div style={styles.receivedHeart} className="animate-pulse">{anim.emoji}</div>
+          <div style={styles.receivedFrom}>от {senderLabel}</div>
 
-        <div style={styles.msgBox}>
-          {valentine.message || anim.label}
-        </div>
+          <div style={styles.msgBox}>
+            {valentine.message || anim.label}
+          </div>
 
-        <div style={styles.receivedTime}>
-          {isTodayThenTime(valentine.sent_at) ? `сегодня, ${timeDate}` : timeDate}
+          <div style={styles.receivedTime}>
+            {isTodayThenTime(valentine.sent_at) ? `сегодня, ${timeDate}` : timeDate}
+          </div>
         </div>
       </div>
 
@@ -167,19 +169,25 @@ const styles: Record<string, React.CSSProperties> = {
     opacity: 0.5,
   },
   notFoundTitle: {
-    fontSize: '20px',
+    fontSize: '22px',
     fontWeight: '600',
+    color: 'var(--ink)',
+    letterSpacing: '-0.3px',
   },
   notFoundText: {
     color: 'var(--text-secondary)',
   },
   backButton: {
     marginTop: '8px',
-    padding: '12px 24px',
-    background: 'var(--primary)',
-    color: 'var(--tg-button-text-color)',
-    borderRadius: '12px',
-    fontWeight: '600',
+    padding: '12px 14px',
+    height: '40px',
+    background: 'var(--secondary-bg)',
+    color: 'var(--ink)',
+    borderRadius: '16px',
+    fontWeight: '700',
+    fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center',
   },
   receivedBody: {
     flex: 1,
@@ -187,45 +195,62 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '30px 26px',
+    padding: '20px',
     textAlign: 'center',
+    gap: '18px',
+  },
+  receivedCard: {
+    width: '100%',
+    maxWidth: '360px',
+    borderRadius: '32px',
+    background: 'var(--surface-card)',
+    border: '1px solid var(--hairline)',
+    padding: '40px 28px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
     gap: '14px',
   },
   receivedHeart: {
-    width: '96px',
-    height: '96px',
+    width: '104px',
+    height: '104px',
     borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(255,122,107,0.4), transparent 70%)',
+    background: 'var(--secondary-bg)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '44px',
+    fontSize: '46px',
   },
   receivedFrom: {
     fontFamily: 'var(--font-display)',
-    fontStyle: 'italic',
-    fontSize: '16px',
-    color: 'var(--text-muted)',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: 'var(--mute)',
   },
   msgBox: {
     fontFamily: 'var(--font-display)',
-    fontSize: '19px',
+    fontSize: '22px',
+    fontWeight: '600',
     lineHeight: 1.4,
-    color: 'var(--text-cream)',
-    maxWidth: '220px',
+    letterSpacing: '-0.3px',
+    color: 'var(--ink)',
+    maxWidth: '280px',
   },
   receivedTime: {
-    fontSize: '11px',
+    fontSize: '12px',
     color: 'var(--text-faint)',
   },
   replyBtn: {
     marginTop: '8px',
-    padding: '12px 26px',
-    borderRadius: '100px',
-    background: 'var(--bg-panel-2)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    fontSize: '13px',
-    color: 'var(--text-muted)',
+    padding: '12px 14px',
+    height: '40px',
+    borderRadius: '16px',
+    background: 'var(--primary)',
+    color: 'var(--on-primary)',
+    fontSize: '14px',
+    fontWeight: '700',
     cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
   },
 };
