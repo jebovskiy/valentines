@@ -1,8 +1,9 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser } from '../services/database';
+import { getPairByUser, createSelfPair } from '../services/database';
 import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite, getPairingStatus } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
+import { isTestUser } from '../config';
 
 const createPairSchema = z.object({
   partner_telegram_id: z.number().int().positive(),
@@ -22,7 +23,11 @@ export async function pairsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/me', { preHandler: requireTelegramAuth }, async (request, reply) => {
-    const pair = await getPairByUser(request.telegramUser!.id);
+    const userId = request.telegramUser!.id;
+    let pair = await getPairByUser(userId);
+    if (!pair && isTestUser(userId)) {
+      pair = await createSelfPair(userId, request.telegramUser!.first_name);
+    }
     if (!pair) {
       return reply.code(404).send({ error: 'Pair not found' });
     }

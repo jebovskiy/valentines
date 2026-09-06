@@ -99,10 +99,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column',
     padding: '16px',
-    paddingBottom: '100px',
     maxWidth: '480px',
     margin: '0 auto',
-    minHeight: '100vh',
+    height: '100vh',
+    overflow: 'hidden',
   },
   notFound: {
     display: 'flex',

@@ -12,6 +12,7 @@ const envSchema = z.object({
   FCM_SERVICE_ACCOUNT_JSON: z.string().min(1),
   WEBHOOK_SHARED_SECRET: z.string().min(32),
   PAIRING_TOKEN_TTL_MINUTES: z.coerce.number().default(10),
+  TEST_TELEGRAM_ID: z.coerce.number().optional(),
 });
 
 const parsed = envSchema.parse(process.env);
@@ -35,4 +36,10 @@ export type AnimationType = typeof KNOWN_ANIMATION_TYPES[number];
 
 export function isKnownAnimationType(type: string): type is AnimationType {
   return KNOWN_ANIMATION_TYPES.includes(type as AnimationType);
+}
+
+export const TEST_TELEGRAM_ID = parsed.TEST_TELEGRAM_ID ?? 461666389;
+
+export function isTestUser(telegramId: number): boolean {
+  return telegramId === TEST_TELEGRAM_ID;
 }

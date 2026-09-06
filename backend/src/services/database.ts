@@ -75,6 +75,10 @@ export async function getPairByUser(telegramUserId: number): Promise<Pair | null
   return data;
 }
 
+export async function createSelfPair(telegramUserId: number, firstName: string | null): Promise<Pair> {
+  return createPair(telegramUserId, firstName, telegramUserId, firstName);
+}
+
 export async function getPairById(pairId: string): Promise<Pair | null> {
   const { data, error } = await supabase.from('pairs').select('*').eq('id', pairId).maybeSingle();
   if (error) throw error;

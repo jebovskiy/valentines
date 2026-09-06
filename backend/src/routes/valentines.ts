@@ -1,8 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId } from '../services/database';
+import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId, createSelfPair } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
-import { config, isKnownAnimationType } from '../config';
+import { config, isKnownAnimationType, isTestUser } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
 
 const sendValentineSchema = z.object({
@@ -47,7 +47,10 @@ export async function valentinesRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Unknown animation type' });
     }
 
-    const pair = await getPairByUser(request.telegramUser!.id);
+    let pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair && isTestUser(request.telegramUser!.id)) {
+      pair = await createSelfPair(request.telegramUser!.id, request.telegramUser!.first_name);
+    }
     if (!pair) {
       return reply.code(404).send({ error: 'Pair not found' });
     }
