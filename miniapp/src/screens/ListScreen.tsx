@@ -6,7 +6,7 @@ import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
 import { getAnimation } from '../types';
 
 export function ListScreen() {
-  const { valentines, isLoading, error, fetchValentines, markSeen, pair, checkPair, createInvite, joinInvite } = useValentinesStore();
+  const { valentines, isLoading, error, fetchValentines, refreshValentines, markSeen, pair, checkPair, createInvite, joinInvite } = useValentinesStore();
   const navigate = useNavigate();
   const [inviteCode, setInviteCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -24,6 +24,14 @@ export function ListScreen() {
     }, 3000);
     return () => clearInterval(interval);
   }, [inviteCode, checkPair]);
+
+  useEffect(() => {
+    if (!pair) return;
+    const interval = setInterval(() => {
+      refreshValentines();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [pair, refreshValentines]);
 
   useEffect(() => {
     if (pair) setInviteCode('');

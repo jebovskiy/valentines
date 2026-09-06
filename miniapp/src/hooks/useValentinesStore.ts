@@ -16,6 +16,7 @@ interface ValentinesState {
   createInvite: () => Promise<string | null>;
   joinInvite: (code: string) => Promise<boolean>;
   fetchValentines: () => Promise<void>;
+  refreshValentines: () => Promise<void>;
   sendValentine: (animationType: string, message: string | null) => Promise<ValentineWithSender | null>;
   markSeen: (id: string) => Promise<void>;
   addValentine: (valentine: ValentineWithSender) => void;
@@ -118,6 +119,20 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
 
     set({ valentines: enriched, isLoading: false });
+  },
+
+  refreshValentines: async () => {
+    const { pair, currentUser } = get();
+    if (!pair || !currentUser) return;
+
+    const result = await api.getValentines();
+    if (result.error) return;
+
+    const enriched = result.data!.valentines
+      .map((v) => enrichValentine(v, pair, currentUser.id))
+      .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+
+    set({ valentines: enriched });
   },
 
   sendValentine: async (animationType, message) => {
