@@ -139,10 +139,11 @@ export function ListScreen() {
 
       {feed.length > 0 ? (
         <div style={styles.feedList}>
-          {feed.map((valentine) => (
+          {feed.map((valentine, i) => (
             <ValentineCard
               key={valentine.id}
               valentine={valentine}
+              index={i}
               onPress={() => {
                 hapticFeedback('impact', 'light');
                 if (!valentine.seen_at) markSeen(valentine.id);
@@ -201,47 +202,47 @@ function formatDays(days: number): string {
   return 'дней';
 }
 
-function ValentineCard({ valentine, onPress }: { valentine: any; onPress: () => void }) {
+function ValentineCard({ valentine, index, onPress }: { valentine: any; index: number; onPress: () => void }) {
   const anim = getAnimation(valentine.animation_type);
   const senderLabel = valentine.is_own ? 'Вы' : valentine.sender_name;
   const isUnread = !valentine.is_own && !valentine.seen_at;
+  const gradient = animationGradient(valentine.animation_type);
+  const tall = index % 2 === 0;
 
   return (
     <Link
       to={`/valentine/${valentine.id}`}
       onClick={onPress}
-      style={{
-        ...styles.feedItem,
-        background: valentine.is_own ? 'var(--surface-card)' : 'var(--surface-elevated)',
-        borderLeft: isUnread
-          ? '3px solid var(--primary)'
-          : valentine.is_own
-            ? '3px solid transparent'
-            : '3px solid var(--hairline)',
-      }}
+      style={{ ...styles.feedItem, height: tall ? 196 : 94, background: gradient }}
     >
-      <div style={styles.feedIc}>
-        <AppleEmoji emoji={anim.emoji} size={18} />
+      <div style={styles.feedEmoji}>
+        <AppleEmoji emoji={anim.emoji} size={tall ? 40 : 26} />
       </div>
-      <div style={styles.feedText}>
-        <div style={styles.feedNameRow}>
-          <div style={styles.feedName}>{senderLabel}</div>
-          {isUnread && <div style={styles.feedNewBadge}>новое</div>}
-        </div>
-        <div style={styles.feedSnippet}>
-          {valentine.message || anim.label}
-        </div>
+      <div style={!tall ? styles.feedMetaBottom : styles.feedMetaTop}>
+        <span style={styles.overlayPill}>{senderLabel}</span>
+        <span style={styles.overlayPill}>{formatFeedTime(valentine.sent_at)}</span>
       </div>
-      <div style={styles.feedRight}>
-        <div style={styles.feedTime}>{formatFeedTime(valentine.sent_at)}</div>
-        {valentine.is_own && (
-          <div style={valentine.seen_at ? styles.feedRead : styles.feedUnread}>
-            {valentine.seen_at ? '✓ прочитано' : 'не прочитано'}
-          </div>
-        )}
-      </div>
+      {isUnread && <span style={styles.feedNewPill}>новое</span>}
+      {valentine.is_own && (
+        <span style={valentine.seen_at ? styles.feedReadPill : styles.feedUnreadPill}>
+          {valentine.seen_at ? '✓ прочитано' : 'не прочитано'}
+        </span>
+      )}
     </Link>
   );
+}
+
+function animationGradient(type: string): string {
+  switch (type) {
+    case 'sparkle':
+      return 'var(--grad-sparkle)';
+    case 'moon':
+      return 'var(--grad-moon)';
+    case 'flame':
+      return 'var(--grad-flame)';
+    default:
+      return 'var(--grad-heart)';
+  }
 }
 
 function formatFeedTime(iso: string): string {
@@ -484,101 +485,105 @@ const styles: Record<string, React.CSSProperties> = {
   },
   feedTitle: {
     fontFamily: 'var(--font-display)',
-    fontWeight: '600',
-    fontSize: '22px',
+    fontWeight: '700',
+    fontSize: '24px',
     color: 'var(--ink)',
-    letterSpacing: '-0.3px',
+    letterSpacing: '-0.5px',
   },
   feedSub: {
     fontSize: '12px',
     color: 'var(--text-faint)',
   },
   feedList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '12px',
     padding: '14px 0',
     overflowY: 'auto',
     flex: 1,
     minHeight: 0,
+    alignContent: 'start',
   },
   feedItem: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 14px',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: '12px',
     textDecoration: 'none',
     color: 'inherit',
     borderRadius: '16px',
-    background: 'var(--surface-card)',
-    border: '1px solid var(--hairline)',
+    border: '1px solid var(--hairline-soft)',
+    position: 'relative',
   },
-  feedIc: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '12px',
-    background: 'var(--secondary-bg)',
+  feedEmoji: {
+    alignSelf: 'flex-start',
+  },
+  feedMetaTop: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '18px',
-    flexShrink: 0,
-  },
-  feedText: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    minWidth: 0,
-    flex: 1,
-  },
-  feedName: {
-    fontFamily: 'var(--font-display)',
-    fontSize: '14px',
-    fontWeight: '600',
-    color: 'var(--ink-soft)',
-  },
-  feedNameRow: {
-    display: 'flex',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
     gap: '6px',
+    flexWrap: 'wrap',
   },
-  feedNewBadge: {
-    background: 'var(--primary)',
-    color: 'var(--on-primary)',
-    fontSize: '11px',
-    fontWeight: '700',
-    lineHeight: '18px',
-    padding: '0 8px',
-    borderRadius: '9999px',
-    flexShrink: 0,
-  },
-  feedSnippet: {
-    fontSize: '13px',
-    color: 'var(--text-faint)',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: '180px',
-  },
-  feedRight: {
+  feedMetaBottom: {
     display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: '4px',
-    marginLeft: 'auto',
-    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: '6px',
+    flexWrap: 'wrap',
   },
-  feedTime: {
-    fontSize: '12px',
-    color: 'var(--text-faint)',
+  overlayPill: {
+    background: 'var(--canvas)',
+    color: 'var(--ink)',
+    fontSize: '10px',
+    fontWeight: '500',
+    lineHeight: 1.3,
+    letterSpacing: '0.01em',
+    padding: '5px 10px',
+    borderRadius: '9999px',
+    fontFamily: 'var(--font-body)',
   },
-  feedRead: {
-    fontSize: '11px',
+  feedNewPill: {
+    position: 'absolute',
+    top: '12px',
+    right: '12px',
+    background: 'var(--canvas)',
+    color: 'var(--primary)',
+    fontSize: '10px',
+    fontWeight: '700',
+    lineHeight: 1.3,
+    padding: '5px 10px',
+    borderRadius: '9999px',
+    fontFamily: 'var(--font-body)',
+  },
+  feedReadPill: {
+    position: 'absolute',
+    bottom: '12px',
+    right: '12px',
+    background: 'var(--canvas)',
     color: 'var(--mute)',
+    fontSize: '10px',
+    fontWeight: '600',
+    lineHeight: 1.3,
+    padding: '5px 10px',
+    borderRadius: '9999px',
+    fontFamily: 'var(--font-body)',
   },
-  feedUnread: {
-    fontSize: '11px',
+  feedUnreadPill: {
+    position: 'absolute',
+    bottom: '12px',
+    right: '12px',
+    background: 'var(--canvas)',
     color: 'var(--ash)',
+    fontSize: '10px',
+    fontWeight: '600',
+    lineHeight: 1.3,
+    padding: '5px 10px',
+    borderRadius: '9999px',
+    fontFamily: 'var(--font-body)',
   },
   feedFab: {
     position: 'fixed',
@@ -595,6 +600,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     zIndex: 100,
     lineHeight: 1,
+    boxShadow: 'var(--shadow-fab)',
   },
   createContainer: {
     display: 'flex',

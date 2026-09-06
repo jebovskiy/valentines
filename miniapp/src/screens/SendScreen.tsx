@@ -83,28 +83,33 @@ export function SendScreen() {
       )}
 
       <div style={styles.typeRow}>
-        {ANIMATIONS.map((anim) => (
-          <button
-            key={anim.type}
-            onClick={() => setAnimationType(anim.type)}
-            style={{
-              ...styles.typeChip,
-              background: animationType === anim.type ? 'var(--secondary-bg)' : 'var(--surface-card)',
-              border: animationType === anim.type ? '1px solid var(--ink)' : '1px solid var(--hairline)',
-            }}
-            aria-label={anim.label}
-          >
-            <AppleEmoji emoji={anim.emoji} size={22} />
-          </button>
-        ))}
+        {ANIMATIONS.map((anim) => {
+          const active = animationType === anim.type;
+          return (
+            <button
+              key={anim.type}
+              onClick={() => setAnimationType(anim.type)}
+              style={{
+                ...styles.typeChip,
+                background: active ? 'var(--ink)' : 'var(--surface-card)',
+                color: active ? 'var(--canvas)' : 'var(--ink)',
+                border: active ? '1px solid var(--ink)' : '1px solid var(--hairline)',
+              }}
+              aria-label={anim.label}
+            >
+              <AppleEmoji emoji={anim.emoji} size={16} />
+              {anim.label}
+            </button>
+          );
+        })}
       </div>
 
       <div style={styles.composeCard}>
         <div style={styles.composePreview}>
-          <span style={styles.previewEmoji}>
-            <AppleEmoji emoji={ANIMATIONS.find((a) => a.type === animationType)!.emoji} size={24} />
-          </span>
-          <div style={styles.composePreviewTag}>{ANIMATIONS.find((a) => a.type === animationType)!.label}</div>
+          <span style={styles.composePreviewTag}>{ANIMATIONS.find((a) => a.type === animationType)!.label}</span>
+          <div style={styles.composePreviewEmoji}>
+            <AppleEmoji emoji={ANIMATIONS.find((a) => a.type === animationType)!.emoji} size={22} />
+          </div>
         </div>
         <textarea
           value={message}
@@ -163,10 +168,10 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: {
     fontFamily: 'var(--font-display)',
-    fontWeight: '600',
-    fontSize: '22px',
+    fontWeight: '700',
+    fontSize: '24px',
     color: 'var(--ink)',
-    letterSpacing: '-0.3px',
+    letterSpacing: '-0.5px',
     paddingLeft: '48px',
   },
   subtitle: {
@@ -193,29 +198,32 @@ const styles: Record<string, React.CSSProperties> = {
   typeRow: {
     display: 'flex',
     justifyContent: 'center',
-    gap: '10px',
+    flexWrap: 'wrap',
+    gap: '8px',
     padding: '20px 0 0',
   },
   typeChip: {
-    width: '56px',
-    height: '56px',
-    borderRadius: '16px',
-    fontSize: '22px',
+    height: '36px',
+    padding: '0 16px',
+    borderRadius: '9999px',
+    fontFamily: 'var(--font-display)',
+    fontSize: '12px',
+    fontWeight: '700',
+    lineHeight: 1,
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: '6px',
     background: 'var(--surface-card)',
     border: '1px solid var(--hairline)',
-    transition: 'transform 0.15s ease, background 0.15s ease, border 0.15s ease',
+    transition: 'background 0.15s ease, color 0.15s ease, border 0.15s ease',
     cursor: 'pointer',
   },
   composeCard: {
     marginTop: '22px',
-    minHeight: '150px',
     borderRadius: '16px',
-    background: 'var(--surface-card)',
-    border: '1px solid var(--hairline)',
-    padding: '18px',
+    background: 'var(--canvas)',
+    border: '1px solid var(--ash)',
+    padding: '15px',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
@@ -224,28 +232,31 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '16px',
-  },
-  previewEmoji: {
-    fontSize: '24px',
+    marginBottom: '8px',
   },
   composePreviewTag: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: 'var(--mute)',
-    background: 'var(--secondary-bg)',
-    padding: '4px 10px',
+    backgroundColor: 'var(--canvas)',
+    color: 'var(--ink)',
+    fontSize: '10px',
+    fontWeight: '500',
+    lineHeight: 1.3,
+    letterSpacing: '0.01em',
+    padding: '5px 10px',
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
+    border: '1px solid var(--hairline)',
+  },
+  composePreviewEmoji: {
+    fontSize: '22px',
   },
   textarea: {
     width: '100%',
-    fontSize: '16px',
+    fontSize: '14px',
     lineHeight: 1.5,
     color: 'var(--ink)',
     background: 'transparent',
     resize: 'none',
-    minHeight: '80px',
+    minHeight: '130px',
     fontFamily: 'var(--font-body)',
   },
   charCounter: {
@@ -272,12 +283,14 @@ const styles: Record<string, React.CSSProperties> = {
   sendBtn: {
     width: '100%',
     marginTop: '24px',
-    height: '48px',
+    height: '44px',
     borderRadius: '16px',
     background: 'var(--primary)',
     color: 'var(--on-primary)',
+    fontFamily: 'var(--font-display)',
     fontSize: '14px',
     fontWeight: '700',
+    lineHeight: 1,
     cursor: 'pointer',
     border: 'none',
     display: 'flex',

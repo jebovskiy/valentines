@@ -54,44 +54,57 @@ export function DetailScreen() {
   const anim = getAnimation(valentine.animation_type);
   const senderLabel = valentine.is_own ? 'вы' : valentine.sender_name;
   const timeDate = formatDateTime(valentine.sent_at);
+  const gradient = animationGradient(valentine.animation_type);
 
   return (
     <div style={styles.container} className={isAnimating ? 'animate-slide-up' : ''}>
       <BackButton to="/" />
       <div style={styles.receivedBody}>
-        <div style={styles.receivedCard}>
-          <div style={styles.receivedHeart} className="animate-pulse">
-            <AppleEmoji emoji={anim.emoji} size={44} />
+        <div style={{ ...styles.receivedCard, background: gradient }}>
+          <div style={styles.cardArt}>
+            <AppleEmoji emoji={anim.emoji} size={88} />
           </div>
-          <div style={styles.receivedFrom}>от {senderLabel}</div>
-
-          <div style={styles.msgBox}>
-            {valentine.message || anim.label}
-          </div>
-
-          <div style={styles.receivedTime}>
-            {isTodayThenTime(valentine.sent_at) ? `сегодня, ${timeDate}` : timeDate}
-          </div>
-
-          {valentine.is_own && (
-            <div style={valentine.seen_at ? styles.readStatus : styles.unreadStatus}>
-              {valentine.seen_at ? '✓ прочитано' : 'ещё не прочитано'}
+          <div style={styles.cardContent}>
+            <div style={styles.overlayPill}>от {senderLabel}</div>
+            <div style={styles.msgBox}>
+              {valentine.message || anim.label}
             </div>
-          )}
+            <div style={styles.receivedTime}>
+              {isTodayThenTime(valentine.sent_at) ? `сегодня, ${timeDate}` : timeDate}
+            </div>
+            {valentine.is_own && (
+              <div style={valentine.seen_at ? styles.readStatus : styles.unreadStatus}>
+                {valentine.seen_at ? '✓ прочитано' : 'ещё не прочитано'}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      <button
-        onClick={() => {
-          hapticFeedback('impact', 'light');
-          navigate('/send');
-        }}
-        style={styles.replyBtn}
-      >
-        {valentine.is_own ? 'Отправить ещё' : 'Ответить'}
-      </button>
+        <button
+          onClick={() => {
+            hapticFeedback('impact', 'light');
+            navigate('/send');
+          }}
+          style={styles.replyBtn}
+        >
+          {valentine.is_own ? 'Отправить ещё' : 'Ответить'}
+        </button>
+      </div>
     </div>
   );
+}
+
+function animationGradient(type: string): string {
+  switch (type) {
+    case 'sparkle':
+      return 'var(--grad-sparkle)';
+    case 'moon':
+      return 'var(--grad-moon)';
+    case 'flame':
+      return 'var(--grad-flame)';
+    default:
+      return 'var(--grad-heart)';
+  }
 }
 
 function isTodayThenTime(iso: string): boolean {
@@ -159,71 +172,89 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: '20px',
-    textAlign: 'center',
-    gap: '18px',
+    gap: '16px',
+    padding: '24px 0 12px',
+    minHeight: 0,
   },
   receivedCard: {
     width: '100%',
-    maxWidth: '320px',
-    borderRadius: '16px',
-    background: 'var(--surface-card)',
-    border: '1px solid var(--hairline)',
-    padding: '32px 24px',
+    maxWidth: '360px',
+    margin: '0 auto',
+    borderRadius: '32px',
+    border: '1px solid var(--hairline-soft)',
+    overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    gap: '14px',
+    flex: 1,
+    minHeight: 0,
   },
-  receivedHeart: {
-    width: '96px',
-    height: '96px',
-    borderRadius: '50%',
-    background: 'var(--secondary-bg)',
+  cardArt: {
+    flex: 1,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '44px',
+    minHeight: 0,
   },
-  receivedFrom: {
-    fontFamily: 'var(--font-display)',
-    fontSize: '14px',
-    fontWeight: '600',
-    color: 'var(--mute)',
+  cardContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: '8px',
+    padding: '20px',
+  },
+  overlayPill: {
+    backgroundColor: 'var(--canvas)',
+    color: 'var(--ink)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '10px',
+    fontWeight: '500',
+    lineHeight: 1.3,
+    letterSpacing: '0.01em',
+    padding: '5px 10px',
+    borderRadius: '9999px',
   },
   msgBox: {
     fontFamily: 'var(--font-display)',
     fontSize: '20px',
-    fontWeight: '600',
-    lineHeight: 1.4,
-    letterSpacing: '-0.3px',
+    fontWeight: '700',
+    lineHeight: 1.25,
+    letterSpacing: '-0.5px',
     color: 'var(--ink)',
-    maxWidth: '260px',
   },
   receivedTime: {
-    fontSize: '12px',
-    color: 'var(--text-faint)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '11.5px',
+    fontWeight: 500,
+    color: 'var(--mute)',
   },
   readStatus: {
-    fontSize: '12px',
+    fontFamily: 'var(--font-body)',
+    fontSize: '11.5px',
+    fontWeight: 500,
     color: 'var(--mute)',
   },
   unreadStatus: {
-    fontSize: '12px',
+    fontFamily: 'var(--font-body)',
+    fontSize: '11.5px',
+    fontWeight: 500,
     color: 'var(--ash)',
   },
   replyBtn: {
-    marginTop: '8px',
-    padding: '12px 14px',
+    width: '100%',
+    maxWidth: '360px',
+    margin: '0 auto',
+    padding: '0 18px',
     height: '40px',
     borderRadius: '16px',
-    background: 'var(--primary)',
-    color: 'var(--on-primary)',
-    fontSize: '14px',
+    background: 'var(--canvas)',
+    color: 'var(--ink)',
+    fontFamily: 'var(--font-display)',
+    fontSize: '12px',
     fontWeight: '700',
+    lineHeight: 1,
     cursor: 'pointer',
+    border: '1px solid var(--hairline)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

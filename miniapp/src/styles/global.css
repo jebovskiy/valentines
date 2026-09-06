@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   --primary: #e60023;
@@ -30,6 +30,18 @@
   --error: #9e0a0a;
   --error-deep: #cc001f;
 
+  --focus-outer: #435ee5;
+  --focus-inner: #ffffff;
+  --success-deep: #103c25;
+  --success-pale: #c7f0da;
+  --overlay-scrim: rgba(0, 0, 0, 0.35);
+
+  /* Animation art gradients */
+  --grad-heart: linear-gradient(180deg, #ffd7dc, #ffb3bd);
+  --grad-sparkle: linear-gradient(180deg, #fff3c4, #ffe27a);
+  --grad-moon: linear-gradient(180deg, #dbe8ff, #b9cdfa);
+  --grad-flame: linear-gradient(180deg, #ffe3cc, #ffc9a3);
+
   /* Aliases kept for existing screen styles */
   --bg-page: var(--surface-soft);
   --bg-panel: var(--surface-card);
@@ -48,8 +60,9 @@
 
   --shadow: none;
   --shadow-glow: none;
+  --shadow-fab: 0 10px 24px -8px rgba(230, 0, 35, 0.5);
 
-  --font-display: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Poppins', -apple-system, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-body: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
