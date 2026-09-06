@@ -10,9 +10,9 @@ const updateNameSchema = z.object({
 });
 
 export async function usersRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', telegramAuthMiddleware);
+  const protectedRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
 
-  app.get('/me', { preHandler: requireTelegramAuth }, async (request, reply) => {
+  app.get('/me', protectedRoutes, async (request, reply) => {
     const userId = request.telegramUser!.id;
 
     const pair = await getPairByUser(userId);
@@ -54,7 +54,7 @@ export async function usersRoutes(app: FastifyInstance) {
     return { me, partner };
   });
 
-  app.patch('/me/name', { preHandler: requireTelegramAuth }, async (request, reply) => {
+  app.patch('/me/name', protectedRoutes, async (request, reply) => {
     const body = updateNameSchema.parse(request.body);
     const userId = request.telegramUser!.id;
     const name = body.name;
