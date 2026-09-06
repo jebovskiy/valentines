@@ -24,13 +24,19 @@ async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Pr
       headers,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { error: data.error || `HTTP ${response.status}` };
+    const text = await response.text();
+    let data: Record<string, unknown> = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { error: text || `HTTP ${response.status}` };
     }
 
-    return { data };
+    if (!response.ok) {
+      return { error: (data.error as string) || `HTTP ${response.status}` };
+    }
+
+    return { data: data as T };
   } catch (error) {
     return { error: (error as Error).message };
   }
