@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
+import { BackButton } from '../components/BackButton';
 import { ANIMATIONS, AnimationType, TEST_TELEGRAM_ID } from '../types';
 
 const MAX_MESSAGE_LENGTH = 500;
@@ -55,6 +56,7 @@ export function SendScreen() {
 
   return (
     <div style={styles.container}>
+      <BackButton to="/" />
       <header style={styles.header}>
         <h1 style={styles.title}>Отправить {partner}</h1>
         <p style={styles.subtitle}>выбери анимацию и добавь пару слов</p>
@@ -152,9 +154,11 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: '480px',
     margin: '0 auto',
     flex: 1,
+    position: 'relative',
   },
   header: {
     marginBottom: '24px',
+    paddingTop: '8px',
   },
   title: {
     fontFamily: 'var(--font-display)',
@@ -162,6 +166,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '22px',
     color: 'var(--ink)',
     letterSpacing: '-0.3px',
+    paddingLeft: '48px',
   },
   subtitle: {
     color: 'var(--text-faint)',

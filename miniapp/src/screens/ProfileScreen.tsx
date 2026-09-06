@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
 import { api } from '../api/client';
 import { setMainButton, setBackButton, hapticFeedback, webApp } from '../utils/telegram';
+import { BackButton } from '../components/BackButton';
 
 export function ProfileScreen() {
   const navigate = useNavigate();
@@ -59,6 +60,7 @@ export function ProfileScreen() {
 
   return (
     <div style={styles.container}>
+      <BackButton to="/" />
       {message && <p style={styles.toast}>{message}</p>}
 
       <div style={styles.avatarRow}>
@@ -146,11 +148,12 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     display: 'flex',
     flexDirection: 'column',
-    padding: '24px 16px',
+    padding: '64px 16px 24px',
     maxWidth: '480px',
     margin: '0 auto',
     flex: 1,
     gap: '12px',
+    position: 'relative',
   },
   toast: {
     background: 'var(--surface-card)',

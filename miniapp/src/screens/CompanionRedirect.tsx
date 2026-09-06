@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { hapticFeedback } from '../utils/telegram';
+import { BackButton } from '../components/BackButton';
 
 export function CompanionRedirect() {
   const { token } = useParams<{ token: string }>();
@@ -35,6 +36,16 @@ export function CompanionRedirect() {
 
   return (
     <div style={styles.container}>
+      <BackButton
+        to="/"
+        onBack={() => {
+          if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.close?.();
+          } else {
+            window.history.length > 1 ? window.history.back() : (window.location.href = 'https://valentines-sigma-neon.vercel.app/');
+          }
+        }}
+      />
       <div style={styles.bigHeart}>💌</div>
       <h1 style={styles.title}>Открыть приложение «Валентинки»</h1>
       <p style={styles.description}>
@@ -84,6 +95,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     gap: '16px',
     background: 'var(--surface-soft)',
+    position: 'relative',
   },
   bigHeart: {
     width: '72px',

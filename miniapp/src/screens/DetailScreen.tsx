@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
+import { BackButton } from '../components/BackButton';
 import { getAnimation } from '../types';
 
 export function DetailScreen() {
@@ -55,6 +56,7 @@ export function DetailScreen() {
 
   return (
     <div style={styles.container} className={isAnimating ? 'animate-slide-up' : ''}>
+      <BackButton to="/" />
       <div style={styles.receivedBody}>
         <div style={styles.receivedCard}>
           <div style={styles.receivedHeart} className="animate-pulse">{anim.emoji}</div>
@@ -105,6 +107,7 @@ const styles: Record<string, React.CSSProperties> = {
     margin: '0 auto',
     height: '100vh',
     overflow: 'hidden',
+    position: 'relative',
   },
   notFound: {
     display: 'flex',

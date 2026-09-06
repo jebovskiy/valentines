@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
+import { BackButton } from '../components/BackButton';
 import { getAnimation, ValentineWithSender } from '../types';
 
 export function DeepValentineScreen() {
@@ -52,6 +53,13 @@ export function DeepValentineScreen() {
   if (notFound) {
     return (
       <div style={styles.notFound}>
+        <BackButton
+          to="/"
+          onBack={() => {
+            window.Telegram?.WebApp?.close?.();
+            navigate('/', { replace: true });
+          }}
+        />
         <div style={styles.notFoundIcon}>
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="12" cy="12" r="10" />
@@ -83,6 +91,13 @@ export function DeepValentineScreen() {
 
   return (
     <div style={styles.container} className={isAnimating ? 'animate-slide-up' : ''}>
+      <BackButton
+        to="/"
+        onBack={() => {
+          window.Telegram?.WebApp?.close?.();
+          navigate('/', { replace: true });
+        }}
+      />
       <div style={styles.receivedBody}>
         <div style={styles.receivedCard}>
           <div style={styles.receivedHeart} className="animate-pulse">{anim.emoji}</div>
@@ -133,6 +148,7 @@ const styles: Record<string, React.CSSProperties> = {
     margin: '0 auto',
     height: '100vh',
     overflow: 'hidden',
+    position: 'relative',
   },
   loading: {
     display: 'flex',
@@ -163,6 +179,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '24px',
     textAlign: 'center',
     gap: '16px',
+    position: 'relative',
   },
   notFoundIcon: {
     color: 'var(--text-secondary)',

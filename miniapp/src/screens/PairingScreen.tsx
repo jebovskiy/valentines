@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '../api/client';
 import { setMainButton, setBackButton, hapticFeedback, webApp } from '../utils/telegram';
+import { BackButton } from '../components/BackButton';
 
 export function PairingScreen() {
   const [step, setStep] = useState<'init' | 'qr' | 'success' | 'error'>('init');
@@ -60,6 +61,7 @@ export function PairingScreen() {
 
   return (
     <div style={styles.container}>
+      <BackButton to="/" />
       {step === 'init' && (
         <LoadingState text="Создание ссылки для пэйринга..." />
       )}
@@ -246,6 +248,7 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: '480px',
     margin: '0 auto',
     flex: 1,
+    position: 'relative',
   },
   centerContainer: {
     display: 'flex',
