@@ -7,6 +7,7 @@ import { ListScreen } from './screens/ListScreen';
 import { SendScreen } from './screens/SendScreen';
 import { DetailScreen } from './screens/DetailScreen';
 import { PairingScreen } from './screens/PairingScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
 import { CompanionRedirect } from './screens/CompanionRedirect';
 import { DeepValentineScreen } from './screens/DeepValentineScreen';
 import './styles/global.css';
@@ -23,6 +24,7 @@ function App() {
     if (user) {
       useValentinesStore.getState().setCurrentUser(user);
       fetchPair();
+      useValentinesStore.getState().fetchProfile();
     }
 
     const startParam = (window.Telegram?.WebApp as any)?.initDataUnsafe?.start_param;
@@ -66,6 +68,7 @@ function App() {
           <Route path="send" element={<SendScreen />} />
           <Route path="valentine/:id" element={<DetailScreen />} />
           <Route path="pairing" element={<PairingScreen />} />
+          <Route path="profile" element={<ProfileScreen />} />
         </Route>
         <Route path="/c/:token" element={<CompanionRedirect />} />
         <Route path="/v/:id" element={<DeepValentineScreen />} />

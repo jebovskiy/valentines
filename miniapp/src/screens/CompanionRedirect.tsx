@@ -123,6 +123,8 @@ const styles: Record<string, React.CSSProperties> = {
     textDecoration: 'none',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
   },
   fallback: {
     display: 'flex',

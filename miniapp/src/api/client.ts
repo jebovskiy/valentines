@@ -6,6 +6,7 @@ import type {
   SendValentineRequest,
   PairingInitResult,
   CompletePairingResult,
+  UserProfile,
   ApiResponse,
 } from '../types';
 
@@ -48,7 +49,7 @@ async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Pr
 
 export const api = {
   // Pairs
-  getMyPair: () => fetchWithAuth<{ pair: Pair }>('/api/pairs/me'),
+  getMyPair: () => fetchWithAuth<{ pair: Pair; pairing: { android_paired: boolean } }>('/api/pairs/me'),
   createPair: (partnerTelegramId: number) =>
     fetchWithAuth<{ pair_id: string }>('/api/pairs', {
       method: 'POST',
@@ -80,4 +81,13 @@ export const api = {
       body: JSON.stringify(payload),
     }),  markSeen: (id: string) =>
     fetchWithAuth<{ success: boolean }>(`/api/valentines/${id}/seen`, { method: 'POST' }),
+
+  // Users / profile
+  getMyProfile: () => fetchWithAuth<{ me: UserProfile; partner: UserProfile | null }>('/api/users/me'),
+  updateMyName: (name: string) =>
+    fetchWithAuth<{ success: boolean; name: string }>('/api/users/me/name', {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+  avatarUrl: (telegramUserId: number) => `${API_URL}/api/users/${telegramUserId}/avatar`,
 };

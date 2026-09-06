@@ -140,6 +140,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
   },
   receivedBody: {
     flex: 1,
@@ -204,5 +206,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
   },
 };

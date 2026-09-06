@@ -7,6 +7,7 @@ import { pairsRoutes } from './routes/pairs';
 import { valentinesRoutes } from './routes/valentines';
 import { pushRoutes } from './routes/push';
 import { companionRoutes } from './routes/companion';
+import { usersRoutes } from './routes/users';
 
 const app = fastify({ logger: true });
 
@@ -21,6 +22,7 @@ async function start() {
   await app.register(valentinesRoutes, { prefix: '/api/valentines' });
   await app.register(pushRoutes, { prefix: '/api/push' });
   await app.register(companionRoutes, { prefix: '/api/companion' });
+  await app.register(usersRoutes, { prefix: '/api/users' });
 
   try {
     await app.listen({ port: config.PORT, host: '0.0.0.0' });

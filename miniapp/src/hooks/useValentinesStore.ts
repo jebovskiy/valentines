@@ -1,12 +1,34 @@
 import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines } from '../api/supabase';
+
+export const PARTNER_NAME_OVERRIDE_KEY = 'vn_partner_name_override';
+
+function getPartnerOverride(pairId: string): string | null {
+  try {
+    return localStorage.getItem(`${PARTNER_NAME_OVERRIDE_KEY}:${pairId}`);
+  } catch {
+    return null;
+  }
+}
+
+function setPartnerOverride(pairId: string, name: string | null): void {
+  try {
+    if (name && name.trim()) localStorage.setItem(`${PARTNER_NAME_OVERRIDE_KEY}:${pairId}`, name.trim());
+    else localStorage.removeItem(`${PARTNER_NAME_OVERRIDE_KEY}:${pairId}`);
+  } catch {
+    /* ignore */
+  }
+}
 
 interface ValentinesState {
   pair: Pair | null;
   valentines: ValentineWithSender[];
   currentUser: TelegramUser | null;
+  profile: UserProfile | null;
+  partnerProfile: UserProfile | null;
+  androidPaired: boolean;
   isLoading: boolean;
   error: string | null;
   realtimeChannel: ReturnType<typeof subscribeToValentines> | null;
@@ -23,6 +45,10 @@ interface ValentinesState {
   updateValentine: (valentine: ValentineWithSender) => void;
   removeValentine: (id: string) => void;
   setCurrentUser: (user: TelegramUser) => void;
+  fetchProfile: () => Promise<void>;
+  updateMyName: (name: string) => Promise<boolean>;
+  updatePartnerName: (name: string) => void;
+  refreshPairingStatus: () => Promise<void>;
   setupRealtime: (pairId: string) => void;
   cleanupRealtime: () => void;
   clearError: () => void;
@@ -39,6 +65,8 @@ function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId:
 
 export function partnerName(pair: Pair | null, currentUserId: number | null): string {
   if (!pair || !currentUserId) return 'Партнер';
+  const override = getPartnerOverride(pair.id);
+  if (override && override.trim()) return override.trim();
   if (pair.telegram_user_a === currentUserId) return pair.user_b_name || 'Партнер';
   if (pair.telegram_user_b === currentUserId) return pair.user_a_name || 'Партнер';
   return 'Партнер';
@@ -54,6 +82,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   pair: null,
   valentines: [],
   currentUser: null,
+  profile: null,
+  partnerProfile: null,
+  androidPaired: false,
   isLoading: false,
   error: null,
   realtimeChannel: null,
@@ -65,14 +96,18 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       set({ error: result.error, isLoading: false });
       return;
     }
-    set({ pair: result.data!.pair, isLoading: false });
+    set({
+      pair: result.data!.pair,
+      androidPaired: result.data!.pairing?.android_paired ?? false,
+      isLoading: false,
+    });
   },
 
   checkPair: async () => {
     const result = await api.getMyPair();
     if (result.error) return null;
     const pair = result.data!.pair;
-    set({ pair });
+    set({ pair, androidPaired: result.data!.pairing?.android_paired ?? false });
     return pair;
   },
 
@@ -99,8 +134,49 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       set({ error: pairResult.error, isLoading: false });
       return false;
     }
-    set({ pair: pairResult.data!.pair, isLoading: false });
+    set({
+      pair: pairResult.data!.pair,
+      androidPaired: pairResult.data!.pairing?.android_paired ?? false,
+      isLoading: false,
+    });
     return true;
+  },
+
+  fetchProfile: async () => {
+    const result = await api.getMyProfile();
+    if (result.error) return;
+    set({
+      profile: result.data!.me,
+      partnerProfile: result.data!.partner,
+    });
+  },
+
+  updateMyName: async (name) => {
+    const result = await api.updateMyName(name);
+    if (result.error) return false;
+    const profile = get().profile;
+    if (profile) set({ profile: { ...profile, display_name: result.data!.name } });
+    const pair = get().pair;
+    if (pair && get().currentUser) {
+      if (pair.telegram_user_a === get().currentUser!.id) {
+        set({ pair: { ...pair, user_a_name: result.data!.name } });
+      } else {
+        set({ pair: { ...pair, user_b_name: result.data!.name } });
+      }
+    }
+    return true;
+  },
+
+  updatePartnerName: (name) => {
+    const pair = get().pair;
+    if (!pair) return;
+    setPartnerOverride(pair.id, name);
+  },
+
+  refreshPairingStatus: async () => {
+    const result = await api.getMyPair();
+    if (result.error) return;
+    set({ androidPaired: result.data!.pairing?.android_paired ?? false });
   },
 
   fetchValentines: async () => {

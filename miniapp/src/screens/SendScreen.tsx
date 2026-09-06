@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
@@ -15,7 +15,6 @@ export function SendScreen() {
   const [error, setError] = useState<string | null>(null);
   const [charCount, setCharCount] = useState(0);
   const [recipient, setRecipient] = useState<'partner' | 'self'>('partner');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const partner = partnerName(pair, currentUser?.id ?? null);
   const isTestUser = currentUser?.id === TEST_TELEGRAM_ID;
@@ -23,7 +22,6 @@ export function SendScreen() {
   useEffect(() => {
     setMainButton({ isVisible: false });
     setBackButton(true, () => navigate(-1));
-    textareaRef.current?.focus();
   }, [navigate]);
 
   useEffect(() => {
@@ -103,10 +101,9 @@ export function SendScreen() {
           <span style={styles.previewEmoji}>
             {ANIMATIONS.find((a) => a.type === animationType)!.emoji}
           </span>
-          <div style={styles.composePreviewTag}>{animationType}</div>
+          <div style={styles.composePreviewTag}>{ANIMATIONS.find((a) => a.type === animationType)!.label}</div>
         </div>
         <textarea
-          ref={textareaRef}
           value={message}
           onChange={handleMessageChange}
           placeholder={`Скучаю. Вернись скорее…`}
@@ -185,6 +182,7 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid var(--hairline)',
     cursor: 'pointer',
     lineHeight: '1.4',
+    textAlign: 'center',
   },
   typeRow: {
     display: 'flex',

@@ -86,3 +86,11 @@ export interface CompletePairingResult {
   partnerTelegramId: number;
   deviceId: string;
 }
+
+export interface UserProfile {
+  id: number;
+  username: string | null;
+  first_name: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+}

@@ -48,6 +48,59 @@ export interface PairingToken {
   expires_at: string;
 }
 
+export interface UserProfile {
+  telegram_user_id: number;
+  username: string | null;
+  first_name: string | null;
+  display_name: string | null;
+  avatar_file_path: string | null;
+}
+
+export async function upsertUserProfile(
+  profile: Pick<UserProfile, 'telegram_user_id'> &
+    Partial<Pick<UserProfile, 'username' | 'first_name' | 'display_name' | 'avatar_file_path'>>
+): Promise<void> {
+  const { error } = await supabase
+    .from('user_profiles')
+    .upsert({ ...profile, updated_at: new Date().toISOString() }, { onConflict: 'telegram_user_id' });
+  if (error) throw error;
+}
+
+export async function getUserProfile(telegramUserId: number): Promise<UserProfile | null> {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('telegram_user_id', telegramUserId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateUserDisplayName(telegramUserId: number, displayName: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_profiles')
+    .upsert(
+      { telegram_user_id: telegramUserId, display_name: displayName, updated_at: new Date().toISOString() },
+      { onConflict: 'telegram_user_id' }
+    );
+  if (error) throw error;
+}
+
+export async function updatePairUserName(pair: Pair, telegramUserId: number, name: string): Promise<Pair | null> {
+  const isUserA = pair.telegram_user_a === telegramUserId;
+  const column = isUserA ? 'user_a_name' : 'user_b_name';
+
+  const { data, error } = await supabase
+    .from('pairs')
+    .update({ [column]: name })
+    .eq('id', pair.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function createPair(userA: number, nameA: string | null, userB: number, nameB: string | null): Promise<Pair> {
   const { data, error } = await supabase
     .from('pairs')
@@ -114,6 +167,22 @@ export async function getDevicesByPair(pairId: string): Promise<Device[]> {
   const { data, error } = await supabase.from('devices').select('*').eq('pair_id', pairId);
   if (error) throw error;
   return data || [];
+}
+
+export async function getDeviceByUserAndPlatform(
+  pairId: string,
+  telegramUserId: number,
+  platform: 'ios' | 'android'
+): Promise<Device | null> {
+  const { data, error } = await supabase
+    .from('devices')
+    .select('*')
+    .eq('pair_id', pairId)
+    .eq('telegram_user_id', telegramUserId)
+    .eq('platform', platform)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
 }
 
 export async function getDeviceById(deviceId: string): Promise<Device | null> {

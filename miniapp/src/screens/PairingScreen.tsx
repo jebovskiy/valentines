@@ -358,6 +358,10 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '16px',
     fontWeight: '700',
     fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
   },
   secondaryButton: {
     padding: '12px 14px',
@@ -367,6 +371,10 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '16px',
     fontWeight: '700',
     fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
   },
   retryButton: {
     padding: '12px 14px',
@@ -376,6 +384,10 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '16px',
     fontWeight: '600',
     fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
   },
   hint: {
     fontSize: '13px',

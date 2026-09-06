@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName, daysTogether } from '../hooks/useValentinesStore';
-import { setMainButton, hapticFeedback } from '../utils/telegram';
+import { setMainButton, hapticFeedback, webApp } from '../utils/telegram';
 import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
 import { getAnimation } from '../types';
+import { api } from '../api/client';
 
 export function ListScreen() {
-  const { valentines, isLoading, error, fetchValentines, refreshValentines, markSeen, pair, checkPair, createInvite, joinInvite } = useValentinesStore();
+  const { valentines, isLoading, error, fetchValentines, refreshValentines, markSeen, pair, checkPair, createInvite, joinInvite, profile, androidPaired, refreshPairingStatus } = useValentinesStore();
   const navigate = useNavigate();
   const [inviteCode, setInviteCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -16,6 +17,12 @@ export function ListScreen() {
   useEffect(() => {
     setMainButton({ isVisible: false });
   }, []);
+
+  const isAndroid = webApp?.platform === 'android' || webApp?.platform === 'android_x';
+
+  useEffect(() => {
+    if (isAndroid) refreshPairingStatus();
+  }, [isAndroid, refreshPairingStatus]);
 
   useEffect(() => {
     if (!inviteCode) return;
@@ -110,11 +117,20 @@ export function ListScreen() {
         <div style={styles.feedHeaderRow}>
           <h1 style={styles.feedTitle}>Валентинки</h1>
           <button
-            onClick={() => navigate('/pairing')}
+            onClick={() => navigate('/profile')}
             style={styles.widgetBtn}
-            title="Настройка виджета на рабочем столе"
+            title="Профиль"
           >
-            📲
+            {profile ? (
+              <img
+                src={api.avatarUrl(profile.id)}
+                alt=""
+                style={styles.avatarImg}
+                onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+              />
+            ) : (
+              '👤'
+            )}
           </button>
         </div>
         <div style={styles.feedSub}>вы и {partner} · {days} {formatDays(days)} вместе</div>
@@ -148,6 +164,18 @@ export function ListScreen() {
               Отправить валентинку
             </button>
         </div>
+      )}
+
+      {isAndroid && !androidPaired && (
+        <button
+          onClick={() => {
+            hapticFeedback('impact', 'light');
+            navigate('/pairing');
+          }}
+          style={styles.bindButton}
+        >
+          Привязать к приложению
+        </button>
       )}
 
       <button
@@ -340,6 +368,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
   },
   emptyContainer: {
     display: 'flex',
@@ -378,6 +408,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
   },
   feedHeader: {
     display: 'flex',
@@ -401,6 +433,28 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: '16px',
+    overflow: 'hidden',
+    padding: 0,
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  bindButton: {
+    width: '100%',
+    maxWidth: '300px',
+    padding: '12px 14px',
+    height: '40px',
+    background: 'var(--secondary-bg)',
+    color: 'var(--ink)',
+    borderRadius: '16px',
+    fontWeight: '700',
+    fontSize: '14px',
+    margin: '8px auto 0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   feedTitle: {
     fontFamily: 'var(--font-display)',
@@ -552,6 +606,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    textAlign: 'center',
   },
   createHint: {
     marginTop: '16px',
