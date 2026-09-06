@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
-import { ANIMATIONS, AnimationType } from '../types';
+import { ANIMATIONS, AnimationType, TEST_TELEGRAM_ID } from '../types';
 
 const MAX_MESSAGE_LENGTH = 500;
 
@@ -14,9 +14,11 @@ export function SendScreen() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [charCount, setCharCount] = useState(0);
+  const [recipient, setRecipient] = useState<'partner' | 'self'>('partner');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const partner = partnerName(pair, currentUser?.id ?? null);
+  const isTestUser = currentUser?.id === TEST_TELEGRAM_ID;
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -35,7 +37,7 @@ export function SendScreen() {
     setIsSending(true);
     setError(null);
 
-    const valentine = await sendValentine(animationType, message.trim() || null);
+    const valentine = await sendValentine(animationType, message.trim() || null, isTestUser ? recipient : 'partner');
 
     setIsSending(false);
     if (valentine) {
@@ -59,6 +61,24 @@ export function SendScreen() {
         <h1 style={styles.title}>Отправить {partner}</h1>
         <p style={styles.subtitle}>выбери анимацию и добавь пару слов</p>
       </header>
+
+      {isTestUser && (
+        <div style={styles.recipientRow}>
+          {(['partner', 'self'] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRecipient(r)}
+              style={{
+                ...styles.recipientChip,
+                background: recipient === r ? 'linear-gradient(160deg, #FF9A8C, var(--accent-coral-dim))' : 'var(--bg-panel-2)',
+                color: recipient === r ? '#fff' : 'var(--text-muted)',
+              }}
+            >
+              {r === 'partner' ? 'Партнёру' : 'Себе ☝️'}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div style={styles.typeRow}>
         {ANIMATIONS.map((anim) => (
@@ -150,6 +170,20 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-faint)',
     fontSize: '12px',
     marginTop: '2px',
+  },
+  recipientRow: {
+    display: 'flex',
+    gap: '8px',
+    marginTop: '12px',
+  },
+  recipientChip: {
+    flex: 1,
+    padding: '10px',
+    borderRadius: '12px',
+    fontSize: '13px',
+    fontWeight: '600',
+    border: '1px solid rgba(255, 255, 255, 0.06)',
+    cursor: 'pointer',
   },
   typeRow: {
     display: 'flex',

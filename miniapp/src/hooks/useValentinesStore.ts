@@ -17,7 +17,7 @@ interface ValentinesState {
   joinInvite: (code: string) => Promise<boolean>;
   fetchValentines: () => Promise<void>;
   refreshValentines: () => Promise<void>;
-  sendValentine: (animationType: string, message: string | null) => Promise<ValentineWithSender | null>;
+  sendValentine: (animationType: string, message: string | null, recipient?: 'partner' | 'self') => Promise<ValentineWithSender | null>;
   markSeen: (id: string) => Promise<void>;
   addValentine: (valentine: ValentineWithSender) => void;
   updateValentine: (valentine: ValentineWithSender) => void;
@@ -135,11 +135,11 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     set({ valentines: enriched });
   },
 
-  sendValentine: async (animationType, message) => {
+  sendValentine: async (animationType, message, recipient = 'partner') => {
     const { pair, currentUser } = get();
     if (!pair || !currentUser) return null;
 
-    const result = await api.sendValentine({ animation_type: animationType as any, message });
+    const result = await api.sendValentine({ animation_type: animationType as any, message, recipient });
     if (result.error) {
       set({ error: result.error });
       return null;

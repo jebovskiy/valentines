@@ -8,6 +8,7 @@ import { sendNewValentineNotification } from '../services/telegramNotifier';
 const sendValentineSchema = z.object({
   animation_type: z.string(),
   message: z.string().max(500).optional().nullable(),
+  recipient: z.enum(['partner', 'self']).optional(),
 });
 
 export async function valentinesRoutes(app: FastifyInstance) {
@@ -57,12 +58,16 @@ export async function valentinesRoutes(app: FastifyInstance) {
 
     const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null);
 
-    // Notify the partner via Telegram bot with a deep link to the valentine
-    const partnerId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
-    if (partnerId) {
-      const senderName = pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name : pair.user_b_name;
+    // Notify the recipient: partner by default, or the sender himself when testing (recipient === 'self')
+    const recipientId =
+      body.recipient === 'self' ? request.telegramUser!.id : await getPartnerTelegramId(pair.id, request.telegramUser!.id);
+    if (recipientId) {
+      const userId = request.telegramUser!.id;
+      const senderName = recipientId === userId
+        ? (userId === pair.telegram_user_a ? pair.user_a_name : pair.user_b_name)
+        : (pair.telegram_user_a === userId ? pair.user_a_name : pair.user_b_name);
       // Non-blocking: valentine is already saved
-      await sendNewValentineNotification(partnerId, valentine.id, senderName).catch((e) => {
+      await sendNewValentineNotification(recipientId, valentine.id, senderName).catch((e) => {
         app.log.error(`Telegram notification failed:`, e);
       });
     }

@@ -78,7 +78,6 @@ export const api = {
     fetchWithAuth<{ valentine: Valentine }>('/api/valentines', {
       method: 'POST',
       body: JSON.stringify(payload),
-    }),
-  markSeen: (id: string) =>
+    }),  markSeen: (id: string) =>
     fetchWithAuth<{ success: boolean }>(`/api/valentines/${id}/seen`, { method: 'POST' }),
 };

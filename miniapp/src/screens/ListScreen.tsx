@@ -288,10 +288,13 @@ function CreatePairForm({
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
+    display: 'flex',
+    flexDirection: 'column',
     padding: '16px',
-    paddingBottom: '100px',
     maxWidth: '480px',
     margin: '0 auto',
+    height: '100vh',
+    overflow: 'hidden',
   },
   loadingContainer: {
     display: 'flex',
@@ -408,6 +411,9 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '10px',
     padding: '14px 0',
+    overflowY: 'auto',
+    flex: 1,
+    minHeight: 0,
   },
   feedItem: {
     display: 'flex',
