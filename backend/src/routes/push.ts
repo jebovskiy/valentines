@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { dispatchPush } from '../services/pushDispatcher';
+import { dispatchPush, retryPendingPushJobs } from '../services/pushDispatcher';
 import { verifyWebhookSignature } from '../middleware/webhook';
 
 const pushDispatchSchema = z.object({
@@ -19,7 +19,6 @@ export async function pushRoutes(app: FastifyInstance) {
   });
 
   app.post('/retry', async (request, reply) => {
-    const { retryPendingPushJobs } = await import('../services/pushDispatcher');
     await retryPendingPushJobs();
     return { success: true };
   });

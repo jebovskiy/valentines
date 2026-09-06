@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getValentinesByPair, createValentine, markValentineSeen, getValentineById } from '../services/database';
+import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { config, isKnownAnimationType } from '../config';
 

@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, createPairForUsers } from '../services/database';
-import { initiatePairing, completePairing } from '../services/pairing';
+import { getPairByUser } from '../services/database';
+import { initiatePairing, completePairing, createPairForUsers } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 
 const createPairSchema = z.object({

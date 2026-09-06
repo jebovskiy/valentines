@@ -1,6 +1,5 @@
-import { supabase } from '../utils/supabase';
-import { sendBothPushes, PushPayload } from './fcm';
-import { getDeviceById, getValentineById, updatePushJobStatus, markValentineDelivered } from './database';
+import { sendVisiblePush, sendDataPush, PushPayload } from './fcm';
+import { getDeviceById, getValentineById, updatePushJobStatus, markValentineDelivered, getPendingPushJobs } from './database';
 
 export interface PushDispatchPayload {
   valentine_id: string;
@@ -40,11 +39,11 @@ export async function dispatchPush(payload: PushDispatchPayload): Promise<void> 
 
   try {
     if (channel === 'visible') {
-      const result = await sendVisiblePush(device.push_token, pushPayload);
+      const result = await sendVisiblePushToDevice(device.push_token, pushPayload);
       await updatePushJobStatus(device_id, result.success ? 'sent' : 'failed', 1);
       if (result.success) await markValentineDelivered(valentine_id);
     } else {
-      const result = await sendDataPush(device.push_token, pushPayload);
+      const result = await sendDataPushToDevice(device.push_token, pushPayload);
       await updatePushJobStatus(device_id, result.success ? 'sent' : 'failed', 1);
     }
   } catch (error) {
@@ -53,18 +52,15 @@ export async function dispatchPush(payload: PushDispatchPayload): Promise<void> 
   }
 }
 
-async function sendVisiblePush(token: string, payload: PushPayload) {
-  const { sendVisiblePush: send } = await import('./fcm');
-  return send(token, payload);
+async function sendVisiblePushToDevice(token: string, payload: PushPayload) {
+  return sendVisiblePush(token, payload);
 }
 
-async function sendDataPush(token: string, payload: PushPayload) {
-  const { sendDataPush: send } = await import('./fcm');
-  return send(token, payload);
+async function sendDataPushToDevice(token: string, payload: PushPayload) {
+  return sendDataPush(token, payload);
 }
 
 export async function retryPendingPushJobs(): Promise<void> {
-  const { getPendingPushJobs } = await import('./database');
   const jobs = await getPendingPushJobs();
 
   for (const job of jobs) {

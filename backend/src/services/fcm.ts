@@ -1,15 +1,16 @@
-import { initializeApp, getApps, cert, messaging, Messaging } from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getMessaging, Messaging } from 'firebase-admin/messaging';
 import { config } from '../config';
 
 let messagingInstance: Messaging | null = null;
 
-function getMessaging(): Messaging {
+function getMessagingInstance(): Messaging {
   if (!messagingInstance) {
     if (getApps().length === 0) {
       const serviceAccount = JSON.parse(config.FCM_SERVICE_ACCOUNT_JSON);
       initializeApp({ credential: cert(serviceAccount) });
     }
-    messagingInstance = messaging();
+    messagingInstance = getMessaging();
   }
   return messagingInstance;
 }
@@ -19,6 +20,7 @@ export interface PushPayload {
   from_name: string;
   animation_type: string;
   sent_at: string;
+  message?: string;
 }
 
 export interface SendResult {
