@@ -60,13 +60,11 @@ export function DetailScreen() {
         <div style={styles.receivedFrom}>от {senderLabel}</div>
 
         <div style={styles.msgBox}>
-          <p style={styles.messageText}>
-            {valentine.message || anim.label}
-          </p>
+          {valentine.message || anim.label}
         </div>
 
         <div style={styles.receivedTime}>
-          {timeDate}
+          {isTodayThenTime(valentine.sent_at) ? `сегодня, ${timeDate}` : timeDate}
         </div>
       </div>
 
@@ -81,6 +79,12 @@ export function DetailScreen() {
       </button>
     </div>
   );
+}
+
+function isTodayThenTime(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
 function formatDateTime(iso: string): string {
@@ -130,52 +134,50 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: '600',
   },
   receivedBody: {
+    flex: 1,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    gap: '16px',
-    padding: '24px 0',
+    padding: '30px 26px',
+    textAlign: 'center',
+    gap: '14px',
   },
   receivedHeart: {
-    fontSize: '88px',
-    lineHeight: 1,
+    width: '96px',
+    height: '96px',
+    borderRadius: '50%',
+    background: 'radial-gradient(circle, rgba(255,122,107,0.4), transparent 70%)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '44px',
   },
   receivedFrom: {
+    fontFamily: 'var(--font-display)',
+    fontStyle: 'italic',
     fontSize: '16px',
-    color: 'var(--text-secondary)',
+    color: 'var(--text-muted)',
   },
   msgBox: {
-    padding: '20px 24px',
-    background: 'var(--surface-elevated)',
-    borderRadius: '20px',
-    border: '1px solid var(--border)',
-    boxShadow: 'var(--shadow)',
-    maxWidth: '320px',
-    width: '100%',
-  },
-  messageText: {
-    fontSize: '18px',
-    lineHeight: 1.6,
-    color: 'var(--text-primary)',
-    textAlign: 'center',
+    fontFamily: 'var(--font-display)',
+    fontSize: '19px',
+    lineHeight: 1.4,
+    color: 'var(--text-cream)',
+    maxWidth: '220px',
   },
   receivedTime: {
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-    textAlign: 'center',
+    fontSize: '11px',
+    color: 'var(--text-faint)',
   },
   replyBtn: {
-    width: '100%',
-    padding: '16px',
-    background: 'var(--primary)',
-    color: 'var(--tg-button-text-color)',
-    borderRadius: '16px',
-    fontSize: '17px',
-    fontWeight: '600',
-    boxShadow: 'var(--shadow)',
+    marginTop: '8px',
+    padding: '12px 26px',
+    borderRadius: '100px',
+    background: 'var(--bg-panel-2)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    fontSize: '13px',
+    color: 'var(--text-muted)',
     cursor: 'pointer',
-    border: 'none',
   },
 };

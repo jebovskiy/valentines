@@ -186,14 +186,6 @@ export function hapticFeedback(type: 'impact' | 'notification' | 'selection', st
 
 export function applyTheme(): void {
   if (!webApp) return;
-  const { themeParams } = webApp;
-  const root = document.documentElement;
-  if (themeParams.bg_color) root.style.setProperty('--tg-bg-color', themeParams.bg_color);
-  if (themeParams.text_color) root.style.setProperty('--tg-text-color', themeParams.text_color);
-  if (themeParams.hint_color) root.style.setProperty('--tg-hint-color', themeParams.hint_color);
-  if (themeParams.link_color) root.style.setProperty('--tg-link-color', themeParams.link_color);
-  if (themeParams.button_color) root.style.setProperty('--tg-button-color', themeParams.button_color);
-  if (themeParams.button_text_color) root.style.setProperty('--tg-button-text-color', themeParams.button_text_color);
-  if (themeParams.secondary_bg_color) root.style.setProperty('--tg-secondary-bg-color', themeParams.secondary_bg_color);
-  root.style.setProperty('--tg-color-scheme', webApp.colorScheme);
+  webApp.setHeaderColor('#1B0F18');
+  webApp.setBackgroundColor('#1B0F18');
 }
