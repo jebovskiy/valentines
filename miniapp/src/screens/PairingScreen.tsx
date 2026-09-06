@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { setMainButton, setBackButton, hapticFeedback, webApp } from '../utils/telegram';
 
 export function PairingScreen() {
-  const { pair, fetchPair } = useValentinesStore();
+  const { pair } = useValentinesStore();
   const [step, setStep] = useState<'init' | 'qr' | 'waiting' | 'success' | 'error'>('init');
   const [pairingUrl, setPairingUrl] = useState<string>('');
   const [error, setError] = useState<string>('');

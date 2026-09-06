@@ -153,11 +153,11 @@ export function getTelegramUser(): TelegramUser | null {
   return webApp?.initDataUnsafe?.user || null;
 }
 
-export function setMainButton(params: { text: string; onClick: () void; isVisible?: boolean; color?: string }): void {
+export function setMainButton(params: { text?: string; onClick?: () => void; isVisible?: boolean; color?: string }): void {
   if (!webApp?.MainButton) return;
   const btn = webApp.MainButton;
-  btn.setText(params.text);
-  btn.onClick(params.onClick);
+  if (params.text) btn.setText(params.text);
+  if (params.onClick) btn.onClick(params.onClick);
   if (params.color) btn.setParams({ color: params.color });
   if (params.isVisible !== false) btn.show();
   else btn.hide();

@@ -2,7 +2,6 @@ import { getInitData } from '../utils/telegram';
 import type {
   Pair,
   Valentine,
-  ValentineWithSender,
   SendValentineRequest,
   PairingInitResult,
   CompletePairingResult,

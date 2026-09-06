@@ -35,7 +35,6 @@ export function HeartOpenAnimation({
     const animateFrame = (currentTime: number) => {
       const elapsed = currentTime - startTimeRef.current!;
       const progress = Math.min(elapsed / duration, 1);
-      const eased = easeOutCubic(progress);
 
       if (progress < 0.3) {
         // Square to intermediate
@@ -60,14 +59,6 @@ export function HeartOpenAnimation({
     };
 
     animationRef.current = requestAnimationFrame(animateFrame);
-  };
-
-  const reset = () => {
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
-    setPath(SQUARE_PATH);
-    setIsAnimating(false);
   };
 
   useEffect(() => {
@@ -130,27 +121,24 @@ export function HeartOpenAnimation({
   );
 }
 
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
-}
-
 function interpolatePath(path1: string, path2: string, t: number): string {
   const coords1 = parsePath(path1);
   const coords2 = parsePath(path2);
 
   if (coords1.length !== coords2.length) return t < 0.5 ? path1 : path2;
 
-  return coords1
-    .map((c1, i) => {
-      const c2 = coords2[i];
-      if (typeof c1 === 'string' || typeof c2 === 'string') return c1;
-      return [
-        c1[0],
-        c1[1].map((v, j) => v + (c2[1][j] - v) * t),
-      ];
-    })
-    .map((c) => (typeof c === 'string' ? c : `${c[0]} ${c[1].join(' ')}`))
-    .join(' ');
+  const parts: string[] = [];
+  for (let i = 0; i < coords1.length; i++) {
+    const c1 = coords1[i];
+    const c2 = coords2[i];
+    if (typeof c1 === 'string' || typeof c2 === 'string') {
+      parts.push(c1 as string);
+      continue;
+    }
+    const values = c1[1].map((v, j) => v + (c2[1][j] - v) * t);
+    parts.push(`${c1[0]} ${values.join(' ')}`);
+  }
+  return parts.join(' ');
 }
 
 function parsePath(path: string): Array<string | [string, number[]]> {
