@@ -1,4 +1,3 @@
 {
-  "rootDirectory": "miniapp",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
