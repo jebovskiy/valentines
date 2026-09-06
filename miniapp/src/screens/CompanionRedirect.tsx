@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
+import { AppleEmoji } from '../components/AppleEmoji';
 
 export function CompanionRedirect() {
   const { token } = useParams<{ token: string }>();
@@ -46,7 +47,9 @@ export function CompanionRedirect() {
           }
         }}
       />
-      <div style={styles.bigHeart}>💌</div>
+      <div style={styles.bigHeart}>
+        <AppleEmoji emoji="💌" size={32} />
+      </div>
       <h1 style={styles.title}>Открыть приложение «Валентинки»</h1>
       <p style={styles.description}>
         Нажмите кнопку — приложение установит связь с вашей парой. Если оно не установлено, откройте страницу в браузере: она так же приведёт в приложение.

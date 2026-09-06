@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
+import { AppleEmoji } from '../components/AppleEmoji';
 import { getAnimation, ValentineWithSender } from '../types';
 
 export function DeepValentineScreen() {
@@ -97,7 +98,9 @@ export function DeepValentineScreen() {
       />
       <div style={styles.receivedBody}>
         <div style={styles.receivedCard}>
-          <div style={styles.receivedHeart} className="animate-pulse">{anim.emoji}</div>
+          <div style={styles.receivedHeart} className="animate-pulse">
+            <AppleEmoji emoji={anim.emoji} size={46} />
+          </div>
           <div style={styles.receivedFrom}>от {senderLabel}</div>
 
           <div style={styles.msgBox}>

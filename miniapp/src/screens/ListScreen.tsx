@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName, daysTogether } from '../hooks/useValentinesStore';
 import { setMainButton, hapticFeedback, webApp } from '../utils/telegram';
 import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
+import { AppleEmoji } from '../components/AppleEmoji';
 import { getAnimation } from '../types';
 import { api } from '../api/client';
 
@@ -129,7 +130,7 @@ export function ListScreen() {
                 onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
               />
             ) : (
-              '👤'
+              <AppleEmoji emoji="👤" size={16} />
             )}
           </button>
         </div>
@@ -219,7 +220,9 @@ function ValentineCard({ valentine, onPress }: { valentine: any; onPress: () => 
             : '3px solid var(--hairline)',
       }}
     >
-      <div style={styles.feedIc}>{anim.emoji}</div>
+      <div style={styles.feedIc}>
+        <AppleEmoji emoji={anim.emoji} size={18} />
+      </div>
       <div style={styles.feedText}>
         <div style={styles.feedNameRow}>
           <div style={styles.feedName}>{senderLabel}</div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
+import { AppleEmoji } from '../components/AppleEmoji';
 import { ANIMATIONS, AnimationType, TEST_TELEGRAM_ID } from '../types';
 
 const MAX_MESSAGE_LENGTH = 500;
@@ -93,7 +94,7 @@ export function SendScreen() {
             }}
             aria-label={anim.label}
           >
-            {anim.emoji}
+            <AppleEmoji emoji={anim.emoji} size={22} />
           </button>
         ))}
       </div>
@@ -101,7 +102,7 @@ export function SendScreen() {
       <div style={styles.composeCard}>
         <div style={styles.composePreview}>
           <span style={styles.previewEmoji}>
-            {ANIMATIONS.find((a) => a.type === animationType)!.emoji}
+            <AppleEmoji emoji={ANIMATIONS.find((a) => a.type === animationType)!.emoji} size={24} />
           </span>
           <div style={styles.composePreviewTag}>{ANIMATIONS.find((a) => a.type === animationType)!.label}</div>
         </div>

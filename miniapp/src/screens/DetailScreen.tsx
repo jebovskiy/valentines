@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
+import { AppleEmoji } from '../components/AppleEmoji';
 import { getAnimation } from '../types';
 
 export function DetailScreen() {
@@ -59,7 +60,9 @@ export function DetailScreen() {
       <BackButton to="/" />
       <div style={styles.receivedBody}>
         <div style={styles.receivedCard}>
-          <div style={styles.receivedHeart} className="animate-pulse">{anim.emoji}</div>
+          <div style={styles.receivedHeart} className="animate-pulse">
+            <AppleEmoji emoji={anim.emoji} size={44} />
+          </div>
           <div style={styles.receivedFrom}>от {senderLabel}</div>
 
           <div style={styles.msgBox}>
