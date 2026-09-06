@@ -20,9 +20,9 @@ const completePairingSchema = z.object({
 });
 
 export async function pairsRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', telegramAuthMiddleware);
+  const privateRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
 
-  app.get('/me', { preHandler: requireTelegramAuth }, async (request, reply) => {
+  app.get('/me', privateRoutes, async (request, reply) => {
     const userId = request.telegramUser!.id;
     let pair = await getPairByUser(userId);
     if (!pair && isTestUser(userId)) {
@@ -35,7 +35,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     return { pair, pairing: { android_paired: androidPaired } };
   });
 
-  app.post('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
+  app.post('/', privateRoutes, async (request, reply) => {
     const body = createPairSchema.parse(request.body);
     const userId = request.telegramUser!.id;
 
@@ -51,7 +51,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/invite', { preHandler: requireTelegramAuth }, async (request, reply) => {
+  app.post('/invite', privateRoutes, async (request, reply) => {
     try {
       const result = await createInvite(request.telegramUser!.id, request.telegramUser!.first_name);
       return result;
@@ -60,7 +60,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/join', { preHandler: requireTelegramAuth }, async (request, reply) => {
+  app.post('/join', privateRoutes, async (request, reply) => {
     const body = joinInviteSchema.parse(request.body);
     try {
       const pairId = await joinByInvite(body.code, request.telegramUser!.id, request.telegramUser!.first_name);
@@ -70,7 +70,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/pairing/initiate', { preHandler: requireTelegramAuth }, async (request, reply) => {
+  app.post('/pairing/initiate', privateRoutes, async (request, reply) => {
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith('tma ')) {
       return reply.code(401).send({ error: 'Missing initData' });
