@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import retrofit2.HttpException
 
 sealed interface PairingState {
@@ -87,6 +88,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val state = _state.value as? PairingState.Paired ?: return
         viewModelScope.launch {
             try {
+                if (granted) {
+                    val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+                    ApiClient.api.updatePushToken(
+                        DeviceStatusRequest(deviceId = state.deviceId, pushToken = token)
+                    )
+                }
                 ApiClient.api.updatePermission(
                     DeviceStatusRequest(deviceId = state.deviceId, granted = granted)
                 )
