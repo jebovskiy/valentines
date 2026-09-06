@@ -94,8 +94,8 @@ export async function usersRoutes(app: FastifyInstance) {
       if (!response.ok) {
         return reply.code(response.status).send({ error: 'Avatar unavailable' });
       }
-      const contentType = response.headers.get('content-type') || 'image/jpeg';
       const buffer = Buffer.from(await response.arrayBuffer());
+      const contentType = sniffImageType(buffer);
       reply.header('content-type', contentType);
       reply.header('cache-control', 'public, max-age=86400');
       return reply.send(buffer);
@@ -104,4 +104,20 @@ export async function usersRoutes(app: FastifyInstance) {
       return reply.code(502).send({ error: 'Avatar unavailable' });
     }
   });
+}
+
+function sniffImageType(buffer: Buffer): string {
+  if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return 'image/png';
+  }
+  if (buffer.length >= 12 && buffer.subarray(0, 12).equals(Buffer.from('RIFF', 'ascii')) && buffer.subarray(8, 12).equals(Buffer.from('WEBP', 'ascii'))) {
+    return 'image/webp';
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (buffer.length >= 4 && buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+    return 'image/gif';
+  }
+  return 'image/jpeg';
 }
