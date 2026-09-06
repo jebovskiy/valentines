@@ -1,10 +1,15 @@
 import { sendVisiblePush, sendDataPush, PushPayload } from './fcm';
-import { getDeviceById, getValentineById, updatePushJobStatus, markValentineDelivered, getPendingPushJobs } from './database';
+import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs } from './database';
 
 export interface PushDispatchPayload {
   valentine_id: string;
   device_id: string;
   channel: 'visible' | 'data';
+}
+
+function senderName(pair: { telegram_user_a: number; user_a_name: string | null; telegram_user_b: number; user_b_name: string | null }, senderTelegramId: number): string {
+  if (pair.telegram_user_a === senderTelegramId) return pair.user_a_name || 'Партнер';
+  return pair.user_b_name || 'Партнер';
 }
 
 export async function dispatchPush(payload: PushDispatchPayload): Promise<void> {
@@ -20,35 +25,40 @@ export async function dispatchPush(payload: PushDispatchPayload): Promise<void> 
     return;
   }
 
+  const job = await getPushJob(valentine_id, device_id, channel);
+  if (!job) {
+    console.error(`Push dispatch: push job not found`, { device_id, valentine_id, channel });
+    return;
+  }
+
+  const pairData = await getPairById(valentine.pair_id);
+
   if (!device.push_permission_granted) {
     console.log(`Push dispatch: permission not granted for device ${device_id}`);
-    await updatePushJobStatus(device_id, 'failed', 1);
+    await updatePushJobStatus(job.id, 'failed', job.attempts + 1);
     return;
   }
 
   const pushPayload: PushPayload = {
     valentine_id: valentine.id,
-    from_name: '', // Will be filled by sender name lookup if needed
+    from_name: pairData ? senderName(pairData, valentine.sender_telegram_id) : 'Партнер',
     animation_type: valentine.animation_type,
     sent_at: valentine.sent_at,
+    message: valentine.message || undefined,
   };
-
-  // Get sender name (simplified - in reality you'd fetch from Telegram or store in valentines)
-  // For now using a placeholder
-  pushPayload.from_name = 'Партнер';
 
   try {
     if (channel === 'visible') {
       const result = await sendVisiblePushToDevice(device.push_token, pushPayload);
-      await updatePushJobStatus(device_id, result.success ? 'sent' : 'failed', 1);
+      await updatePushJobStatus(job.id, result.success ? 'sent' : 'failed', job.attempts + 1);
       if (result.success) await markValentineDelivered(valentine_id);
     } else {
       const result = await sendDataPushToDevice(device.push_token, pushPayload);
-      await updatePushJobStatus(device_id, result.success ? 'sent' : 'failed', 1);
+      await updatePushJobStatus(job.id, result.success ? 'sent' : 'failed', job.attempts + 1);
     }
   } catch (error) {
     console.error(`Push dispatch error:`, error);
-    await updatePushJobStatus(device_id, 'failed', 1);
+    await updatePushJobStatus(job.id, 'failed', job.attempts + 1);
   }
 }
 

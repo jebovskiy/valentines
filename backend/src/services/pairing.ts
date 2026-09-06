@@ -1,4 +1,3 @@
-import { config } from '../config';
 import { createPairingToken, consumePairingToken, getPairByUser, createPair, registerDevice, getPartnerTelegramId, createInviteCode, consumeInviteCode } from './database';
 import { validateTelegramInitData, TelegramInitData } from '../utils/telegram';
 
@@ -25,7 +24,7 @@ export async function initiatePairing(initData: string): Promise<PairingInitResu
   }
 
   const tokenData = await createPairingToken(userId);
-  const pairingUrl = `${config.APP_URL}/pair?token=${tokenData.token}`;
+  const pairingUrl = `https://valentines-sigma-neon.vercel.app/c/${tokenData.token}`;
 
   return {
     pairingUrl,
@@ -37,6 +36,8 @@ export async function initiatePairing(initData: string): Promise<PairingInitResu
 export interface CompletePairingResult {
   pairId: string;
   partnerTelegramId: number;
+  partnerName: string | null;
+  myName: string | null;
   deviceId: string;
 }
 
@@ -57,9 +58,14 @@ export async function completePairing(
 
   const device = await registerDevice(pair.id, userId, platform, pushToken);
 
+  const myName = pair.telegram_user_a === userId ? pair.user_a_name : pair.user_b_name;
+  const partnerName = pair.telegram_user_a === userId ? pair.user_b_name : pair.user_a_name;
+
   return {
     pairId: pair.id,
     partnerTelegramId: partnerId,
+    partnerName,
+    myName,
     deviceId: device.id,
   };
 }

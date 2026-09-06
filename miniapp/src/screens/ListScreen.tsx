@@ -107,7 +107,16 @@ export function ListScreen() {
   return (
     <div style={styles.container}>
       <header style={styles.feedHeader}>
-        <h1 style={styles.feedTitle}>Валентинки</h1>
+        <div style={styles.feedHeaderRow}>
+          <h1 style={styles.feedTitle}>Валентинки</h1>
+          <button
+            onClick={() => navigate('/pairing')}
+            style={styles.widgetBtn}
+            title="Настройка виджета на рабочем столе"
+          >
+            📲
+          </button>
+        </div>
         <div style={styles.feedSub}>вы и {partner} · {days} {formatDays(days)} вместе</div>
       </header>
 
@@ -365,6 +374,24 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '4px',
     padding: '16px 4px 4px',
+  },
+  feedHeaderRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  widgetBtn: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '10px',
+    background: 'var(--bg-panel-2)',
+    border: '1px solid rgba(255, 255, 255, 0.06)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '16px',
+    opacity: 0.8,
   },
   feedTitle: {
     fontFamily: 'var(--font-display)',

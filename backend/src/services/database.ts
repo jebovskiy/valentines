@@ -123,6 +123,11 @@ export async function updateDevicePushPermission(deviceId: string, granted: bool
   if (error) throw error;
 }
 
+export async function updateDevicePushToken(deviceId: string, pushToken: string): Promise<void> {
+  const { error } = await supabase.from('devices').update({ push_token: pushToken }).eq('id', deviceId);
+  if (error) throw error;
+}
+
 export async function updateDeviceWidgetAdded(deviceId: string, added: boolean): Promise<void> {
   const { error } = await supabase.from('devices').update({ widget_added: added }).eq('id', deviceId);
   if (error) throw error;
@@ -205,12 +210,24 @@ export async function createPushJobs(
   return data || [];
 }
 
+export async function getPushJob(valentineId: string, deviceId: string, channel: 'visible' | 'data'): Promise<PushJob | null> {
+  const { data, error } = await supabase
+    .from('push_jobs')
+    .select('*')
+    .eq('valentine_id', valentineId)
+    .eq('device_id', deviceId)
+    .eq('channel', channel)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export async function getPendingPushJobs(limit = 100): Promise<PushJob[]> {
   const { data, error } = await supabase
     .from('push_jobs')
     .select('*')
     .eq('status', 'pending')
-    .lt('last_attempt_at', new Date(Date.now() - 2 * 60 * 1000).toISOString())
+    .or(`last_attempt_at.is.null,last_attempt_at.lt.${new Date(Date.now() - 2 * 60 * 1000).toISOString()}`)
     .limit(limit);
   if (error) throw error;
   return data || [];
