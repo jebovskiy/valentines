@@ -238,6 +238,11 @@ function ValentineCard({ valentine, isTall, onPress }: { valentine: any; isTall:
       <div style={styles.feedEmoji}>
         <AppleEmoji emoji={anim.emoji} size={tall ? 40 : 26} />
       </div>
+      {valentine.message && (
+        <div style={{ ...styles.feedMessage, WebkitLineClamp: tall ? 3 : 1 }}>
+          {valentine.message}
+        </div>
+      )}
       <div style={!tall ? styles.feedMetaBottom : styles.feedMetaTop}>
         <span style={styles.overlayPill}>{senderLabel}</span>
         <span style={styles.overlayPill}>{formatFeedTime(valentine.sent_at)}</span>
@@ -546,6 +551,21 @@ const styles: Record<string, React.CSSProperties> = {
   },
   feedEmoji: {
     alignSelf: 'flex-start',
+  },
+  feedMessage: {
+    fontFamily: 'var(--font-body)',
+    fontSize: '13px',
+    lineHeight: 1.35,
+    color: 'var(--ink)',
+    background: 'var(--canvas)',
+    borderRadius: '16px',
+    padding: '8px 12px',
+    width: '100%',
+    boxSizing: 'border-box',
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+    wordBreak: 'break-word',
   },
   feedMetaTop: {
     display: 'flex',
