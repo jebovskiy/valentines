@@ -7,6 +7,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   APP_URL: z.string().url().optional(),
+  MINI_APP_URL: z.string().url().optional(),
   TELEGRAM_BOT_TOKEN: z.string().min(1),
   FCM_SERVICE_ACCOUNT_JSON: z.string().min(1),
   WEBHOOK_SHARED_SECRET: z.string().min(32),
@@ -21,6 +22,10 @@ if (!parsed.APP_URL) {
   } else {
     parsed.APP_URL = `http://localhost:${parsed.PORT}`;
   }
+}
+
+if (!parsed.MINI_APP_URL) {
+  parsed.MINI_APP_URL = `https://valentines-sigma-neon.vercel.app`;
 }
 
 export const config = parsed;

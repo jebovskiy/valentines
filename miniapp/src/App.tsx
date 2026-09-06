@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { initTelegramWebApp, applyTheme, getTelegramUser } from './utils/telegram';
 import { useValentinesStore } from './hooks/useValentinesStore';
 import { Layout } from './components/Layout';
@@ -8,10 +8,12 @@ import { SendScreen } from './screens/SendScreen';
 import { DetailScreen } from './screens/DetailScreen';
 import { PairingScreen } from './screens/PairingScreen';
 import { CompanionRedirect } from './screens/CompanionRedirect';
+import { DeepValentineScreen } from './screens/DeepValentineScreen';
 import './styles/global.css';
 
 function App() {
   const { currentUser, fetchPair, fetchValentines, setupRealtime, cleanupRealtime, pair } = useValentinesStore();
+  const [initialPath, setInitialPath] = useState<string | null>(null);
 
   useEffect(() => {
     initTelegramWebApp();
@@ -21,6 +23,11 @@ function App() {
     if (user) {
       useValentinesStore.getState().setCurrentUser(user);
       fetchPair();
+    }
+
+    const startParam = (window.Telegram?.WebApp as any)?.initDataUnsafe?.start_param;
+    if (startParam && startParam.startsWith('v_')) {
+      setInitialPath(`/v/${startParam.slice(2)}`);
     }
 
     window.addEventListener('themechange', applyTheme);
@@ -61,7 +68,11 @@ function App() {
           <Route path="pairing" element={<PairingScreen />} />
         </Route>
         <Route path="/c/:token" element={<CompanionRedirect />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/v/:id" element={<DeepValentineScreen />} />
+        <Route
+          path="*"
+          element={initialPath ? <Navigate to={initialPath} replace /> : <Navigate to="/" replace />}
+        />
       </Routes>
     </BrowserRouter>
   );

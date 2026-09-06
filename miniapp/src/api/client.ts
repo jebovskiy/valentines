@@ -2,6 +2,7 @@ import { getInitData } from '../utils/telegram';
 import type {
   Pair,
   Valentine,
+  ValentineWithSender,
   SendValentineRequest,
   PairingInitResult,
   CompletePairingResult,
@@ -72,7 +73,7 @@ export const api = {
 
   // Valentines
   getValentines: () => fetchWithAuth<{ valentines: Valentine[] }>('/api/valentines'),
-  getValentine: (id: string) => fetchWithAuth<{ valentine: Valentine }>(`/api/valentines/${id}`),
+  getValentine: (id: string) => fetchWithAuth<{ valentine: ValentineWithSender }>(`/api/valentines/${id}`),
   sendValentine: (payload: SendValentineRequest) =>
     fetchWithAuth<{ valentine: Valentine }>('/api/valentines', {
       method: 'POST',
