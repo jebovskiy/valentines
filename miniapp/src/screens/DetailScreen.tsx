@@ -102,7 +102,7 @@ const styles: Record<string, React.CSSProperties> = {
     paddingBottom: '100px',
     maxWidth: '480px',
     margin: '0 auto',
-    flex: 1,
+    minHeight: '100vh',
   },
   notFound: {
     display: 'flex',
