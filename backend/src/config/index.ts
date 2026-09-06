@@ -25,7 +25,7 @@ if (!parsed.APP_URL) {
 
 export const config = parsed;
 
-export const KNOWN_ANIMATION_TYPES = ['heart_open'] as const;
+export const KNOWN_ANIMATION_TYPES = ['heart_open', 'sparkle', 'moon', 'flame'] as const;
 export type AnimationType = typeof KNOWN_ANIMATION_TYPES[number];
 
 export function isKnownAnimationType(type: string): type is AnimationType {

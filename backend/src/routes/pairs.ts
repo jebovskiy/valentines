@@ -38,7 +38,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     }
 
     try {
-      const pairId = await createPairForUsers(userId, body.partner_telegram_id);
+      const pairId = await createPairForUsers(userId, request.telegramUser!.first_name, body.partner_telegram_id, null);
       return { pair_id: pairId };
     } catch (error) {
       return reply.code(400).send({ error: (error as Error).message });
@@ -47,7 +47,7 @@ export async function pairsRoutes(app: FastifyInstance) {
 
   app.post('/invite', { preHandler: requireTelegramAuth }, async (request, reply) => {
     try {
-      const result = await createInvite(request.telegramUser!.id);
+      const result = await createInvite(request.telegramUser!.id, request.telegramUser!.first_name);
       return result;
     } catch (error) {
       return reply.code(400).send({ error: (error as Error).message });
@@ -57,7 +57,7 @@ export async function pairsRoutes(app: FastifyInstance) {
   app.post('/join', { preHandler: requireTelegramAuth }, async (request, reply) => {
     const body = joinInviteSchema.parse(request.body);
     try {
-      const pairId = await joinByInvite(body.code, request.telegramUser!.id);
+      const pairId = await joinByInvite(body.code, request.telegramUser!.id, request.telegramUser!.first_name);
       return { pair_id: pairId };
     } catch (error) {
       return reply.code(400).send({ error: (error as Error).message });

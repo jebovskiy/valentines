@@ -11,6 +11,8 @@ export interface Pair {
   id: string;
   telegram_user_a: number;
   telegram_user_b: number;
+  user_a_name: string | null;
+  user_b_name: string | null;
   created_at: string;
 }
 
@@ -25,7 +27,24 @@ export interface Device {
   widget_added: boolean;
 }
 
-export type AnimationType = 'heart_open';
+export type AnimationType = 'heart_open' | 'sparkle' | 'moon' | 'flame';
+
+export interface AnimationDef {
+  type: AnimationType;
+  emoji: string;
+  label: string;
+}
+
+export const ANIMATIONS: AnimationDef[] = [
+  { type: 'heart_open', emoji: '💌', label: 'Валентинка' },
+  { type: 'sparkle', emoji: '✨', label: 'Блеск' },
+  { type: 'moon', emoji: '🌙', label: 'Ночь' },
+  { type: 'flame', emoji: '🔥', label: 'Страсть' },
+];
+
+export function getAnimation(type: AnimationType): AnimationDef {
+  return ANIMATIONS.find((a) => a.type === type) ?? ANIMATIONS[0];
+}
 
 export interface Valentine {
   id: string;

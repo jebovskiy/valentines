@@ -64,7 +64,7 @@ export async function completePairing(
   };
 }
 
-export async function createPairForUsers(userA: number, userB: number): Promise<string> {
+export async function createPairForUsers(userA: number, nameA: string | null, userB: number, nameB: string | null): Promise<string> {
   const existingA = await getPairByUser(userA);
   const existingB = await getPairByUser(userB);
 
@@ -72,18 +72,25 @@ export async function createPairForUsers(userA: number, userB: number): Promise<
     throw new Error('One or both users already in a pair');
   }
 
-  const pair = await createPair(userA, userB);
+  const pair = await createPair(userA, nameA, userB, nameB);
   return pair.id;
 }
 
-export async function createInvite(telegramUserId: number): Promise<{ code: string; expires_at: string }> {
+export async function createInvite(
+  telegramUserId: number,
+  creatorFirstName: string
+): Promise<{ code: string; expires_at: string }> {
   const existing = await getPairByUser(telegramUserId);
   if (existing) throw new Error('Already in a pair');
 
-  return createInviteCode(telegramUserId);
+  return createInviteCode(telegramUserId, creatorFirstName);
 }
 
-export async function joinByInvite(code: string, joinerTelegramId: number): Promise<string> {
+export async function joinByInvite(
+  code: string,
+  joinerTelegramId: number,
+  joinerFirstName: string
+): Promise<string> {
   const existing = await getPairByUser(joinerTelegramId);
   if (existing) throw new Error('Already in a pair');
 
@@ -94,6 +101,6 @@ export async function joinByInvite(code: string, joinerTelegramId: number): Prom
   const creatorHasPair = await getPairByUser(invite.creator_telegram_id);
   if (creatorHasPair) throw new Error('Invite creator already joined another pair');
 
-  const pair = await createPair(invite.creator_telegram_id, joinerTelegramId);
+  const pair = await createPair(invite.creator_telegram_id, invite.creator_first_name, joinerTelegramId, joinerFirstName);
   return pair.id;
 }

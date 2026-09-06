@@ -5,6 +5,8 @@ export interface Pair {
   id: string;
   telegram_user_a: number;
   telegram_user_b: number;
+  user_a_name: string | null;
+  user_b_name: string | null;
   created_at: string;
 }
 
@@ -46,10 +48,15 @@ export interface PairingToken {
   expires_at: string;
 }
 
-export async function createPair(userA: number, userB: number): Promise<Pair> {
+export async function createPair(userA: number, nameA: string | null, userB: number, nameB: string | null): Promise<Pair> {
   const { data, error } = await supabase
     .from('pairs')
-    .insert({ telegram_user_a: userA, telegram_user_b: userB })
+    .insert({
+      telegram_user_a: userA,
+      telegram_user_b: userB,
+      user_a_name: nameA,
+      user_b_name: nameB,
+    })
     .select()
     .single();
 
@@ -265,13 +272,18 @@ function generateInviteCode(): string {
   return code;
 }
 
-export async function createInviteCode(telegramUserId: number, validMinutes = 30): Promise<{ code: string; expires_at: string }> {
+export async function createInviteCode(
+  telegramUserId: number,
+  creatorFirstName: string,
+  validMinutes = 30
+): Promise<{ code: string; expires_at: string }> {
   const code = generateInviteCode();
   const expiresAt = new Date(Date.now() + validMinutes * 60 * 1000).toISOString();
 
   const { error } = await supabase.from('pair_invites').insert({
     code,
     creator_telegram_id: telegramUserId,
+    creator_first_name: creatorFirstName,
     expires_at: expiresAt,
   });
   if (error) throw error;
@@ -279,10 +291,12 @@ export async function createInviteCode(telegramUserId: number, validMinutes = 30
   return { code, expires_at: expiresAt };
 }
 
-export async function consumeInviteCode(code: string): Promise<{ creator_telegram_id: number } | null> {
+export async function consumeInviteCode(
+  code: string
+): Promise<{ creator_telegram_id: number; creator_first_name: string | null } | null> {
   const { data, error } = await supabase
     .from('pair_invites')
-    .select('creator_telegram_id')
+    .select('creator_telegram_id, creator_first_name')
     .eq('code', code.toUpperCase())
     .gt('expires_at', new Date().toISOString())
     .maybeSingle();
@@ -291,5 +305,5 @@ export async function consumeInviteCode(code: string): Promise<{ creator_telegra
   if (!data) return null;
 
   await supabase.from('pair_invites').delete().eq('code', code.toUpperCase());
-  return { creator_telegram_id: data.creator_telegram_id };
+  return { creator_telegram_id: data.creator_telegram_id, creator_first_name: data.creator_first_name };
 }

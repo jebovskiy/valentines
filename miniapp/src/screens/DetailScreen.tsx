@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
-import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
+import { getAnimation } from '../types';
 
 export function DetailScreen() {
   const { id } = useParams<{ id: string }>();
@@ -49,86 +49,45 @@ export function DetailScreen() {
     );
   }
 
-  const isDelivered = !!valentine.delivered_at;
-  const isSeen = !!valentine.seen_at;
+  const anim = getAnimation(valentine.animation_type);
+  const senderLabel = valentine.is_own ? 'вы' : valentine.sender_name;
+  const timeDate = formatDateTime(valentine.sent_at);
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card} className={isAnimating ? 'animate-slide-up' : ''}>
-        <div style={styles.animationWrapper}>
-          <HeartOpenAnimation
-            size={120}
-            autoPlay={isAnimating}
-            duration={1000}
-            style={{ filter: 'drop-shadow(0 8px 24px rgba(233, 30, 99, 0.4))' }}
-          />
+    <div style={styles.container} className={isAnimating ? 'animate-slide-up' : ''}>
+      <div style={styles.receivedBody}>
+        <div style={styles.receivedHeart} className="animate-pulse">{anim.emoji}</div>
+        <div style={styles.receivedFrom}>от {senderLabel}</div>
+
+        <div style={styles.msgBox}>
+          <p style={styles.messageText}>
+            {valentine.message || anim.label}
+          </p>
         </div>
 
-        <div style={styles.info}>
-          <div style={styles.senderRow}>
-            <span style={styles.senderLabel}>От</span>
-            <span style={styles.senderName}>{valentine.sender_name}</span>
-          </div>
-
-          <div style={styles.timeRow}>
-            <span style={styles.timeLabel}>
-              {valentine.is_own ? 'Отправлено' : 'Получено'}
-            </span>
-            <span style={styles.timeValue}>{formatDateTime(valentine.sent_at)}</span>
-          </div>
-
-          {valentine.message && (
-            <div style={styles.messageContainer}>
-              <p style={styles.messageText}>{valentine.message}</p>
-            </div>
-          )}
-
-          <div style={styles.statusRow}>
-            <div style={{
-              ...styles.statusItem,
-              background: isSeen ? 'rgba(76, 175, 80, 0.1)' : isDelivered ? 'rgba(33, 150, 243, 0.1)' : 'rgba(255, 152, 0, 0.1)',
-              borderColor: isSeen ? 'rgba(76, 175, 80, 0.3)' : isDelivered ? 'rgba(33, 150, 243, 0.3)' : 'rgba(255, 152, 0, 0.3)',
-            }}>
-              <span style={{
-                ...styles.statusDot,
-                background: isSeen ? '#4caf50' : isDelivered ? '#2196f3' : '#ff9800',
-              }} />
-              <span style={{
-                ...styles.statusText,
-                color: isSeen ? '#4caf50' : isDelivered ? '#2196f3' : '#ff9800',
-              }}>
-                {isSeen ? 'Прочитано' : isDelivered ? 'Доставлено' : 'Отправляется...'}
-              </span>
-            </div>
-          </div>
+        <div style={styles.receivedTime}>
+          {timeDate}
         </div>
       </div>
 
-      <div style={styles.actions}>
-        {valentine.is_own && (
-          <button onClick={() => navigate('/send')} style={styles.actionButton}>
-            Отправить ещё
-          </button>
-        )}
-        {!valentine.is_own && (
-          <button onClick={() => navigate('/send')} style={styles.actionButton}>
-            Ответить
-          </button>
-        )}
-      </div>
+      <button
+        onClick={() => {
+          hapticFeedback('impact', 'light');
+          navigate('/send');
+        }}
+        style={styles.replyBtn}
+      >
+        {valentine.is_own ? 'Отправить ещё' : 'Ответить'}
+      </button>
     </div>
   );
 }
 
 function formatDateTime(iso: string): string {
   const date = new Date(iso);
-  return date.toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -170,106 +129,53 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '12px',
     fontWeight: '600',
   },
-  card: {
-    background: 'var(--surface-elevated)',
-    borderRadius: '24px',
-    padding: '24px',
-    boxShadow: 'var(--shadow-elevated)',
-    border: '1px solid var(--border)',
-    marginBottom: '24px',
-  },
-  animationWrapper: {
-    display: 'flex',
-    justifyContent: 'center',
-    marginBottom: '24px',
-  },
-  info: {
+  receivedBody: {
     display: 'flex',
     flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
     gap: '16px',
+    padding: '24px 0',
   },
-  senderRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    paddingBottom: '8px',
-    borderBottom: '1px solid var(--border)',
+  receivedHeart: {
+    fontSize: '88px',
+    lineHeight: 1,
   },
-  senderLabel: {
-    fontSize: '14px',
+  receivedFrom: {
+    fontSize: '16px',
     color: 'var(--text-secondary)',
   },
-  senderName: {
-    fontSize: '18px',
-    fontWeight: '600',
-    background: 'linear-gradient(135deg, var(--primary), #ff6b9d)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text',
-  },
-  timeRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    color: 'var(--text-secondary)',
-    fontSize: '14px',
-  },
-  timeLabel: {},
-  timeValue: {
-    fontWeight: '500',
-    color: 'var(--text-primary)',
-  },
-  messageContainer: {
-    padding: '16px',
-    background: 'var(--primary-light)',
-    borderRadius: '16px',
-    border: '1px solid rgba(233, 30, 99, 0.15)',
+  msgBox: {
+    padding: '20px 24px',
+    background: 'var(--surface-elevated)',
+    borderRadius: '20px',
+    border: '1px solid var(--border)',
+    boxShadow: 'var(--shadow)',
+    maxWidth: '320px',
+    width: '100%',
   },
   messageText: {
-    fontSize: '16px',
+    fontSize: '18px',
     lineHeight: 1.6,
     color: 'var(--text-primary)',
     textAlign: 'center',
-    fontStyle: 'italic',
   },
-  statusRow: {
-    display: 'flex',
-    justifyContent: 'center',
-    paddingTop: '8px',
-    borderTop: '1px solid var(--border)',
+  receivedTime: {
+    fontSize: '13px',
+    color: 'var(--text-secondary)',
+    textAlign: 'center',
   },
-  statusItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 16px',
-    borderRadius: '20px',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-  },
-  statusDot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    animation: 'pulse 1.5s ease-in-out infinite',
-  },
-  statusText: {
-    fontSize: '14px',
-    fontWeight: '500',
-  },
-  actions: {
-    padding: '0 16px',
-  },
-  actionButton: {
+  replyBtn: {
     width: '100%',
     padding: '16px',
     background: 'var(--primary)',
     color: 'var(--tg-button-text-color)',
     borderRadius: '16px',
-    fontSize: '16px',
+    fontSize: '17px',
     fontWeight: '600',
     boxShadow: 'var(--shadow)',
+    cursor: 'pointer',
+    border: 'none',
   },
 };

@@ -1,27 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useValentinesStore } from '../hooks/useValentinesStore';
+import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
-import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
+import { ANIMATIONS, AnimationType } from '../types';
 
 const MAX_MESSAGE_LENGTH = 500;
 
 export function SendScreen() {
   const navigate = useNavigate();
-  const { sendValentine, currentUser } = useValentinesStore();
+  const { sendValentine, currentUser, pair } = useValentinesStore();
   const [message, setMessage] = useState('');
+  const [animationType, setAnimationType] = useState<AnimationType>('heart_open');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [charCount, setCharCount] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const partner = partnerName(pair, currentUser?.id ?? null);
+
   useEffect(() => {
-    setMainButton({
-      text: 'Отправить',
-      onClick: handleSend,
-      color: '#E91E63',
-      isVisible: true,
-    });
+    setMainButton({ isVisible: false });
     setBackButton(true, () => navigate(-1));
     textareaRef.current?.focus();
   }, [navigate]);
@@ -32,13 +30,12 @@ export function SendScreen() {
 
   const handleSend = async () => {
     if (isSending) return;
-    if (!message.trim() && !currentUser) return;
 
     hapticFeedback('impact', 'medium');
     setIsSending(true);
     setError(null);
 
-    const valentine = await sendValentine('heart_open', message.trim() || null);
+    const valentine = await sendValentine(animationType, message.trim() || null);
 
     setIsSending(false);
     if (valentine) {
@@ -59,19 +56,40 @@ export function SendScreen() {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h1 style={styles.title}>Новая валентинка</h1>
+        <h1 style={styles.title}>Отправить {partner}</h1>
+        <p style={styles.subtitle}>выбери анимацию и добавь пару слов</p>
       </header>
 
-      <div style={styles.animationWrapper}>
-        <HeartOpenAnimation size={100} autoPlay={true} duration={1000} />
+      <div style={styles.typeRow}>
+        {ANIMATIONS.map((anim) => (
+          <button
+            key={anim.type}
+            onClick={() => setAnimationType(anim.type)}
+            style={{
+              ...styles.typeChip,
+              background: animationType === anim.type ? 'var(--primary)' : 'var(--surface-elevated)',
+              border: animationType === anim.type ? '1px solid var(--primary)' : '1px solid var(--border)',
+              transform: animationType === anim.type ? 'scale(1.1)' : 'scale(1)',
+            }}
+            aria-label={anim.label}
+          >
+            {anim.emoji}
+          </button>
+        ))}
       </div>
 
-      <div style={styles.inputWrapper}>
+      <div style={styles.composeCard}>
+        <div style={styles.composePreview}>
+          <span style={styles.previewEmoji}>
+            {ANIMATIONS.find((a) => a.type === animationType)!.emoji}
+          </span>
+          <div style={styles.composePreviewTag}>{animationType}</div>
+        </div>
         <textarea
           ref={textareaRef}
           value={message}
           onChange={handleMessageChange}
-          placeholder="Напишите что-то приятное... (необязательно)"
+          placeholder={`Скучаю. Вернись скорее…`}
           style={styles.textarea}
           maxLength={MAX_MESSAGE_LENGTH}
           rows={4}
@@ -94,10 +112,16 @@ export function SendScreen() {
         </div>
       )}
 
-      <div style={styles.hint}>
-        <span style={styles.hintIcon}>✨</span>
-        <span>Валентинка мгновенно появится на виджете партнера</span>
-      </div>
+      <button
+        onClick={handleSend}
+        disabled={isSending}
+        style={{
+          ...styles.sendBtn,
+          opacity: isSending ? 0.6 : 1,
+        }}
+      >
+        {isSending ? 'Отправка...' : 'Отправить'}
+      </button>
     </div>
   );
 }
@@ -123,28 +147,57 @@ const styles: Record<string, React.CSSProperties> = {
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
   },
-  animationWrapper: {
+  subtitle: {
+    color: 'var(--text-secondary)',
+    fontSize: '14px',
+    marginTop: '4px',
+  },
+  typeRow: {
     display: 'flex',
     justifyContent: 'center',
-    alignItems: 'center',
+    gap: '12px',
     marginBottom: '24px',
-    padding: '24px',
-    background: 'var(--primary-light)',
-    borderRadius: '24px',
-    border: '1px solid rgba(233, 30, 99, 0.15)',
   },
-  inputWrapper: {
-    flex: 1,
+  typeChip: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '16px',
+    fontSize: '28px',
     display: 'flex',
-    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'transform 0.15s ease, background 0.15s ease, border 0.15s ease',
+    cursor: 'pointer',
+  },
+  composeCard: {
     background: 'var(--surface-elevated)',
     borderRadius: '16px',
     border: '1px solid var(--border)',
     overflow: 'hidden',
     marginBottom: '16px',
   },
+  composePreview: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 16px',
+    background: 'var(--primary-light)',
+    borderBottom: '1px solid var(--border)',
+  },
+  previewEmoji: {
+    fontSize: '20px',
+  },
+  composePreviewTag: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: 'var(--primary-dark)',
+    fontFamily: 'monospace',
+    padding: '2px 8px',
+    background: 'rgba(233, 30, 99, 0.1)',
+    borderRadius: '6px',
+  },
   textarea: {
-    flex: 1,
+    width: '100%',
     padding: '16px',
     fontSize: '16px',
     lineHeight: 1.5,
@@ -173,16 +226,16 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
     textAlign: 'center',
   },
-  hint: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '12px',
-    color: 'var(--text-secondary)',
-    fontSize: '13px',
-  },
-  hintIcon: {
-    fontSize: '16px',
+  sendBtn: {
+    width: '100%',
+    padding: '16px',
+    background: 'var(--primary)',
+    color: 'var(--tg-button-text-color)',
+    borderRadius: '16px',
+    fontSize: '17px',
+    fontWeight: '600',
+    boxShadow: 'var(--shadow)',
+    cursor: 'pointer',
+    border: 'none',
   },
 };

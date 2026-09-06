@@ -27,13 +27,26 @@ interface ValentinesState {
   clearError: () => void;
 }
 
-function enrichValentine(valentine: Valentine, currentUserId: number): ValentineWithSender {
+function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
   const isOwn = valentine.sender_telegram_id === currentUserId;
   return {
     ...valentine,
-    sender_name: isOwn ? 'Вы' : 'Партнер',
+    sender_name: isOwn ? 'Вы' : partnerName(pair, currentUserId),
     is_own: isOwn,
   };
+}
+
+export function partnerName(pair: Pair | null, currentUserId: number | null): string {
+  if (!pair || !currentUserId) return 'Партнер';
+  if (pair.telegram_user_a === currentUserId) return pair.user_b_name || 'Партнер';
+  if (pair.telegram_user_b === currentUserId) return pair.user_a_name || 'Партнер';
+  return 'Партнер';
+}
+
+export function daysTogether(pair: Pair | null): number {
+  if (!pair) return 0;
+  const start = new Date(pair.created_at).getTime();
+  return Math.max(1, Math.floor((Date.now() - start) / 86400000));
 }
 
 export const useValentinesStore = create<ValentinesState>((set, get) => ({
@@ -101,7 +114,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     }
 
     const enriched = result.data!.valentines
-      .map((v) => enrichValentine(v, currentUser.id))
+      .map((v) => enrichValentine(v, pair, currentUser.id))
       .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
 
     set({ valentines: enriched, isLoading: false });
@@ -117,7 +130,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       return null;
     }
 
-    const newValentine = enrichValentine(result.data!.valentine, currentUser.id);
+    const newValentine = enrichValentine(result.data!.valentine, get().pair, currentUser.id);
     set((state) => ({ valentines: [newValentine, ...state.valentines] }));
     return newValentine;
   },
@@ -156,11 +169,11 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     const channel = subscribeToValentines(
       pairId,
       (valentine) => {
-        const enriched = enrichValentine(valentine, currentUser.id);
+        const enriched = enrichValentine(valentine, get().pair, currentUser.id);
         get().addValentine(enriched);
       },
       (valentine) => {
-        const enriched = enrichValentine(valentine, currentUser.id);
+        const enriched = enrichValentine(valentine, get().pair, currentUser.id);
         get().updateValentine(enriched);
       },
       (valentine) => {
