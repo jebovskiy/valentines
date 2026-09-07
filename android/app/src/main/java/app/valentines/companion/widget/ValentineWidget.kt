@@ -26,9 +26,8 @@ import androidx.glance.text.FontStyle
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import app.valentines.companion.data.valentinesStore
 import kotlinx.coroutines.flow.first
-
-private val Context.valentineDataStore by preferencesDataStore(name = "valentines_prefs")
 
 object WidgetKeys {
     val LAST_FROM = stringPreferencesKey("widget_from")
@@ -47,7 +46,7 @@ data class WidgetData(
 class ValentineWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val prefs = context.valentineDataStore.data.first()
+        val prefs = context.valentinesStore.data.first()
         val data = WidgetData(
             from = prefs[WidgetKeys.LAST_FROM],
             message = prefs[WidgetKeys.LAST_MESSAGE],

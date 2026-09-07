@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -111,7 +112,10 @@ fun ValentinesAppScreen(
     ) {
         when {
             bootLoading -> {}
-            state is PairingState.CompletedAll -> SetupDoneScreen()
+            state is PairingState.CompletedAll -> SetupDoneScreen(
+                pushEnabled = viewModel.pushGranted.collectAsState().value,
+                onTogglePush = viewModel::setPushEnabled,
+            )
             state is PairingState.Paired -> {
                 val paired = state as PairingState.Paired
                 var pushStep by remember { mutableStateOf(false) }
@@ -409,6 +413,7 @@ private fun WidgetPinScreen(
     val context = LocalContext.current
     val appWidgetManager = remember { AppWidgetManager.getInstance(context) }
     val componentName = remember { ComponentName(context, ValentineWidget::class.java) }
+    var manual by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -416,8 +421,12 @@ private fun WidgetPinScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         StepHeader(
-            title = "Добавим виджет?",
-            sub = "Так валентинки будут появляться прямо на рабочем столе",
+            title = if (manual) "Добавьте виджет вручную" else "Добавим виджет?",
+            sub = if (manual) {
+                "Система не смогла открыть диалог автоматически — на MIUI и ряде лаунчеров это норма"
+            } else {
+                "Так валентинки будут появляться прямо на рабочем столе"
+            },
         )
         Spacer(Modifier.height(24.dp))
 
@@ -428,47 +437,81 @@ private fun WidgetPinScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            WidgetPreview(partnerName = partnerName)
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = {
-                    val success = appWidgetManager.requestPinAppWidget(componentName, null, null)
-                    if (success) {
-                        onDone(true)
-                    } else {
-                        onDone(true)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(46.dp),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentAndroid,
-                    contentColor = Color(0xFF0F2417),
-                ),
-            ) { Text("Добавить на рабочий стол", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
-            Spacer(Modifier.height(8.dp))
-            Text("откроется системный диалог лаунчера", fontSize = 11.sp, color = TextFaint)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Уже добавили? Закройте виджет-меню и нажмите",
-                fontSize = 11.sp,
-                color = TextFaint,
-            )
-            Text(
-                "«Я добавил(а)» ниже",
-                fontSize = 11.sp,
-                color = TextFaint,
-            )
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = { onDone(true) },
-                modifier = Modifier.fillMaxWidth().height(46.dp),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White.copy(alpha = 0.06f),
-                    contentColor = TextMuted,
-                ),
-            ) { Text("Я добавил(а) виджет") }
+            if (manual) {
+                Text(
+                    "1. Зажмите пустое место на рабочем столе\n" +
+                        "2. Выберите «Виджеты»\n" +
+                        "3. Найдите «Валентинки» и перетащите на стол\n" +
+                        "\nПосле этого вернитесь в приложение",
+                    fontSize = 14.sp,
+                    color = TextCream,
+                    lineHeight = 21.sp,
+                )
+                Spacer(Modifier.height(16.dp))
+                WidgetPreview(partnerName = partnerName)
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { onDone(true) },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentAndroid,
+                        contentColor = Color(0xFF0F2417),
+                    ),
+                ) { Text("Я добавил(а) виджет", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { manual = false },
+                    modifier = Modifier.fillMaxWidth().height(42.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.06f),
+                        contentColor = TextMuted,
+                    ),
+                ) { Text("Вернуться к авто-добавлению") }
+            } else {
+                WidgetPreview(partnerName = partnerName)
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        val success = appWidgetManager.requestPinAppWidget(componentName, null, null)
+                        if (success) {
+                            onDone(true)
+                        } else {
+                            manual = true
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentAndroid,
+                        contentColor = Color(0xFF0F2417),
+                    ),
+                ) { Text("Добавить на рабочий стол", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
+                Spacer(Modifier.height(8.dp))
+                Text("откроется системный диалог лаунчера", fontSize = 11.sp, color = TextFaint)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Уже добавили? Закройте виджет-меню и нажмите",
+                    fontSize = 11.sp,
+                    color = TextFaint,
+                )
+                Text(
+                    "«Я добавил(а)» ниже",
+                    fontSize = 11.sp,
+                    color = TextFaint,
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { onDone(true) },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.06f),
+                        contentColor = TextMuted,
+                    ),
+                ) { Text("Я добавил(а) виджет") }
+            }
         }
     }
 }
@@ -518,7 +561,10 @@ private fun WidgetPreview(partnerName: String?) {
 }
 
 @Composable
-private fun SetupDoneScreen() {
+private fun SetupDoneScreen(
+    pushEnabled: Boolean,
+    onTogglePush: (Boolean) -> Unit,
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -534,5 +580,31 @@ private fun SetupDoneScreen() {
             color = TextMuted,
             modifier = Modifier.width(260.dp),
         )
+        Spacer(Modifier.height(28.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(BgPanel2, RoundedCornerShape(20.dp))
+                .padding(16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Уведомления", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Уведомлять о новых валентинках",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextMuted,
+                    )
+                }
+                Switch(
+                    checked = pushEnabled,
+                    onCheckedChange = onTogglePush,
+                )
+            }
+        }
     }
 }

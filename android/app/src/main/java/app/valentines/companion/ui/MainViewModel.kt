@@ -35,6 +35,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _bootLoading = MutableStateFlow(true)
     val bootLoading: StateFlow<Boolean> = _bootLoading.asStateFlow()
 
+    private val _pushGranted = MutableStateFlow(false)
+    val pushGranted: StateFlow<Boolean> = _pushGranted.asStateFlow()
+
+    private val _deviceId = MutableStateFlow<String?>(null)
+    val deviceId: StateFlow<String?> = _deviceId.asStateFlow()
+
     init {
         checkExistingPairing()
     }
@@ -43,13 +49,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val hasDevice = prefs.deviceId.first() != null
             val granted = prefs.isPushGranted()
-            val widget = prefs.isWidgetAdded()
+            _pushGranted.value = granted
+            _deviceId.value = prefs.getDeviceId()
             _bootLoading.value = false
             if (hasDevice) {
-                _state.value = if (granted && widget) PairingState.CompletedAll else PairingState.Paired(
-                    deviceId = prefs.getDeviceId().orEmpty(),
-                    partnerName = prefs.partnerName.first(),
-                )
+                _state.value = if (prefs.isSetupDone()) {
+                    PairingState.CompletedAll
+                } else {
+                    PairingState.Paired(
+                        deviceId = prefs.getDeviceId().orEmpty(),
+                        partnerName = prefs.partnerName.first(),
+                    )
+                }
             }
         }
     }
@@ -98,6 +109,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     DeviceStatusRequest(deviceId = state.deviceId, granted = granted)
                 )
                 prefs.setPushGranted(granted)
+                _pushGranted.value = granted
             } catch (_: Exception) {
             }
         }
@@ -113,7 +125,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 prefs.setWidgetAdded(added)
             } catch (_: Exception) {
             }
+            prefs.setSetupDone(true)
             _state.value = PairingState.CompletedAll
+        }
+    }
+
+    fun setPushEnabled(enabled: Boolean) {
+        val id = _deviceId.value ?: return
+        viewModelScope.launch {
+            try {
+                ApiClient.api.updatePermission(
+                    DeviceStatusRequest(deviceId = id, granted = enabled)
+                )
+            } catch (_: Exception) {
+                return@launch
+            }
+            prefs.setPushGranted(enabled)
+            _pushGranted.value = enabled
         }
     }
 }

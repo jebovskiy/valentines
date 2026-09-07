@@ -25,7 +25,11 @@ object Preferences {
     val LAST_MESSAGE = stringPreferencesKey("widget_message")
     val LAST_TYPE = stringPreferencesKey("widget_type")
     val LAST_SENT_AT = longPreferencesKey("widget_sent_at")
+    val SETUP_DONE = booleanPreferencesKey("setup_done")
 }
+
+internal val Context.valentinesStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>
+    get() = this.store
 
 class PrefsRepository(private val context: Context) {
 
@@ -55,6 +59,13 @@ class PrefsRepository(private val context: Context) {
     suspend fun setWidgetAdded(added: Boolean) {
         context.store.edit { it[Preferences.WIDGET_ADDED] = added }
     }
+
+    suspend fun setSetupDone(done: Boolean) {
+        context.store.edit { it[Preferences.SETUP_DONE] = done }
+    }
+
+    suspend fun isSetupDone(): Boolean =
+        context.store.data.first()[Preferences.SETUP_DONE] ?: false
 
     suspend fun getDeviceId(): String? = context.store.data.first()[Preferences.DEVICE_ID]
 
