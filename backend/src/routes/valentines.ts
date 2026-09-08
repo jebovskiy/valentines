@@ -6,6 +6,8 @@ import { config, isKnownAnimationType, isTestUser } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
 import { uploadValentinePhoto } from '../utils/storage';
 
+const MAX_PHOTO_BODY_BYTES = 10 * 1024 * 1024;
+
 const sendValentineSchema = z.object({
   animation_type: z.string(),
   message: z.string().max(500).optional().nullable(),
@@ -43,7 +45,7 @@ export async function valentinesRoutes(app: FastifyInstance) {
     return { valentine: { ...valentine, sender_name: senderName, is_own: isOwn } };
   });
 
-  app.post('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
+  app.post('/', { preHandler: requireTelegramAuth, bodyLimit: MAX_PHOTO_BODY_BYTES }, async (request, reply) => {
     const body = sendValentineSchema.parse(request.body);
 
     if (!isKnownAnimationType(body.animation_type)) {
