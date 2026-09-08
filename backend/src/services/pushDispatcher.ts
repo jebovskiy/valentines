@@ -1,5 +1,5 @@
-import { sendVisiblePush, sendDataPush, PushPayload } from './fcm';
-import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs } from './database';
+import { sendVisiblePush, sendDataPush, sendBothPushes, PushPayload } from './fcm';
+import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs, getDevicesByPair, Valentine } from './database';
 
 export interface PushDispatchPayload {
   valentine_id: string;
@@ -80,5 +80,53 @@ export async function retryPendingPushJobs(): Promise<void> {
       device_id: job.device_id,
       channel: job.channel,
     });
+  }
+}
+
+/**
+ * Sends both visible + data pushes for a freshly created valentine directly
+ * to every paired device, bypassing the DB trigger/push_jobs pipeline.
+ * Fired inline from the valentine creation route so the companion widget
+ * updates right away with the new valentine.
+ */
+export async function dispatchDirectValentinePushes(valentine: Valentine): Promise<void> {
+  let fromName = 'Партнер';
+  try {
+    const pairData = await getPairById(valentine.pair_id);
+    if (pairData) fromName = senderName(pairData, valentine.sender_telegram_id);
+  } catch (error) {
+    console.error('Direct push: failed to load pair', error);
+  }
+
+  let devices;
+  try {
+    devices = await getDevicesByPair(valentine.pair_id);
+  } catch (error) {
+    console.error('Direct push: failed to load devices', error);
+    return;
+  }
+
+  const payload: PushPayload = {
+    valentine_id: valentine.id,
+    from_name: fromName,
+    animation_type: valentine.animation_type,
+    sent_at: valentine.sent_at,
+    message: valentine.message || undefined,
+    photo_url: valentine.photo_url || undefined,
+  };
+
+  for (const device of devices) {
+    if (!device.push_permission_granted || !device.push_token) continue;
+    try {
+      const { visible, data } = await sendBothPushes(device.push_token, payload);
+      if (visible.success || data.success) {
+        await markValentineDelivered(valentine.id).catch(() => undefined);
+        console.log(`Direct push sent to device ${device.id} (visible:${visible.success}, data:${data.success})`);
+      } else {
+        console.error(`Direct push failed for device ${device.id}`, { visible: visible.error, data: data.error });
+      }
+    } catch (error) {
+      console.error(`Direct push error for device ${device.id}:`, error);
+    }
   }
 }

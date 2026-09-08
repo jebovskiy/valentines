@@ -33,11 +33,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -141,7 +144,70 @@ fun ValentinesAppScreen(
                 }
             }
         }
+
+        UpdateDialog(
+            updateAvailable = viewModel.updateAvailable.collectAsState().value,
+            installing = viewModel.updateInstalling.collectAsState().value,
+            failed = viewModel.updateFailed.collectAsState().value,
+            onInstall = viewModel::startUpdate,
+            onDismiss = viewModel::dismissUpdate,
+        )
     }
+}
+
+@Composable
+private fun UpdateDialog(
+    updateAvailable: app.valentines.companion.data.UpdateInfo?,
+    installing: Boolean,
+    failed: Boolean,
+    onInstall: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val info = updateAvailable ?: return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1E1119),
+        titleContentColor = TextCream,
+        textContentColor = TextMuted,
+        title = { Text("Доступно обновление", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+        text = {
+            if (failed) {
+                Column {
+                    Text("Не удалось скачать файл.Проверьте интернет.")
+                    Spacer(Modifier.height(14.dp))
+                    Text("Версия ${info.versionName ?: "v" + info.versionCode}, можно попробовать ещё раз.", fontSize = 12.sp)
+                }
+            } else {
+                Column {
+                    Text("Вышла новая версия ${info.versionName ?: "v" + info.versionCode}. Обновитесь, чтобы получать валентинки и улучшения.")
+                    if (installing) {
+                        Spacer(Modifier.height(18.dp))
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(8.dp))
+                        Text("Скачивание…", fontSize = 12.sp, color = TextFaint)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (installing) {
+                TextButton(onClick = {}) { Text("Скачивание…", color = TextFaint) }
+            } else {
+                Button(
+                    onClick = onInstall,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AccentCoral,
+                        contentColor = Color(0xFF2A0F0C),
+                    ),
+                ) { Text("Обновить", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
+            }
+        },
+        dismissButton = {
+            if (!installing) {
+                TextButton(onClick = onDismiss) { Text("Позже", color = TextFaint) }
+            }
+        },
+    )
 }
 
 @Composable

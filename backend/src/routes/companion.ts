@@ -2,6 +2,49 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { updateDevicePushToken, updateDevicePushPermission, updateDeviceWidgetAdded, getDeviceById, getValentinesByPair, getPairById } from '../services/database';
 
+const GITHUB_REPO = process.env.GITHUB_REPO || 'jebovskiy/valentines';
+const RELEASE_CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface ReleaseInfo {
+  version_code: number;
+  version_name: string;
+  download_url: string;
+}
+
+let releaseCache: { at: number; info: ReleaseInfo | null } | null = null;
+
+async function getLatestRelease(): Promise<ReleaseInfo | null> {
+  if (releaseCache && Date.now() - releaseCache.at < RELEASE_CACHE_TTL_MS) {
+    return releaseCache.info;
+  }
+
+  releaseCache = { at: Date.now(), info: null };
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+      headers: { accept: 'application/vnd.github+json', 'user-agent': 'valentines-backend' },
+    });
+    if (!res.ok) return null;
+
+    const release = (await res.json()) as {
+      tag_name?: string;
+      assets?: { name: string; browser_download_url: string }[];
+    };
+    const versionCode = parseInt((release.tag_name || '').replace(/^v/, ''), 10);
+    const apk = (release.assets || []).find((asset) => asset.name.toLowerCase().endsWith('.apk'));
+    if (!Number.isFinite(versionCode) || !apk) return null;
+
+    releaseCache.info = {
+      version_code: versionCode,
+      version_name: release.tag_name || `v${versionCode}`,
+      download_url: apk.browser_download_url,
+    };
+    return releaseCache.info;
+  } catch (error) {
+    console.error('Failed to fetch latest release:', error);
+    return null;
+  }
+}
+
 const pushTokenSchema = z.object({
   device_id: z.string().uuid(),
   push_token: z.string().min(10),
@@ -71,5 +114,13 @@ export async function companionRoutes(app: FastifyInstance) {
         sent_at: valentine.sent_at,
       },
     };
+  });
+
+  app.get('/update', async (_request, reply) => {
+    const info = await getLatestRelease();
+    if (!info) {
+      return reply.code(404).send({ update: null });
+    }
+    return { update: info };
   });
 }

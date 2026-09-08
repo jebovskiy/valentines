@@ -8,6 +8,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
 
@@ -53,6 +54,16 @@ data class LatestValentineResponse(
     @Json(name = "valentine") val valentine: LatestValentineData?,
 )
 
+data class UpdateInfo(
+    @Json(name = "version_code") val versionCode: Int,
+    @Json(name = "version_name") val versionName: String?,
+    @Json(name = "download_url") val downloadUrl: String,
+)
+
+data class UpdateResponse(
+    @Json(name = "update") val update: UpdateInfo?,
+)
+
 interface ValentinesApi {
     @POST("/api/pairs/pairing/complete")
     suspend fun completePairing(@Body body: CompletePairingRequest): CompletePairingResponse
@@ -68,6 +79,9 @@ interface ValentinesApi {
 
     @POST("/api/companion/latest-valentine")
     suspend fun latestValentine(@Body body: LatestValentineRequest): LatestValentineResponse
+
+    @GET("/api/companion/update")
+    suspend fun getUpdate(): UpdateResponse
 }
 
 object ApiClient {

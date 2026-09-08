@@ -4,6 +4,7 @@ import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen,
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { config, isKnownAnimationType, isTestUser } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
+import { dispatchDirectValentinePushes } from '../services/pushDispatcher';
 import { uploadValentinePhoto } from '../utils/storage';
 
 const MAX_PHOTO_BODY_BYTES = 10 * 1024 * 1024;
@@ -66,6 +67,12 @@ export async function valentinesRoutes(app: FastifyInstance) {
     }
 
     const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null, photoUrl);
+
+    // Notify the companion widget right away: pushes are dispatched inline
+    // (independent of the DB trigger / push_jobs pipeline).
+    void dispatchDirectValentinePushes(valentine).catch((e) => {
+      app.log.error('Direct push dispatch failed:', e);
+    });
 
     // Notify the recipient: partner by default, or the sender himself when testing (recipient === 'self')
     const recipientId =

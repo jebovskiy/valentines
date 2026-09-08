@@ -3,10 +3,14 @@ package app.valentines.companion.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.valentines.companion.BuildConfig
 import app.valentines.companion.data.ApiClient
 import app.valentines.companion.data.CompletePairingRequest
 import app.valentines.companion.data.DeviceStatusRequest
 import app.valentines.companion.data.PrefsRepository
+import app.valentines.companion.data.UpdateInfo
+import app.valentines.companion.data.UpdateInstaller
+import app.valentines.companion.widget.refreshWidgetData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +45,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _deviceId = MutableStateFlow<String?>(null)
     val deviceId: StateFlow<String?> = _deviceId.asStateFlow()
 
+    private val _updateAvailable = MutableStateFlow<UpdateInfo?>(null)
+    val updateAvailable: StateFlow<UpdateInfo?> = _updateAvailable.asStateFlow()
+
+    private val _updateInstalling = MutableStateFlow(false)
+    val updateInstalling: StateFlow<Boolean> = _updateInstalling.asStateFlow()
+
+    private val _updateFailed = MutableStateFlow(false)
+    val updateFailed: StateFlow<Boolean> = _updateFailed.asStateFlow()
+
     init {
         checkExistingPairing()
     }
@@ -53,7 +66,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _deviceId.value = prefs.getDeviceId()
             _bootLoading.value = false
             if (hasDevice) {
-                _state.value = if (prefs.isSetupDone()) {
+                val setupDone = prefs.isSetupDone()
+                _state.value = if (setupDone) {
                     PairingState.CompletedAll
                 } else {
                     PairingState.Paired(
@@ -61,8 +75,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         partnerName = prefs.partnerName.first(),
                     )
                 }
+                if (setupDone) {
+                    refreshWidgetNow()
+                }
+            }
+            checkForUpdate()
+        }
+    }
+
+    fun refreshWidgetNow() {
+        viewModelScope.launch {
+            refreshWidgetData(getApplication())
+        }
+    }
+
+    private fun checkForUpdate() {
+        viewModelScope.launch {
+            try {
+                val response = ApiClient.api.getUpdate()
+                val info = response.update ?: return@launch
+                if (info.versionCode > BuildConfig.VERSION_CODE) {
+                    _updateAvailable.value = info
+                }
+            } catch (_: Exception) {
             }
         }
+    }
+
+    fun startUpdate() {
+        val info = _updateAvailable.value ?: return
+        if (_updateInstalling.value) return
+        viewModelScope.launch {
+            _updateInstalling.value = true
+            _updateFailed.value = false
+            val apk = UpdateInstaller.download(info.downloadUrl, getApplication())
+            _updateInstalling.value = false
+            if (apk == null) {
+                _updateFailed.value = true
+                return@launch
+            }
+            val context = getApplication<android.app.Application>()
+            if (UpdateInstaller.canRequestInstalls(context)) {
+                UpdateInstaller.install(context, apk)
+            } else {
+                UpdateInstaller.openInstallSettings(context)
+            }
+        }
+    }
+
+    fun dismissUpdate() {
+        _updateAvailable.value = null
     }
 
     fun startPairing(token: String) {
