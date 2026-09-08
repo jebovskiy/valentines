@@ -5,6 +5,7 @@ import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram'
 import { BackButton } from '../components/BackButton';
 import { AppleEmoji } from '../components/AppleEmoji';
 import { getAnimation, ValentineWithSender } from '../types';
+import { formatDateTime } from '../utils/date';
 
 export function DeepValentineScreen() {
   const { id } = useParams<{ id: string }>();
@@ -85,7 +86,7 @@ export function DeepValentineScreen() {
   }
 
   const anim = getAnimation(valentine.animation_type);
-  const senderLabel = valentine.is_own ? 'вы' : valentine.sender_name;
+  const senderLabel = valentine.is_own ? 'Вы' : valentine.sender_name;
   const timeDate = formatDateTime(valentine.sent_at);
   const gradient = animationGradient(valentine.animation_type);
 
@@ -109,7 +110,7 @@ export function DeepValentineScreen() {
                 {valentine.message || anim.label}
               </div>
               <div style={styles.receivedTime}>
-                {isTodayThenTime(valentine.sent_at) ? `сегодня, ${timeDate}` : timeDate}
+                {timeDate}
               </div>
             </div>
           </div>
@@ -140,19 +141,6 @@ function animationGradient(type: string): string {
     default:
       return 'var(--grad-heart)';
   }
-}
-
-function isTodayThenTime(iso: string): boolean {
-  const d = new Date(iso);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
 }
 
 const styles: Record<string, React.CSSProperties> = {

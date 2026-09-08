@@ -6,6 +6,7 @@ import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
 import { AppleEmoji } from '../components/AppleEmoji';
 import { getAnimation } from '../types';
 import { api } from '../api/client';
+import { formatFeedTime } from '../utils/date';
 
 export function ListScreen() {
   const { valentines, isLoading, error, fetchValentines, refreshValentines, markSeen, pair, checkPair, createInvite, joinInvite, profile, androidPaired, refreshPairingStatus } = useValentinesStore();
@@ -134,7 +135,7 @@ export function ListScreen() {
             )}
           </button>
         </div>
-        <div style={styles.feedSub}>вы и {partner} · {days} {formatDays(days)} вместе</div>
+        <div style={styles.feedSub}>Вы и {partner} · {days} {formatDays(days)} вместе</div>
       </header>
 
       {feed.length > 0 ? (
@@ -243,16 +244,16 @@ function ValentineCard({ valentine, isTall, onPress }: { valentine: any; isTall:
           {valentine.message}
         </div>
       )}
-      <div style={!tall ? styles.feedMetaBottom : styles.feedMetaTop}>
+      <div style={styles.feedMetaRow}>
         <span style={styles.overlayPill}>{senderLabel}</span>
         <span style={styles.overlayPill}>{formatFeedTime(valentine.sent_at)}</span>
+        {isUnread && <span style={styles.overlayPillAccent}>новое</span>}
+        {valentine.is_own && (
+          <span style={valentine.seen_at ? styles.overlayPillMuted : styles.overlayPillAccent}>
+            {valentine.seen_at ? '✓ прочитано' : 'не прочитано'}
+          </span>
+        )}
       </div>
-      {isUnread && <span style={styles.feedNewPill}>новое</span>}
-      {valentine.is_own && (
-        <span style={valentine.seen_at ? styles.feedReadPill : styles.feedUnreadPill}>
-          {valentine.seen_at ? '✓ прочитано' : 'не прочитано'}
-        </span>
-      )}
     </Link>
   );
 }
@@ -268,29 +269,6 @@ function animationGradient(type: string): string {
     default:
       return 'var(--grad-heart)';
   }
-}
-
-function formatFeedTime(iso: string): string {
-  const date = new Date(iso);
-  const now = new Date();
-
-  const isSameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-  if (isSameDay) {
-    const hh = String(date.getHours()).padStart(2, '0');
-    const mm = String(date.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  }
-
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
-  if (diffDays === 1) return 'вчера';
-
-  const weekdayNames = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
-  if (diffDays < 7) return weekdayNames[date.getDay()];
-
-  return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
 function CreatePairForm({
@@ -567,21 +545,14 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     wordBreak: 'break-word',
   },
-  feedMetaTop: {
+  feedMetaRow: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     width: '100%',
     gap: '6px',
     flexWrap: 'wrap',
-  },
-  feedMetaBottom: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    gap: '6px',
-    flexWrap: 'wrap',
+    marginTop: 'auto',
   },
   overlayPill: {
     background: 'var(--canvas)',
@@ -594,41 +565,24 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
   },
-  feedNewPill: {
-    position: 'absolute',
-    top: '12px',
-    right: '12px',
+  overlayPillAccent: {
     background: 'var(--canvas)',
     color: 'var(--primary)',
     fontSize: '10px',
     fontWeight: '700',
     lineHeight: 1.3,
+    letterSpacing: '0.01em',
     padding: '5px 10px',
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
   },
-  feedReadPill: {
-    position: 'absolute',
-    bottom: '12px',
-    right: '12px',
+  overlayPillMuted: {
     background: 'var(--canvas)',
     color: 'var(--mute)',
     fontSize: '10px',
     fontWeight: '600',
     lineHeight: 1.3,
-    padding: '5px 10px',
-    borderRadius: '9999px',
-    fontFamily: 'var(--font-body)',
-  },
-  feedUnreadPill: {
-    position: 'absolute',
-    bottom: '12px',
-    right: '12px',
-    background: 'var(--canvas)',
-    color: 'var(--ash)',
-    fontSize: '10px',
-    fontWeight: '600',
-    lineHeight: 1.3,
+    letterSpacing: '0.01em',
     padding: '5px 10px',
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
