@@ -26,6 +26,7 @@ object Preferences {
     val LAST_TYPE = stringPreferencesKey("widget_type")
     val LAST_SENT_AT = longPreferencesKey("widget_sent_at")
     val LAST_PHOTO_URL = stringPreferencesKey("widget_photo_url")
+    val LAST_VALENTINE_ID = stringPreferencesKey("widget_valentine_id")
     val SETUP_DONE = booleanPreferencesKey("setup_done")
 }
 
@@ -76,13 +77,14 @@ class PrefsRepository(private val context: Context) {
     suspend fun isWidgetAdded(): Boolean =
         context.store.data.first()[Preferences.WIDGET_ADDED] ?: false
 
-    suspend fun saveLastValentine(from: String, message: String?, type: String, sentAtMillis: Long, photoUrl: String? = null) {
+    suspend fun saveLastValentine(from: String, message: String?, type: String, sentAtMillis: Long, photoUrl: String? = null, valentineId: String? = null) {
         context.store.edit { prefs ->
             prefs[Preferences.LAST_FROM] = from
             putNullable(prefs, Preferences.LAST_MESSAGE, message)
             prefs[Preferences.LAST_TYPE] = type
             prefs[Preferences.LAST_SENT_AT] = sentAtMillis
             putNullable(prefs, Preferences.LAST_PHOTO_URL, photoUrl)
+            putNullable(prefs, Preferences.LAST_VALENTINE_ID, valentineId)
         }
     }
 
@@ -95,6 +97,8 @@ class PrefsRepository(private val context: Context) {
     val lastType: Flow<String?> = context.store.data.map { it[Preferences.LAST_TYPE] }
     val lastSentAt: Flow<Long?> = context.store.data.map { it[Preferences.LAST_SENT_AT] }
     val partnerName: Flow<String?> = context.store.data.map { it[Preferences.PARTNER_NAME] }
+
+    suspend fun getLastValentineId(): String? = context.store.data.first()[Preferences.LAST_VALENTINE_ID]
 
     suspend fun isPairingComplete(): Boolean = deviceId.first() != null
 }

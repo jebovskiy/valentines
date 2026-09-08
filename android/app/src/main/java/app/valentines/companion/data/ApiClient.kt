@@ -36,6 +36,23 @@ data class SimpleResponse(
     @Json(name = "success") val success: Boolean = false,
 )
 
+data class LatestValentineRequest(
+    @Json(name = "device_id") val deviceId: String,
+)
+
+data class LatestValentineData(
+    @Json(name = "id") val id: String,
+    @Json(name = "from_name") val fromName: String?,
+    @Json(name = "animation_type") val animationType: String?,
+    @Json(name = "message") val message: String?,
+    @Json(name = "photo_url") val photoUrl: String?,
+    @Json(name = "sent_at") val sentAt: String?,
+)
+
+data class LatestValentineResponse(
+    @Json(name = "valentine") val valentine: LatestValentineData?,
+)
+
 interface ValentinesApi {
     @POST("/api/pairs/pairing/complete")
     suspend fun completePairing(@Body body: CompletePairingRequest): CompletePairingResponse
@@ -48,6 +65,9 @@ interface ValentinesApi {
 
     @POST("/api/companion/widget")
     suspend fun updateWidget(@Body body: DeviceStatusRequest): SimpleResponse
+
+    @POST("/api/companion/latest-valentine")
+    suspend fun latestValentine(@Body body: LatestValentineRequest): LatestValentineResponse
 }
 
 object ApiClient {

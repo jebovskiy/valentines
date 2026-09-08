@@ -70,7 +70,7 @@ export interface ThemeParams {
 export interface BackButton {
   isVisible: boolean;
   onClick: (callback: () => void) => void;
-  offClick: (callback: () => void) => void;
+  offClick: (callback?: () => void) => void;
   show: () => void;
   hide: () => void;
 }
@@ -169,6 +169,7 @@ export function hideMainButton(): void {
 
 export function setBackButton(visible: boolean, onClick?: () => void): void {
   if (!webApp?.BackButton) return;
+  webApp.BackButton.offClick();
   if (visible) {
     webApp.BackButton.show();
     if (onClick) webApp.BackButton.onClick(onClick);

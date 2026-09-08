@@ -1,6 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { initTelegramWebApp, applyTheme, getTelegramUser } from './utils/telegram';
+import { initTelegramWebApp, applyTheme, getTelegramUser, webApp, setBackButton } from './utils/telegram';
 import { useValentinesStore } from './hooks/useValentinesStore';
 import { Layout } from './components/Layout';
 import { ListScreen } from './screens/ListScreen';
@@ -62,6 +62,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <BackCloseHandler />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<ListScreen />} />
@@ -79,6 +80,32 @@ function App() {
       </Routes>
     </BrowserRouter>
   );
+}
+
+function BackCloseHandler() {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Android system back / Telegram navigation goes through the browser history.
+    // On the entry screen (key === 'default') a back press should close the mini app.
+    const onPopState = () => {
+      if (location.key === 'default') {
+        webApp?.close();
+        return;
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [location.key]);
+
+  useEffect(() => {
+    // В главном меню показываем системную кнопку "назад" так, чтобы она закрывала мини-апп.
+    if (location.pathname === '/') {
+      setBackButton(true, () => webApp?.close());
+    }
+  }, [location.pathname]);
+
+  return null;
 }
 
 export default App;

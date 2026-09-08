@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
+import { PhotoLightbox } from '../components/PhotoLightbox';
 import { AppleEmoji } from '../components/AppleEmoji';
 import { getAnimation, ValentineWithSender } from '../types';
 import { formatDateTime } from '../utils/date';
@@ -13,13 +14,18 @@ export function DeepValentineScreen() {
   const [valentine, setValentine] = useState<ValentineWithSender | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [isAnimating, setIsAnimating] = useState(true);
+  const [lightbox, setLightbox] = useState(false);
 
   useEffect(() => {
     setMainButton({ isVisible: false });
     setBackButton(true, () => {
+      if (lightbox) {
+        setLightbox(false);
+        return;
+      }
       navigate('/', { replace: true });
     });
-  }, [navigate]);
+  }, [navigate, lightbox]);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,8 +113,14 @@ export function DeepValentineScreen() {
             <div style={styles.cardContent}>
               <div style={styles.overlayPill}>от {senderLabel}</div>
               {valentine.photo_url ? (
-                <div style={styles.msgPhoto}>
-                  <img src={valentine.photo_url} alt="Фото" style={styles.msgPhotoImg} />
+                <div
+                  style={styles.msgPhoto}
+                  onClick={() => {
+                    hapticFeedback('impact', 'light');
+                    setLightbox(true);
+                  }}
+                >
+                  <img src={valentine.photo_url} alt="Фото валентинки" style={styles.msgPhotoImg} />
                 </div>
               ) : (
                 <div style={styles.msgBox}>
@@ -132,6 +144,10 @@ export function DeepValentineScreen() {
           </button>
         </div>
       </div>
+
+      {lightbox && valentine.photo_url && (
+        <PhotoLightbox src={valentine.photo_url} onClose={() => setLightbox(false)} />
+      )}
     </div>
   );
 }
@@ -285,6 +301,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '16px',
     overflow: 'hidden',
     background: 'var(--canvas)',
+    cursor: 'pointer',
   },
   msgPhotoImg: {
     width: '100%',

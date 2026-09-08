@@ -1,8 +1,10 @@
 package app.valentines.companion.widget
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -14,6 +16,7 @@ import androidx.glance.BitmapImageProvider
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
+import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.cornerRadius
@@ -38,12 +41,16 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
+private const val BOT_USERNAME = "pairvalentine_bot"
+private const val DEEP_LINK_TEMPLATE = "https://t.me/$BOT_USERNAME?startapp=v_%s"
+
 object WidgetKeys {
     val LAST_FROM = stringPreferencesKey("widget_from")
     val LAST_MESSAGE = stringPreferencesKey("widget_message")
     val LAST_TYPE = stringPreferencesKey("widget_type")
     val LAST_SENT_AT = longPreferencesKey("widget_sent_at")
     val LAST_PHOTO_URL = stringPreferencesKey("widget_photo_url")
+    val LAST_VALENTINE_ID = stringPreferencesKey("widget_valentine_id")
 }
 
 data class WidgetData(
@@ -52,6 +59,7 @@ data class WidgetData(
     val type: String?,
     val sentAt: Long?,
     val photoUrl: String?,
+    val valentineId: String?,
 )
 
 class ValentineWidget : GlanceAppWidget() {
@@ -66,9 +74,10 @@ class ValentineWidget : GlanceAppWidget() {
             type = prefs[WidgetKeys.LAST_TYPE],
             sentAt = prefs[WidgetKeys.LAST_SENT_AT],
             photoUrl = photoUrl,
+            valentineId = prefs[WidgetKeys.LAST_VALENTINE_ID],
         )
         provideContent {
-            WidgetContent(data = data, photo = bitmap)
+            WidgetContent(data = data, photo = bitmap, context = context)
         }
     }
 
@@ -98,13 +107,15 @@ class ValentineWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun WidgetContent(data: WidgetData, photo: Bitmap?) {
+    private fun WidgetContent(data: WidgetData, photo: Bitmap?, context: Context) {
+        val deepLink = data.valentineId?.let { String.format(DEEP_LINK_TEMPLATE, it) }
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(Color(0xFF34172E))
                 .cornerRadius(20.dp)
-                .padding(14.dp),
+                .padding(14.dp)
+                .clickable { openDeepLink(context, deepLink) },
             verticalAlignment = Alignment.CenterVertically,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -149,6 +160,13 @@ class ValentineWidget : GlanceAppWidget() {
                 ),
             )
         }
+    }
+
+    private fun openDeepLink(context: Context, deepLink: String?) {
+        if (deepLink == null) return
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
     }
 }
 

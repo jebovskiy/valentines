@@ -29,6 +29,7 @@ class ValentinesMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
         val data = message.data
+        val valentineId = data["valentine_id"]
         val fromName = data["from_name"]
         val animationType = data["animation_type"]
         val messageText = data["message"]
@@ -46,6 +47,7 @@ class ValentinesMessagingService : FirebaseMessagingService() {
                     type = animationType ?: "heart_open",
                     sentAtMillis = sentAtMillis ?: System.currentTimeMillis(),
                     photoUrl = photoUrl,
+                    valentineId = valentineId,
                 )
             }
 

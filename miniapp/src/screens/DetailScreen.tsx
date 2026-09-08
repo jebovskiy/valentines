@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
+import { PhotoLightbox } from '../components/PhotoLightbox';
 import { AppleEmoji } from '../components/AppleEmoji';
 import { getAnimation } from '../types';
 import { formatDateTime } from '../utils/date';
@@ -14,15 +15,16 @@ export function DetailScreen() {
 
   const valentine = valentines.find((v) => v.id === id);
   const [isAnimating, setIsAnimating] = useState(true);
+  const [lightbox, setLightbox] = useState(false);
 
   useEffect(() => {
     setMainButton({ isVisible: false });
-    setBackButton(true, () => navigate(-1));
+    setBackButton(true, () => (lightbox ? setLightbox(false) : navigate(-1)));
 
     if (valentine && !valentine.is_own && !valentine.seen_at) {
       markSeen(valentine.id);
     }
-  }, [navigate, valentine]);
+  }, [navigate, valentine, lightbox]);
 
   useEffect(() => {
     if (valentine) {
@@ -68,8 +70,14 @@ export function DetailScreen() {
           <div style={styles.cardContent}>
             <div style={styles.overlayPill}>от {senderLabel}</div>
             {valentine.photo_url ? (
-              <div style={styles.msgPhoto}>
-                <img src={valentine.photo_url} alt="Фото" style={styles.msgPhotoImg} />
+              <div
+                style={styles.msgPhoto}
+                onClick={() => {
+                  hapticFeedback('impact', 'light');
+                  setLightbox(true);
+                }}
+              >
+                <img src={valentine.photo_url} alt="Фото валентинки" style={styles.msgPhotoImg} />
               </div>
             ) : (
               <div style={styles.msgBox}>
@@ -97,6 +105,10 @@ export function DetailScreen() {
           {valentine.is_own ? 'Отправить ещё' : 'Ответить'}
         </button>
       </div>
+
+      {lightbox && valentine.photo_url && (
+        <PhotoLightbox src={valentine.photo_url} onClose={() => setLightbox(false)} />
+      )}
     </div>
   );
 }
@@ -221,6 +233,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '16px',
     overflow: 'hidden',
     background: 'var(--canvas)',
+    cursor: 'pointer',
   },
   msgPhotoImg: {
     width: '100%',
