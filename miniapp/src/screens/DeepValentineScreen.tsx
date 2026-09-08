@@ -106,9 +106,15 @@ export function DeepValentineScreen() {
             </div>
             <div style={styles.cardContent}>
               <div style={styles.overlayPill}>от {senderLabel}</div>
-              <div style={styles.msgBox}>
-                {valentine.message || anim.label}
-              </div>
+              {valentine.photo_url ? (
+                <div style={styles.msgPhoto}>
+                  <img src={valentine.photo_url} alt="Фото" style={styles.msgPhotoImg} />
+                </div>
+              ) : (
+                <div style={styles.msgBox}>
+                  {valentine.message || anim.label}
+                </div>
+              )}
               <div style={styles.receivedTime}>
                 {timeDate}
               </div>
@@ -273,6 +279,18 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.25,
     letterSpacing: '-0.5px',
     color: 'var(--ink)',
+  },
+  msgPhoto: {
+    width: '100%',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    background: 'var(--canvas)',
+  },
+  msgPhotoImg: {
+    width: '100%',
+    maxHeight: '340px',
+    objectFit: 'contain',
+    display: 'block',
   },
   receivedTime: {
     fontFamily: 'var(--font-body)',

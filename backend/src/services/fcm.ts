@@ -21,6 +21,7 @@ export interface PushPayload {
   animation_type: string;
   sent_at: string;
   message?: string;
+  photo_url?: string;
 }
 
 export interface SendResult {
@@ -43,6 +44,8 @@ export async function sendVisiblePush(token: string, payload: PushPayload): Prom
         animation_type: payload.animation_type,
         sent_at: payload.sent_at,
         type: 'visible',
+        ...(payload.message !== undefined ? { message: payload.message } : {}),
+        ...(payload.photo_url ? { photo_url: payload.photo_url } : {}),
       },
       android: {
         priority: 'high' as const,
@@ -79,6 +82,8 @@ export async function sendDataPush(token: string, payload: PushPayload): Promise
         animation_type: payload.animation_type,
         sent_at: payload.sent_at,
         type: 'data',
+        ...(payload.message !== undefined ? { message: payload.message } : {}),
+        ...(payload.photo_url ? { photo_url: payload.photo_url } : {}),
       },
       android: {
         priority: 'high' as const,

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
@@ -7,16 +7,29 @@ import { AppleEmoji } from '../components/AppleEmoji';
 import { ANIMATIONS, AnimationType, TEST_TELEGRAM_ID } from '../types';
 
 const MAX_MESSAGE_LENGTH = 500;
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export function SendScreen() {
   const navigate = useNavigate();
   const { sendValentine, currentUser, pair } = useValentinesStore();
   const [message, setMessage] = useState('');
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [mode, setMode] = useState<'text' | 'photo'>('text');
   const [animationType, setAnimationType] = useState<AnimationType>('heart_open');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [charCount, setCharCount] = useState(0);
   const [recipient, setRecipient] = useState<'partner' | 'self'>('partner');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const partner = partnerName(pair, currentUser?.id ?? null);
   const isTestUser = currentUser?.id === TEST_TELEGRAM_ID;
@@ -30,14 +43,53 @@ export function SendScreen() {
     setCharCount(message.length);
   }, [message]);
 
+  const handleFile = (file: File | undefined | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Выберите изображение (JPG, PNG или WebP)');
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError('Фото больше 5 МБ. Выберите другое.');
+      return;
+    }
+    setError(null);
+    fileToBase64(file)
+      .then((dataUrl) => {
+        setPhotoBase64(dataUrl);
+        setMode('photo');
+      })
+      .catch(() => setError('Не удалось прочитать файл'));
+  };
+
   const handleSend = async () => {
     if (isSending) return;
+
+    let effectivePayload: { message: string | null; photo: string | null } = { message: null, photo: null };
+    if (mode === 'photo') {
+      if (!photoBase64) {
+        setError('Добавьте фото');
+        return;
+      }
+      effectivePayload = { message: null, photo: photoBase64 };
+    } else {
+      if (!message.trim()) {
+        setError('Введите текст или добавьте фото');
+        return;
+      }
+      effectivePayload = { message: message.trim(), photo: null };
+    }
 
     hapticFeedback('impact', 'medium');
     setIsSending(true);
     setError(null);
 
-    const valentine = await sendValentine(animationType, message.trim() || null, isTestUser ? recipient : 'partner');
+    const valentine = await sendValentine(
+      animationType,
+      effectivePayload.message,
+      isTestUser ? recipient : 'partner',
+      effectivePayload.photo
+    );
 
     setIsSending(false);
     if (valentine) {
@@ -60,7 +112,7 @@ export function SendScreen() {
       <BackButton to="/" />
       <header style={styles.header}>
         <h1 style={styles.title}>Отправить {partner}</h1>
-        <p style={styles.subtitle}>выбери анимацию и добавь пару слов</p>
+        <p style={styles.subtitle}>выбери анимацию и добавь фото или текст</p>
       </header>
 
       {isTestUser && (
@@ -104,32 +156,90 @@ export function SendScreen() {
         })}
       </div>
 
-      <div style={styles.composeCard}>
-        <div style={styles.composePreview}>
-          <span style={styles.composePreviewTag}>{ANIMATIONS.find((a) => a.type === animationType)!.label}</span>
-          <div style={styles.composePreviewEmoji}>
-            <AppleEmoji emoji={ANIMATIONS.find((a) => a.type === animationType)!.emoji} size={22} />
+      <div style={styles.modeRow}>
+        <button
+          onClick={() => {
+            setMode('text');
+            setError(null);
+          }}
+          style={{
+            ...styles.modeChip,
+            background: mode === 'text' ? 'var(--ink)' : 'var(--surface-card)',
+            color: mode === 'text' ? 'var(--canvas)' : 'var(--ink)',
+          }}
+        >
+          Ｔекст
+        </button>
+        <button
+          onClick={() => {
+            setMode('photo');
+            setError(null);
+            if (!photoBase64) fileInputRef.current?.click();
+          }}
+          style={{
+            ...styles.modeChip,
+            background: mode === 'photo' ? 'var(--ink)' : 'var(--surface-card)',
+            color: mode === 'photo' ? 'var(--canvas)' : 'var(--ink)',
+          }}
+        >
+          📷 Фото
+        </button>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        style={{ display: 'none' }}
+        onChange={(e) => handleFile(e.target.files?.[0])}
+      />
+
+      {mode === 'text' ? (
+        <div style={styles.composeCard}>
+          <textarea
+            value={message}
+            onChange={handleMessageChange}
+            placeholder={`Скучаю. Вернись скорее…`}
+            style={styles.textarea}
+            maxLength={MAX_MESSAGE_LENGTH}
+            rows={5}
+            spellCheck={false}
+            autoComplete="off"
+            autoCapitalize="sentences"
+            disabled={isSending}
+          />
+          <div style={styles.charCounter}>
+            <span style={{ color: charCount > MAX_MESSAGE_LENGTH * 0.9 ? 'var(--primary)' : 'var(--text-secondary)' }}>
+              {charCount}
+            </span>
+            <span style={{ color: 'var(--text-secondary)' }}>/{MAX_MESSAGE_LENGTH}</span>
           </div>
         </div>
-        <textarea
-          value={message}
-          onChange={handleMessageChange}
-          placeholder={`Скучаю. Вернись скорее…`}
-          style={styles.textarea}
-          maxLength={MAX_MESSAGE_LENGTH}
-          rows={4}
-          spellCheck={false}
-          autoComplete="off"
-          autoCapitalize="sentences"
-          disabled={isSending}
-        />
-        <div style={styles.charCounter}>
-          <span style={{ color: charCount > MAX_MESSAGE_LENGTH * 0.9 ? 'var(--primary)' : 'var(--text-secondary)' }}>
-            {charCount}
-          </span>
-          <span style={{ color: 'var(--text-secondary)' }}>/{MAX_MESSAGE_LENGTH}</span>
+      ) : (
+        <div style={styles.photoCard}>
+          {photoBase64 ? (
+            <>
+              <img src={photoBase64} alt="Выбранное фото" style={styles.photoPreview} />
+              <button onClick={() => fileInputRef.current?.click()} style={styles.changePhotoBtn}>
+                Изменить фото
+              </button>
+              <button
+                onClick={() => {
+                  setPhotoBase64(null);
+                }}
+                style={styles.clearPhotoBtn}
+              >
+                Убрать фото
+              </button>
+            </>
+          ) : (
+            <button onClick={() => fileInputRef.current?.click()} style={styles.photoPicker}>
+              <span style={styles.photoPickerIcon}>📷</span>
+              <span>Выбрать фотографию</span>
+            </button>
+          )}
         </div>
-      </div>
+      )}
 
       {error && (
         <div style={styles.error} role="alert">
@@ -228,26 +338,81 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     overflow: 'hidden',
   },
-  composePreview: {
+  photoCard: {
+    marginTop: '22px',
+    borderRadius: '16px',
+    background: 'var(--canvas)',
+    border: '1px solid var(--ash)',
+    padding: '15px',
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: '8px',
+    gap: '12px',
+    overflow: 'hidden',
   },
-  composePreviewTag: {
-    backgroundColor: 'var(--canvas)',
+  photoPreview: {
+    width: '100%',
+    maxHeight: '300px',
+    objectFit: 'contain',
+    borderRadius: '12px',
+  },
+  photoPicker: {
+    width: '100%',
+    height: '140px',
+    borderRadius: '12px',
+    background: 'var(--surface-card)',
+    border: '1px dashed var(--ash)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
+    fontSize: '14px',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+  },
+  photoPickerIcon: {
+    fontSize: '36px',
+  },
+  changePhotoBtn: {
+    width: '100%',
+    height: '40px',
+    borderRadius: '16px',
+    background: 'var(--surface-card)',
     color: 'var(--ink)',
-    fontSize: '10px',
-    fontWeight: '500',
-    lineHeight: 1.3,
-    letterSpacing: '0.01em',
-    padding: '5px 10px',
-    borderRadius: '9999px',
-    fontFamily: 'var(--font-body)',
+    fontSize: '13px',
+    fontFamily: 'var(--font-display)',
+    fontWeight: '700',
     border: '1px solid var(--hairline)',
+    cursor: 'pointer',
   },
-  composePreviewEmoji: {
-    fontSize: '22px',
+  clearPhotoBtn: {
+    width: '100%',
+    height: '40px',
+    borderRadius: '16px',
+    background: 'transparent',
+    color: 'var(--mute)',
+    fontSize: '13px',
+    fontFamily: 'var(--font-display)',
+    fontWeight: '700',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  modeRow: {
+    display: 'flex',
+    gap: '8px',
+    marginTop: '16px',
+  },
+  modeChip: {
+    flex: 1,
+    height: '44px',
+    borderRadius: '16px',
+    fontSize: '14px',
+    fontWeight: '700',
+    fontFamily: 'var(--font-display)',
+    border: '1px solid var(--hairline)',
+    cursor: 'pointer',
+    lineHeight: '1.4',
   },
   textarea: {
     width: '100%',

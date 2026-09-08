@@ -45,6 +45,7 @@ export async function dispatchPush(payload: PushDispatchPayload): Promise<void> 
     animation_type: valentine.animation_type,
     sent_at: valentine.sent_at,
     message: valentine.message || undefined,
+    photo_url: valentine.photo_url || undefined,
   };
 
   try {

@@ -52,6 +52,7 @@ export interface Valentine {
   sender_telegram_id: number;
   animation_type: AnimationType;
   message: string | null;
+  photo_url: string | null;
   sent_at: string;
   delivered_at: string | null;
   seen_at: string | null;
@@ -73,6 +74,7 @@ export interface SendValentineRequest {
   animation_type: AnimationType;
   message?: string | null;
   recipient?: 'partner' | 'self';
+  photo_base64?: string | null;
 }
 
 export interface PairingInitResult {

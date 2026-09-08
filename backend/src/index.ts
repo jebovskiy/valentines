@@ -8,6 +8,7 @@ import { valentinesRoutes } from './routes/valentines';
 import { pushRoutes } from './routes/push';
 import { companionRoutes } from './routes/companion';
 import { usersRoutes } from './routes/users';
+import { ensureStorageBucket } from './utils/storage';
 
 const app = fastify({ logger: true });
 
@@ -17,6 +18,8 @@ async function start() {
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  await ensureStorageBucket();
 
   await app.register(pairsRoutes, { prefix: '/api/pairs' });
   await app.register(valentinesRoutes, { prefix: '/api/valentines' });

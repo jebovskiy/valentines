@@ -4,11 +4,13 @@ import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen,
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { config, isKnownAnimationType, isTestUser } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
+import { uploadValentinePhoto } from '../utils/storage';
 
 const sendValentineSchema = z.object({
   animation_type: z.string(),
   message: z.string().max(500).optional().nullable(),
   recipient: z.enum(['partner', 'self']).optional(),
+  photo_base64: z.string().max(8 * 1024 * 1024).optional().nullable(),
 });
 
 export async function valentinesRoutes(app: FastifyInstance) {
@@ -56,7 +58,12 @@ export async function valentinesRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'Pair not found' });
     }
 
-    const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null);
+    let photoUrl: string | null = null;
+    if (body.photo_base64) {
+      photoUrl = await uploadValentinePhoto(pair.id, body.photo_base64);
+    }
+
+    const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null, photoUrl);
 
     // Notify the recipient: partner by default, or the sender himself when testing (recipient === 'self')
     const recipientId =

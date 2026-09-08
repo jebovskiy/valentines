@@ -27,6 +27,7 @@ export interface Valentine {
   sender_telegram_id: number;
   animation_type: AnimationType;
   message: string | null;
+  photo_url: string | null;
   sent_at: string;
   delivered_at: string | null;
   seen_at: string | null;
@@ -216,7 +217,8 @@ export async function createValentine(
   pairId: string,
   senderTelegramId: number,
   animationType: AnimationType,
-  message: string | null
+  message: string | null,
+  photoUrl: string | null = null
 ): Promise<Valentine> {
   const { data, error } = await supabase
     .from('valentines')
@@ -225,6 +227,7 @@ export async function createValentine(
       sender_telegram_id: senderTelegramId,
       animation_type: animationType,
       message,
+      photo_url: photoUrl,
       delivered_at: new Date().toISOString(),
     })
     .select()

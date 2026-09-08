@@ -33,6 +33,7 @@ class ValentinesMessagingService : FirebaseMessagingService() {
         val animationType = data["animation_type"]
         val messageText = data["message"]
         val sentAt = data["sent_at"]
+        val photoUrl = data["photo_url"]
 
         runBlocking {
             // Persist latest valentine for the widget
@@ -44,6 +45,7 @@ class ValentinesMessagingService : FirebaseMessagingService() {
                     message = messageText,
                     type = animationType ?: "heart_open",
                     sentAtMillis = sentAtMillis ?: System.currentTimeMillis(),
+                    photoUrl = photoUrl,
                 )
             }
 

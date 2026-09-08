@@ -229,6 +229,7 @@ function ValentineCard({ valentine, isTall, onPress }: { valentine: any; isTall:
   const isUnread = !valentine.is_own && !valentine.seen_at;
   const gradient = animationGradient(valentine.animation_type);
   const tall = isTall;
+  const hasPhoto = !!valentine.photo_url;
 
   return (
     <Link
@@ -239,10 +240,17 @@ function ValentineCard({ valentine, isTall, onPress }: { valentine: any; isTall:
       <div style={styles.feedEmoji}>
         <AppleEmoji emoji={anim.emoji} size={tall ? 44 : 30} />
       </div>
-      {valentine.message && (
-        <div style={{ ...styles.feedMessage, WebkitLineClamp: tall ? 3 : 1 }}>
-          {valentine.message}
+      {hasPhoto ? (
+        <div style={{ ...styles.feedPhoto, height: tall ? 96 : 64 }}>
+          <img src={valentine.photo_url} alt="Фото" style={styles.feedPhotoImg} loading="lazy" />
+          <span style={styles.feedPhotoLabel}>📷 фото</span>
         </div>
+      ) : (
+        valentine.message && (
+          <div style={{ ...styles.feedMessage, WebkitLineClamp: tall ? 3 : 1 }}>
+            {valentine.message}
+          </div>
+        )
       )}
       <div style={styles.feedMetaRow}>
         <span style={styles.overlayPill}>{senderLabel}</span>
@@ -545,6 +553,33 @@ const styles: Record<string, React.CSSProperties> = {
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
     wordBreak: 'break-word',
+  },
+  feedPhoto: {
+    position: 'relative',
+    width: '100%',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    background: 'var(--canvas)',
+  },
+  feedPhotoImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+  feedPhotoLabel: {
+    position: 'absolute',
+    top: '8px',
+    left: '8px',
+    background: 'rgba(255,255,255,0.85)',
+    color: 'var(--ink)',
+    fontSize: '10px',
+    fontWeight: '700',
+    lineHeight: 1.3,
+    letterSpacing: '0.01em',
+    padding: '5px 10px',
+    borderRadius: '9999px',
+    fontFamily: 'var(--font-body)',
   },
   feedMetaRow: {
     display: 'flex',

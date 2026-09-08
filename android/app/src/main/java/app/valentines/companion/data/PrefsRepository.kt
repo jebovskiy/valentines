@@ -25,6 +25,7 @@ object Preferences {
     val LAST_MESSAGE = stringPreferencesKey("widget_message")
     val LAST_TYPE = stringPreferencesKey("widget_type")
     val LAST_SENT_AT = longPreferencesKey("widget_sent_at")
+    val LAST_PHOTO_URL = stringPreferencesKey("widget_photo_url")
     val SETUP_DONE = booleanPreferencesKey("setup_done")
 }
 
@@ -75,12 +76,13 @@ class PrefsRepository(private val context: Context) {
     suspend fun isWidgetAdded(): Boolean =
         context.store.data.first()[Preferences.WIDGET_ADDED] ?: false
 
-    suspend fun saveLastValentine(from: String, message: String?, type: String, sentAtMillis: Long) {
+    suspend fun saveLastValentine(from: String, message: String?, type: String, sentAtMillis: Long, photoUrl: String? = null) {
         context.store.edit { prefs ->
             prefs[Preferences.LAST_FROM] = from
             putNullable(prefs, Preferences.LAST_MESSAGE, message)
             prefs[Preferences.LAST_TYPE] = type
             prefs[Preferences.LAST_SENT_AT] = sentAtMillis
+            putNullable(prefs, Preferences.LAST_PHOTO_URL, photoUrl)
         }
     }
 
