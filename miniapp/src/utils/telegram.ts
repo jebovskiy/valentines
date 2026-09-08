@@ -153,6 +153,11 @@ export function getTelegramUser(): TelegramUser | null {
   return webApp?.initDataUnsafe?.user || null;
 }
 
+/** Telegram-provided profile photo from initData — loads reliably in the WebView. */
+export function getTelegramSelfPhotoUrl(): string | null {
+  return webApp?.initDataUnsafe?.user?.photo_url || null;
+}
+
 export function setMainButton(params: { text?: string; onClick?: () => void; isVisible?: boolean; color?: string }): void {
   if (!webApp?.MainButton) return;
   const btn = webApp.MainButton;

@@ -5,6 +5,20 @@ import { api } from '../api/client';
 import { setMainButton, setBackButton, hapticFeedback, webApp } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
 
+function InitialAvatar({ name, size }: { name: string; size: number }) {
+  const letter = (name || '?').trim().charAt(0).toUpperCase();
+  return (
+    <div
+      style={{
+        ...styles.initialAvatar,
+        fontSize: Math.round(size * 0.36),
+      }}
+    >
+      {letter}
+    </div>
+  );
+}
+
 export function ProfileScreen() {
   const navigate = useNavigate();
   const { profile, partnerProfile, pair, currentUser, fetchProfile, updateMyName, updatePartnerName, androidPaired, refreshPairingStatus } =
@@ -55,7 +69,7 @@ export function ProfileScreen() {
   const isAndroid =
     webApp?.platform === 'android' || webApp?.platform === 'android_x';
 
-  const meAvatar = profile ? api.avatarUrl(profile.id) : null;
+  const meAvatar = profile ? api.selfAvatarUrl(profile.id) : null;
   const partnerAvatar = partnerProfile ? api.avatarUrl(partnerProfile.id) : null;
 
   return (
@@ -64,14 +78,18 @@ export function ProfileScreen() {
       {message && <p style={styles.toast}>{message}</p>}
 
       <div style={styles.avatarRow}>
-        {meAvatar && (
-          <img
-            src={meAvatar}
-            alt=""
-            style={styles.avatar}
-            onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-          />
-        )}
+        <div style={styles.avatarWrap}>
+          <InitialAvatar name={profile?.display_name ?? profile?.first_name ?? 'Вы'} size={64} />
+          {meAvatar && (
+            <img
+              src={meAvatar}
+              alt=""
+              style={styles.avatar}
+              onLoad={(e) => ((e.target as HTMLImageElement).style.opacity = '1')}
+              onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+            />
+          )}
+        </div>
         <div style={styles.identity}>
           <div style={styles.nameBold}>
             {profile?.display_name ?? profile?.first_name ?? 'Вы'}
@@ -98,14 +116,17 @@ export function ProfileScreen() {
         <div style={styles.section}>
           <p style={styles.sectionLabel}>Имя партнёра (только у вас)</p>
           <div style={styles.partnerWrap}>
-            {partnerAvatar && (
-              <img
-                src={partnerAvatar}
-                alt=""
-                style={styles.smallAvatar}
-                onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-              />
-            )}
+            <div style={{ ...styles.avatarWrap, width: '40px', height: '40px' }}>
+              <InitialAvatar name={partnerProfile?.display_name ?? 'Партнёр'} size={40} />
+              {partnerAvatar && (
+                <img
+                  src={partnerAvatar}
+                  alt=""
+                  style={styles.smallAvatar}
+                  onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                />
+              )}
+            </div>
             <input
               value={partnerNameLocal}
               maxLength={50}
@@ -169,13 +190,38 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '14px',
     padding: '8px 0 16px',
   },
-  avatar: {
+  avatarWrap: {
+    position: 'relative',
     width: '64px',
     height: '64px',
+    flexShrink: 0,
+    borderRadius: '50%',
+    overflow: 'hidden',
+  },
+  initialAvatar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'var(--primary)',
+    color: 'var(--on-primary)',
+    fontFamily: 'var(--font-display)',
+    fontWeight: '700',
+    width: '100%',
+    height: '100%',
+    borderRadius: '50%',
+    overflow: 'hidden',
+  },
+  avatar: {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
     borderRadius: '50%',
     objectFit: 'cover',
     background: 'var(--surface-card)',
     border: '1px solid var(--hairline)',
+    opacity: 0,
+    transition: 'opacity 0.2s ease',
   },
   identity: {
     display: 'flex',
@@ -240,13 +286,14 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '12px',
   },
   smallAvatar: {
-    width: '40px',
-    height: '40px',
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
     borderRadius: '50%',
     objectFit: 'cover',
     background: 'var(--surface-elevated)',
     border: '1px solid var(--hairline)',
-    flexShrink: 0,
   },
   bindButton: {
     padding: '0 20px',

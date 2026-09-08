@@ -130,7 +130,7 @@ export function ListScreen() {
           >
             {profile ? (
               <img
-                src={api.avatarUrl(profile.id)}
+                src={api.selfAvatarUrl(profile.id)}
                 alt=""
                 style={styles.avatarImg}
                 onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}

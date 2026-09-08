@@ -168,7 +168,7 @@ export function SendScreen() {
             color: mode === 'text' ? 'var(--canvas)' : 'var(--ink)',
           }}
         >
-          Ｔекст
+          Текст
         </button>
         <button
           onClick={() => {
@@ -182,7 +182,7 @@ export function SendScreen() {
             color: mode === 'photo' ? 'var(--canvas)' : 'var(--ink)',
           }}
         >
-          📷 Фото
+          Изображение
         </button>
       </div>
 

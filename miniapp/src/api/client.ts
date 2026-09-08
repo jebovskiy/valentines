@@ -1,4 +1,4 @@
-import { getInitData } from '../utils/telegram';
+import { getInitData, getTelegramSelfPhotoUrl } from '../utils/telegram';
 import type {
   Pair,
   Valentine,
@@ -89,5 +89,9 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ name }),
     }),
-  avatarUrl: (telegramUserId: number) => `${API_URL}/api/users/${telegramUserId}/avatar?v=2`,
+  avatarUrl: (telegramUserId: number) => `${API_URL}/api/users/${telegramUserId}/avatar?v=3`,
+  // Own avatar: prefer the photo_url Telegram itself gives us in initData
+  // (always loadable in the WebView), fall back to the backend proxy.
+  selfAvatarUrl: (telegramUserId: number) =>
+    getTelegramSelfPhotoUrl() || `${API_URL}/api/users/${telegramUserId}/avatar?v=3`,
 };
