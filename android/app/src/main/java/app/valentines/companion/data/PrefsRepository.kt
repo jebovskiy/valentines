@@ -27,6 +27,7 @@ object Preferences {
     val LAST_SENT_AT = longPreferencesKey("widget_sent_at")
     val LAST_PHOTO_URL = stringPreferencesKey("widget_photo_url")
     val LAST_VALENTINE_ID = stringPreferencesKey("widget_valentine_id")
+    val LAST_NOTIFIED_ID = stringPreferencesKey("last_notified_id")
     val SETUP_DONE = booleanPreferencesKey("setup_done")
 }
 
@@ -99,6 +100,12 @@ class PrefsRepository(private val context: Context) {
     val partnerName: Flow<String?> = context.store.data.map { it[Preferences.PARTNER_NAME] }
 
     suspend fun getLastValentineId(): String? = context.store.data.first()[Preferences.LAST_VALENTINE_ID]
+
+    suspend fun getLastNotifiedId(): String? = context.store.data.first()[Preferences.LAST_NOTIFIED_ID]
+
+    suspend fun setLastNotifiedId(id: String) {
+        context.store.edit { it[Preferences.LAST_NOTIFIED_ID] = id }
+    }
 
     suspend fun isPairingComplete(): Boolean = deviceId.first() != null
 }

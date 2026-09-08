@@ -1,5 +1,6 @@
 package app.valentines.companion.fcm
 
+import app.valentines.companion.data.NotificationHelper
 import app.valentines.companion.data.PrefsRepository
 import app.valentines.companion.widget.ValentineWidget
 import androidx.glance.appwidget.updateAll
@@ -53,6 +54,13 @@ class ValentinesMessagingService : FirebaseMessagingService() {
 
             // Update all widget instances with the latest valentine
             ValentineWidget().updateAll(this@ValentinesMessagingService)
+
+            // Prompt to look at the fresh widget
+            NotificationHelper.notifyNewValentine(
+                context = this@ValentinesMessagingService,
+                valentineId = valentineId,
+                fromName = fromName,
+            )
         }
     }
 }

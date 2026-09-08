@@ -123,4 +123,54 @@ export async function companionRoutes(app: FastifyInstance) {
     }
     return { update: info };
   });
+
+  app.get('/stream', async (request, reply) => {
+    const query = z.object({ device_id: z.string().uuid() }).parse(request.query);
+    const device = await getDeviceById(query.device_id);
+    if (!device) return reply.code(404).send({ error: 'Device not found' });
+
+    // Real-time push channel to the companion app, independent of FCM.
+    reply.hijack();
+    const raw = reply.raw;
+    raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    raw.write('retry: 5000\n\n');
+
+    let lastId: string | null = null;
+    let closed = false;
+
+    const write = (chunk: string) => {
+      if (closed) return;
+      try {
+        raw.write(chunk);
+      } catch {
+        // connection already gone
+      }
+    };
+
+    const timer = setInterval(async () => {
+      if (closed) return;
+      try {
+        const valentines = await getValentinesByPair(device.pair_id, 1);
+        const latest = valentines[0];
+        if (latest && latest.id !== lastId) {
+          lastId = latest.id;
+          write(`event: valentine\ndata: ${JSON.stringify({ id: latest.id })}\n\n`);
+        } else {
+          write(': ping\n\n');
+        }
+      } catch (error) {
+        write(`event: error\ndata: ${JSON.stringify({ message: 'db error' })}\n\n`);
+      }
+    }, 5000);
+
+    request.raw.on('close', () => {
+      closed = true;
+      clearInterval(timer);
+    });
+  });
 }

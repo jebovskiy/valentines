@@ -116,7 +116,11 @@ export async function dispatchDirectValentinePushes(valentine: Valentine): Promi
   };
 
   for (const device of devices) {
-    if (!device.push_permission_granted || !device.push_token) continue;
+    // The widget must update even when the user hasn't granted notification
+    // permission: the data push (widget update) is processed regardless, only
+    // the visible notification is suppressed by the OS. Skip only devices
+    // without a real token.
+    if (!device.push_token || device.push_token === 'pending') continue;
     try {
       const { visible, data } = await sendBothPushes(device.push_token, payload);
       if (visible.success || data.success) {

@@ -85,7 +85,7 @@ interface ValentinesApi {
 }
 
 object ApiClient {
-    private const val BASE_URL = "https://valentines-production-1fd5.up.railway.app"
+    const val BASE_URL = "https://valentines-production-1fd5.up.railway.app"
 
     private val moshi = Moshi.Builder()
         .add(KotlinJsonAdapterFactory())

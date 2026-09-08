@@ -19,12 +19,19 @@ class WidgetRefreshWorker(
     }
 }
 
+data class WidgetRefreshResult(
+    val valentineId: String?,
+    val fromName: String?,
+)
+
 /**
  * Fetches the latest valentine from the backend, persists it for the widget
- * and re-renders every widget instance. Used by the periodic worker and on
- * app foreground launch so the widget stays fresh instantly.
+ * and re-renders every widget instance. Used by the periodic worker, the sync
+ * service and on app foreground launch so the widget stays fresh instantly.
+ * Returns what was persisted (null when there is no data and nothing saved).
  */
-suspend fun refreshWidgetData(context: Context) {
+suspend fun refreshWidgetData(context: Context): WidgetRefreshResult? {
+    var result: WidgetRefreshResult? = null
     val prefs = PrefsRepository(context)
     val deviceId = prefs.getDeviceId()
     if (deviceId != null) {
@@ -43,10 +50,12 @@ suspend fun refreshWidgetData(context: Context) {
                     photoUrl = v.photoUrl,
                     valentineId = v.id,
                 )
+                result = WidgetRefreshResult(v.id, v.fromName)
             }
         } catch (_: Exception) {
             // offline / server down — keep parked data
         }
     }
     ValentineWidget().updateAll(context)
+    return result
 }

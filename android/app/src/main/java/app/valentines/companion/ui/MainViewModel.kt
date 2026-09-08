@@ -1,6 +1,7 @@
 package app.valentines.companion.ui
 
 import android.app.Application
+import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.valentines.companion.BuildConfig
@@ -10,6 +11,7 @@ import app.valentines.companion.data.DeviceStatusRequest
 import app.valentines.companion.data.PrefsRepository
 import app.valentines.companion.data.UpdateInfo
 import app.valentines.companion.data.UpdateInstaller
+import app.valentines.companion.sync.WidgetSyncService
 import app.valentines.companion.widget.refreshWidgetData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -77,6 +79,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 if (setupDone) {
                     refreshWidgetNow()
+                    startSyncService()
                 }
             }
             checkForUpdate()
@@ -86,6 +89,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshWidgetNow() {
         viewModelScope.launch {
             refreshWidgetData(getApplication())
+        }
+    }
+
+    private fun startSyncService() {
+        runCatching {
+            val context = getApplication<Application>()
+            val intent = Intent(context, WidgetSyncService::class.java)
+            context.startForegroundService(intent)
         }
     }
 
