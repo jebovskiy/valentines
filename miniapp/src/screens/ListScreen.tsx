@@ -15,6 +15,7 @@ export function ListScreen() {
   const [joinCode, setJoinCode] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'received' | 'sent'>('all');
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -53,6 +54,10 @@ export function ListScreen() {
 
   const feed = [...received, ...sent].sort(
     (a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()
+  );
+
+  const filtered = feed.filter((v) =>
+    filter === 'all' ? true : filter === 'received' ? !v.is_own : v.is_own
   );
 
   if (isLoading && valentines.length === 0) {
@@ -138,10 +143,29 @@ export function ListScreen() {
         <div style={styles.feedSub}>Вы и {partner} · {days} {formatDays(days)} вместе</div>
       </header>
 
-      {feed.length > 0 ? (
+      <div style={styles.filterBar} role="tablist">
+        {([
+          { key: 'all', label: 'Все валентинки' },
+          { key: 'received', label: 'Принятые' },
+          { key: 'sent', label: 'Отправленные' },
+        ] as const).map((seg) => (
+          <button
+            key={seg.key}
+            onClick={() => {
+              hapticFeedback('selection');
+              setFilter(seg.key);
+            }}
+            style={{ ...styles.filterSeg, ...(filter === seg.key ? styles.filterSegActive : {}) }}
+          >
+            {seg.label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length > 0 ? (
         <div style={styles.feedColumns}>
           <div style={styles.feedColumn}>
-            {feed
+            {filtered
               .filter((_, i) => i % 2 === 0)
               .map((valentine, colIndex) => (
                 <ValentineCard
@@ -157,7 +181,7 @@ export function ListScreen() {
               ))}
           </div>
           <div style={styles.feedColumn}>
-            {feed
+            {filtered
               .filter((_, i) => i % 2 === 1)
               .map((valentine, colIndex) => (
                 <ValentineCard
@@ -172,6 +196,12 @@ export function ListScreen() {
                 />
               ))}
           </div>
+        </div>
+      ) : feed.length > 0 ? (
+        <div style={styles.emptyContainer}>
+          <p style={styles.emptyText}>
+            {filter === 'received' ? 'Принятых валентинок пока нет' : 'Отправленных валентинок пока нет'}
+          </p>
         </div>
       ) : (
         <div style={styles.emptyContainer}>
@@ -504,6 +534,36 @@ const styles: Record<string, React.CSSProperties> = {
   feedSub: {
     fontSize: '12px',
     color: 'var(--text-faint)',
+  },
+  filterBar: {
+    display: 'flex',
+    gap: '4px',
+    padding: '4px',
+    marginTop: '12px',
+    background: 'var(--surface-card)',
+    borderRadius: '9999px',
+    border: '1px solid var(--hairline)',
+  },
+  filterSeg: {
+    flex: 1,
+    padding: '8px 6px',
+    height: '34px',
+    borderRadius: '9999px',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '13px',
+    fontWeight: '600',
+    lineHeight: 1.2,
+    textAlign: 'center',
+    whiteSpace: 'nowrap',
+    cursor: 'pointer',
+  },
+  filterSegActive: {
+    background: 'var(--primary)',
+    color: 'var(--on-primary)',
+    boxShadow: 'var(--shadow-fab)',
   },
   feedColumns: {
     display: 'flex',
