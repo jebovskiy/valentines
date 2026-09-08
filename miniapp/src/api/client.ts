@@ -89,5 +89,5 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ name }),
     }),
-  avatarUrl: (telegramUserId: number) => `${API_URL}/api/users/${telegramUserId}/avatar`,
+  avatarUrl: (telegramUserId: number) => `${API_URL}/api/users/${telegramUserId}/avatar?v=2`,
 };
