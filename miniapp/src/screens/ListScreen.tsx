@@ -234,10 +234,10 @@ function ValentineCard({ valentine, isTall, onPress }: { valentine: any; isTall:
     <Link
       to={`/valentine/${valentine.id}`}
       onClick={onPress}
-      style={{ ...styles.feedItem, minHeight: tall ? 196 : 94, background: gradient }}
+      style={{ ...styles.feedItem, minHeight: tall ? 220 : 118, background: gradient }}
     >
       <div style={styles.feedEmoji}>
-        <AppleEmoji emoji={anim.emoji} size={tall ? 40 : 26} />
+        <AppleEmoji emoji={anim.emoji} size={tall ? 44 : 30} />
       </div>
       {valentine.message && (
         <div style={{ ...styles.feedMessage, WebkitLineClamp: tall ? 3 : 1 }}>
@@ -520,24 +520,25 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    padding: '12px',
+    padding: '16px',
     textDecoration: 'none',
     color: 'inherit',
-    borderRadius: '16px',
+    borderRadius: '20px',
     border: '1px solid var(--hairline-soft)',
     position: 'relative',
+    gap: '10px',
   },
   feedEmoji: {
     alignSelf: 'flex-start',
   },
   feedMessage: {
     fontFamily: 'var(--font-body)',
-    fontSize: '13px',
-    lineHeight: 1.35,
+    fontSize: '15px',
+    lineHeight: 1.4,
     color: 'var(--ink)',
     background: 'var(--canvas)',
     borderRadius: '16px',
-    padding: '8px 12px',
+    padding: '10px 14px',
     width: '100%',
     boxSizing: 'border-box',
     display: '-webkit-box',
@@ -550,40 +551,40 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'flex-start',
     width: '100%',
-    gap: '6px',
+    gap: '8px',
     flexWrap: 'wrap',
     marginTop: 'auto',
   },
   overlayPill: {
     background: 'var(--canvas)',
     color: 'var(--ink)',
-    fontSize: '10px',
+    fontSize: '12px',
     fontWeight: '500',
-    lineHeight: 1.3,
+    lineHeight: 1.4,
     letterSpacing: '0.01em',
-    padding: '5px 10px',
+    padding: '6px 12px',
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
   },
   overlayPillAccent: {
     background: 'var(--canvas)',
     color: 'var(--primary)',
-    fontSize: '10px',
+    fontSize: '12px',
     fontWeight: '700',
-    lineHeight: 1.3,
+    lineHeight: 1.4,
     letterSpacing: '0.01em',
-    padding: '5px 10px',
+    padding: '6px 12px',
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
   },
   overlayPillMuted: {
     background: 'var(--canvas)',
     color: 'var(--mute)',
-    fontSize: '10px',
+    fontSize: '12px',
     fontWeight: '600',
-    lineHeight: 1.3,
+    lineHeight: 1.4,
     letterSpacing: '0.01em',
-    padding: '5px 10px',
+    padding: '6px 12px',
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
   },
