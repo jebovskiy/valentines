@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName, daysTogether } from '../hooks/useValentinesStore';
 import { setMainButton, hapticFeedback, webApp } from '../utils/telegram';
@@ -25,6 +25,15 @@ export function ListScreen() {
   const [greetingSending, setGreetingSending] = useState(false);
   const [greetingSent, setGreetingSent] = useState(false);
   const [greetingSender, setGreetingSender] = useState<string | null>(null);
+
+  const forcedGreeting = useRef<GreetingScene | null>(null);
+  const forcedResolved = useRef(false);
+
+  useEffect(() => {
+    const sp = (window.Telegram?.WebApp as any)?.initDataUnsafe?.start_param;
+    if (sp === 'greeting_morning') forcedGreeting.current = 'morning';
+    else if (sp === 'greeting_night') forcedGreeting.current = 'night';
+  }, []);
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -64,13 +73,45 @@ export function ListScreen() {
     }
   }, [greetingEnabled, pair, fetchGreetings]);
 
+  const openReceivedGreeting = (g: { id: string; type: string; sender_name?: string | null }) => {
+    const seenKey = `vn_greeting_seen_${g.id}`;
+    try {
+      localStorage.setItem(seenKey, '1');
+    } catch {
+      /* ignore */
+    }
+    setGreetingSender(g.sender_name ?? null);
+    setGreetingScene(g.type === 'night' ? 'night' : 'morning');
+    setGreetingMode('received');
+    setGreetingOpen(true);
+    hapticFeedback('notification', 'success');
+  };
+
   useEffect(() => {
-    if (!greetingEnabled || !greetings.length) return;
-    const recent = greetings.find(
-      (g) =>
-        !g.is_own &&
-        Date.now() - new Date(g.sent_at).getTime() < 18 * 3600 * 1000
-    );
+    if (!greetingEnabled) return;
+    const forced = forcedGreeting.current;
+
+    if (forced) {
+      if (forcedResolved.current) return;
+      const candidates = greetings
+        .filter((g) => !g.is_own && g.type === forced)
+        .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+      if (candidates.length > 0) {
+        forcedResolved.current = true;
+        openReceivedGreeting(candidates[0]);
+      }
+      return;
+    }
+
+    if (!greetings.length) return;
+
+    const recent = greetings
+      .filter(
+        (g) =>
+          !g.is_own &&
+          Date.now() - new Date(g.sent_at).getTime() < 18 * 3600 * 1000
+      )
+      .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())[0];
     if (recent) {
       const seenKey = `vn_greeting_seen_${recent.id}`;
       try {
@@ -79,12 +120,30 @@ export function ListScreen() {
       } catch {
         /* ignore */
       }
-      setGreetingSender(recent.sender_name);
-      setGreetingScene(recent.type === 'night' ? 'night' : 'morning');
-      setGreetingMode('received');
-      setGreetingOpen(true);
-      hapticFeedback('notification', 'success');
+      openReceivedGreeting(recent);
     }
+  }, [greetingEnabled, greetings]);
+
+  useEffect(() => {
+    if (!greetingEnabled || forcedResolved.current || !forcedGreeting.current) return;
+    const timer = setTimeout(() => {
+      if (forcedResolved.current) return;
+      const forced = forcedGreeting.current!;
+      const candidates = useValentinesStore
+        .getState()
+        .greetings.filter((g) => !g.is_own && g.type === forced)
+        .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+      forcedResolved.current = true;
+      if (candidates.length > 0) {
+        openReceivedGreeting(candidates[0]);
+      } else {
+        setGreetingScene(forced);
+        setGreetingMode('celebrate');
+        setGreetingSent(false);
+        setGreetingOpen(true);
+      }
+    }, 1600);
+    return () => clearTimeout(timer);
   }, [greetingEnabled, greetings]);
 
   const received = valentines.filter((v) => !v.is_own);
@@ -328,6 +387,11 @@ export function ListScreen() {
           onClose={() => {
             hapticFeedback('selection');
             setGreetingOpen(false);
+          }}
+          onReply={() => {
+            hapticFeedback('impact', 'light');
+            setGreetingSent(false);
+            setGreetingMode('celebrate');
           }}
           onSend={async () => {
             setGreetingSending(true);

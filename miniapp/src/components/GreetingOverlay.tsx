@@ -9,6 +9,7 @@ interface GreetingOverlayProps {
   names: { me: string; partner: string };
   senderName?: string | null;
   onClose: () => void;
+  onReply?: () => void;
   onSend: () => void;
   sending: boolean;
   sent: boolean;
@@ -18,8 +19,6 @@ interface SceneTheme {
   sky: string;
   horizonGlow: string;
   sunCore: string;
-  sunGlow: string;
-  rays: string;
   titleGradient: string;
   emoji: string;
   subtitle: string;
@@ -30,10 +29,8 @@ interface SceneTheme {
 const SCENES: Record<GreetingScene, SceneTheme> = {
   morning: {
     sky: 'linear-gradient(163deg, #ffe9ec 0%, #ffd6dc 16%, #ffc7ad 36%, #ffb15e 62%, #ff8f4d 100%)',
-    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(255, 245, 220, 0.5) 0%, rgba(255, 230, 180, 0) 42%)',
+    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(255, 245, 220, 0.35) 0%, rgba(255, 230, 180, 0) 42%)',
     sunCore: 'radial-gradient(circle at 38% 32%, #fffdf3 0%, #ffe9a6 46%, #ffc25e 78%, #ffab4f 100%)',
-    sunGlow: 'radial-gradient(circle, rgba(255, 220, 140, 0.5) 0%, rgba(255, 190, 120, 0.16) 42%, rgba(255, 180, 110, 0) 68%)',
-    rays: 'repeating-conic-gradient(from 0deg, rgba(255, 238, 190, 0.75) 0deg 7deg, rgba(255, 238, 190, 0) 7deg 26deg)',
     titleGradient: 'linear-gradient(90deg, #ff9a3d 0%, #ffd05c 25%, #fff3c4 50%, #ffd05c 75%, #ff9a3d 100%)',
     emoji: '☀️',
     subtitle: 'Тёплого спокойного дня',
@@ -42,10 +39,8 @@ const SCENES: Record<GreetingScene, SceneTheme> = {
   },
   night: {
     sky: 'linear-gradient(165deg, #070b20 0%, #10193d 40%, #232e5c 100%)',
-    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(110, 140, 235, 0.45) 0%, rgba(60, 80, 180, 0) 42%)',
+    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(110, 140, 235, 0.3) 0%, rgba(60, 80, 180, 0) 42%)',
     sunCore: 'radial-gradient(circle at 38% 32%, #fffbe8 0%, #fdf2c0 40%, #ffe9a0 75%, #ffd76b 100%)',
-    sunGlow: 'radial-gradient(circle, rgba(200, 215, 255, 0.45) 0%, rgba(130, 160, 245, 0.15) 42%, rgba(110, 140, 235, 0) 68%)',
-    rays: 'repeating-conic-gradient(from 0deg, rgba(210, 220, 255, 0.5) 0deg 7deg, rgba(210, 220, 255, 0) 7deg 26deg)',
     titleGradient: 'linear-gradient(90deg, #aab7ff 0%, #e8e6ff 25%, #ffffff 50%, #e8e6ff 75%, #aab7ff 100%)',
     emoji: '🌙',
     subtitle: 'Сладких снов',
@@ -87,7 +82,7 @@ function RandomParticles({ count, chars, maxSize, minSize, scene }: { count: num
   );
 }
 
-export function GreetingOverlay({ scene, mode, names, senderName, onClose, onSend, sending, sent }: GreetingOverlayProps) {
+export function GreetingOverlay({ scene, mode, names, senderName, onClose, onReply, onSend, sending, sent }: GreetingOverlayProps) {
   const theme = SCENES[scene];
   const night = scene === 'night';
   const phrase = night ? 'Спокойной ночи' : 'Доброе утро';
@@ -151,7 +146,6 @@ export function GreetingOverlay({ scene, mode, names, senderName, onClose, onSen
 
       {/* sun */}
       <div style={styles.sunWrap}>
-        <div style={{ ...styles.sunGlow, background: theme.sunGlow }} />
         <div style={{ ...styles.sun, background: theme.sunCore }} />
       </div>
 
@@ -199,7 +193,14 @@ export function GreetingOverlay({ scene, mode, names, senderName, onClose, onSen
         )}
 
         <div style={styles.actions}>
-          {mode === 'celebrate' && !sent ? (
+          {mode === 'received' && onReply ? (
+            <button
+              style={{ ...styles.primaryBtn, background: theme.accent, color: theme.onAccent }}
+              onClick={onReply}
+            >
+              {theme.emoji} Ответить
+            </button>
+          ) : mode === 'celebrate' && !sent ? (
             <button style={{ ...styles.primaryBtn, background: theme.accent, color: theme.onAccent }} onClick={onSend} disabled={sending}>
               {sending ? 'Отправляем…' : `${theme.emoji} ${night ? 'Пожелать спокойной ночи' : 'Пожелать доброе утро'}`}
             </button>
@@ -266,17 +267,11 @@ const styles: Record<string, CSSProperties> = {
     pointerEvents: 'none',
     animation: 'greet-sun-rise 1.3s cubic-bezier(0.2, 0.9, 0.3, 1) both',
   },
-  sunGlow: {
-    position: 'absolute',
-    inset: '-16%',
-    borderRadius: '50%',
-    animation: 'greet-glow 4.2s ease-in-out infinite',
-  },
   sun: {
     position: 'absolute',
     inset: '6%',
     borderRadius: '50%',
-    boxShadow: '0 0 60px 26px rgba(255, 200, 110, 0.55), inset 0 -10px 34px rgba(255, 150, 60, 0.35)',
+    boxShadow: '0 0 26px 6px rgba(255, 190, 120, 0.22), inset 0 -10px 26px rgba(255, 150, 60, 0.3)',
     animation: 'greet-lift 5.4s ease-in-out infinite',
   },
   meadowBack: {

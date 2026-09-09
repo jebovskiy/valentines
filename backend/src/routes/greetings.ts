@@ -8,7 +8,6 @@ import {
   GreetingType,
 } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
-import { isGreetingEnabledFor } from '../config';
 import { dispatchGreetingPushes } from '../services/pushDispatcher';
 
 const sendGreetingSchema = z.object({
@@ -19,9 +18,6 @@ export async function greetingsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
-    if (!isGreetingEnabledFor(request.telegramUser!.id)) {
-      return reply.code(403).send({ error: 'Greetings are not enabled yet' });
-    }
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) {
       return reply.code(404).send({ error: 'Pair not found' });
@@ -31,9 +27,6 @@ export async function greetingsRoutes(app: FastifyInstance) {
   });
 
   app.post('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
-    if (!isGreetingEnabledFor(request.telegramUser!.id)) {
-      return reply.code(403).send({ error: 'Greetings are not enabled yet' });
-    }
     const body = sendGreetingSchema.parse(request.body);
     const type: GreetingType = body.type;
     const pair = await getPairByUser(request.telegramUser!.id);

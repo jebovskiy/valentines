@@ -28,18 +28,9 @@
   100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 
-@keyframes greet-spin {
-  to { transform: rotate(1turn); }
-}
-
 @keyframes greet-lift {
   0%, 100% { transform: translateY(0) scale(1); }
   50% { transform: translateY(-12px) scale(1.03); }
-}
-
-@keyframes greet-glow {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.95; transform: scale(1.14); }
 }
 
 @keyframes greet-drift {
