@@ -170,6 +170,8 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 18,
     fontWeight: 700,
     color: 'var(--ink)',
+    marginLeft: 48,
+    zIndex: 1,
   },
   topBarRight: {
     marginLeft: 'auto',
