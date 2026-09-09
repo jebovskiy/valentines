@@ -228,6 +228,13 @@ export function ListScreen() {
           <h1 style={styles.feedTitle}>Валентинки</h1>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
+              onClick={() => navigate('/notes')}
+              style={styles.widgetBtn}
+              title="Заметки и напоминания"
+            >
+              <AppleEmoji emoji="📝" size={16} />
+            </button>
+            <button
               onClick={() => navigate('/streak')}
               style={styles.widgetBtn}
               title="Стрик"

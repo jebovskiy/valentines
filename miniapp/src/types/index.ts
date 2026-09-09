@@ -134,3 +134,59 @@ export interface Greeting {
   sender_name: string;
   is_own: boolean;
 }
+
+// --- Notes & Reminders --------------------------------------------------------
+
+export type NoteCategory = 'idea' | 'todo' | 'memory' | 'wish';
+
+export const NOTE_CATEGORIES: { value: NoteCategory; label: string; icon: string }[] = [
+  { value: 'idea', label: 'Идея', icon: '💡' },
+  { value: 'todo', label: 'Дело', icon: '✅' },
+  { value: 'memory', label: 'Воспоминание', icon: '📸' },
+  { value: 'wish', label: 'Желание', icon: '🌟' },
+];
+
+export interface Note {
+  id: string;
+  pair_id: string;
+  author_id: number;
+  content: string;
+  category: NoteCategory;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type Recurrence = 'yearly' | 'monthly';
+
+export interface Reminder {
+  id: string;
+  pair_id: string;
+  author_id: number;
+  title: string;
+  message: string | null;
+  remind_at: string;
+  is_recurring: boolean;
+  recurrence: Recurrence | null;
+  is_sent: boolean;
+  created_at: string;
+}
+
+export type CoupleEventType = 'first_date' | 'wedding' | 'birthday' | 'custom';
+
+export const COUPLE_EVENT_TYPES: { value: CoupleEventType; label: string; icon: string }[] = [
+  { value: 'first_date', label: 'Первая встреча', icon: '💑' },
+  { value: 'wedding', label: 'Свадьба', icon: '💍' },
+  { value: 'birthday', label: 'День рождения', icon: '🎂' },
+  { value: 'custom', label: 'Другое', icon: '📅' },
+];
+
+export interface CoupleEvent {
+  id: string;
+  pair_id: string;
+  name: string;
+  event_date: string;
+  event_type: CoupleEventType;
+  remind_days_before: number;
+  created_at: string;
+}

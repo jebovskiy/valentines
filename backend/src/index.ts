@@ -9,6 +9,9 @@ import { pushRoutes } from './routes/push';
 import { companionRoutes } from './routes/companion';
 import { usersRoutes } from './routes/users';
 import { greetingsRoutes } from './routes/greetings';
+import { notesRoutes } from './routes/notes';
+import { remindersRoutes } from './routes/reminders';
+import { eventsRoutes } from './routes/events';
 import { ensureStorageBucket } from './utils/storage';
 
 const app = fastify({ logger: true });
@@ -28,6 +31,9 @@ async function start() {
   await app.register(companionRoutes, { prefix: '/api/companion' });
   await app.register(usersRoutes, { prefix: '/api/users' });
   await app.register(greetingsRoutes, { prefix: '/api/greetings' });
+  await app.register(notesRoutes, { prefix: '/api/notes' });
+  await app.register(remindersRoutes, { prefix: '/api/reminders' });
+  await app.register(eventsRoutes, { prefix: '/api/events' });
 
   try {
     await app.listen({ port: config.PORT, host: '0.0.0.0' });

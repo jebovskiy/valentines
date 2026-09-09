@@ -140,3 +140,45 @@ export async function sendBothPushes(token: string, payload: PushPayload): Promi
   ]);
   return { visible, data };
 }
+
+export async function sendReminderPush(
+  token: string,
+  reminder: { title: string; message?: string | null }
+): Promise<SendResult> {
+  try {
+    const message = {
+      token,
+      notification: {
+        title: `⏰ ${reminder.title}`,
+        body: reminder.message || 'Запланированное напоминание для вас двоих',
+      },
+      data: {
+        event: 'reminder',
+        title: reminder.title,
+        message: reminder.message || '',
+        type: 'visible',
+      },
+      android: {
+        priority: 'high' as const,
+        notification: {
+          channelId: 'valentines_channel',
+          icon: 'ic_notification',
+          color: '#E91E63',
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
+    };
+
+    const messageId = await getMessaging().send(message);
+    return { success: true, messageId };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}

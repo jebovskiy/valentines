@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines } from '../api/supabase';
 
@@ -57,6 +57,19 @@ interface ValentinesState {
   sendGreeting: (type: GreetingType) => Promise<boolean>;
   streak: { current: number; max: number } | null;
   fetchStreak: () => Promise<void>;
+  notes: Note[];
+  reminders: Reminder[];
+  events: CoupleEvent[];
+  fetchNotes: () => Promise<void>;
+  fetchReminders: () => Promise<void>;
+  fetchEvents: () => Promise<void>;
+  createNote: (content: string, category: NoteCategory) => Promise<Note | null>;
+  toggleNotePin: (id: string, isPinned: boolean) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
+  createReminder: (input: { title: string; message?: string | null; remind_at: string; is_recurring?: boolean; recurrence?: Recurrence | null }) => Promise<Reminder | null>;
+  deleteReminder: (id: string) => Promise<void>;
+  createEvent: (input: { name: string; event_date: string; event_type: CoupleEventType; remind_days_before?: number }) => Promise<CoupleEvent | null>;
+  deleteEvent: (id: string) => Promise<void>;
 }
 
 function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
@@ -95,6 +108,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   realtimeChannel: null,
   greetings: [],
   streak: null,
+  notes: [],
+  reminders: [],
+  events: [],
 
   fetchPair: async () => {
     set({ isLoading: true, error: null });
@@ -329,5 +345,85 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     const result = await api.getStreak();
     if (result.error || !result.data) return;
     set({ streak: result.data.streak });
+  },
+
+  fetchNotes: async () => {
+    const { pair } = get();
+    if (!pair) return;
+    const result = await api.getNotes();
+    if (result.error || !result.data) return;
+    set({ notes: result.data.notes });
+  },
+
+  fetchReminders: async () => {
+    const { pair } = get();
+    if (!pair) return;
+    const result = await api.getReminders();
+    if (result.error || !result.data) return;
+    set({ reminders: result.data.reminders });
+  },
+
+  fetchEvents: async () => {
+    const { pair } = get();
+    if (!pair) return;
+    const result = await api.getEvents();
+    if (result.error || !result.data) return;
+    set({ events: result.data.events });
+  },
+
+  createNote: async (content, category) => {
+    const result = await api.createNote(content, category);
+    if (result.error || !result.data) {
+      set({ error: result.error });
+      return null;
+    }
+    const note = result.data.note;
+    set((state) => ({ notes: [note, ...state.notes] }));
+    return note;
+  },
+
+  toggleNotePin: async (id, isPinned) => {
+    set((state) => ({ notes: state.notes.map((n) => (n.id === id ? { ...n, is_pinned: isPinned } : n)) }));
+    await api.updateNote(id, { is_pinned: isPinned });
+  },
+
+  deleteNote: async (id) => {
+    set((state) => ({ notes: state.notes.filter((n) => n.id !== id) }));
+    const result = await api.deleteNote(id);
+    if (result.error) set({ error: result.error });
+  },
+
+  createReminder: async (input) => {
+    const result = await api.createReminder(input);
+    if (result.error || !result.data) {
+      set({ error: result.error });
+      return null;
+    }
+    const reminder = result.data.reminder;
+    set((state) => ({ reminders: [reminder, ...state.reminders] }));
+    return reminder;
+  },
+
+  deleteReminder: async (id) => {
+    set((state) => ({ reminders: state.reminders.filter((r) => r.id !== id) }));
+    const result = await api.deleteReminder(id);
+    if (result.error) set({ error: result.error });
+  },
+
+  createEvent: async (input) => {
+    const result = await api.createEvent(input);
+    if (result.error || !result.data) {
+      set({ error: result.error });
+      return null;
+    }
+    const event = result.data.event;
+    set((state) => ({ events: [event, ...state.events] }));
+    return event;
+  },
+
+  deleteEvent: async (id) => {
+    set((state) => ({ events: state.events.filter((e) => e.id !== id) }));
+    const result = await api.deleteEvent(id);
+    if (result.error) set({ error: result.error });
   },
 }));

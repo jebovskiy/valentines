@@ -6,6 +6,7 @@ import { Layout } from './components/Layout';
 import { ListScreen } from './screens/ListScreen';
 import { SendScreen } from './screens/SendScreen';
 import { StreakScreen } from './screens/StreakScreen';
+import { NotesScreen } from './screens/NotesScreen';
 import { DetailScreen } from './screens/DetailScreen';
 import { PairingScreen } from './screens/PairingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
@@ -72,6 +73,7 @@ function App() {
           <Route path="pairing" element={<PairingScreen />} />
           <Route path="profile" element={<ProfileScreen />} />
           <Route path="streak" element={<StreakScreen />} />
+          <Route path="notes" element={<NotesScreen />} />
         </Route>
         <Route path="/c/:token" element={<CompanionRedirect />} />
         <Route path="/v/:id" element={<DeepValentineScreen />} />

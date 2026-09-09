@@ -10,6 +10,12 @@ import type {
   ApiResponse,
   Greeting,
   GreetingType,
+  Note,
+  NoteCategory,
+  Reminder,
+  Recurrence,
+  CoupleEvent,
+  CoupleEventType,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -106,4 +112,43 @@ export const api = {
   // (always loadable in the WebView), fall back to the backend proxy.
   selfAvatarUrl: (telegramUserId: number) =>
     getTelegramSelfPhotoUrl() || `${API_URL}/api/users/${telegramUserId}/avatar?v=3`,
+
+  // Notes
+  getNotes: () => fetchWithAuth<{ notes: Note[] }>('/api/notes'),
+  createNote: (content: string, category: NoteCategory) =>
+    fetchWithAuth<{ note: Note }>('/api/notes', {
+      method: 'POST',
+      body: JSON.stringify({ content, category }),
+    }),
+  updateNote: (id: string, updates: { content?: string; category?: NoteCategory; is_pinned?: boolean }) =>
+    fetchWithAuth<{ ok: boolean }>(`/api/notes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    }),
+  deleteNote: (id: string) => fetchWithAuth<{ ok: boolean }>(`/api/notes/${id}`, { method: 'DELETE' }),
+
+  // Reminders
+  getReminders: () => fetchWithAuth<{ reminders: Reminder[] }>('/api/reminders'),
+  createReminder: (input: {
+    title: string;
+    message?: string | null;
+    remind_at: string;
+    is_recurring?: boolean;
+    recurrence?: Recurrence | null;
+  }) =>
+    fetchWithAuth<{ reminder: Reminder }>('/api/reminders', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  deleteReminder: (id: string) =>
+    fetchWithAuth<{ ok: boolean }>(`/api/reminders/${id}`, { method: 'DELETE' }),
+
+  // Couple events
+  getEvents: () => fetchWithAuth<{ events: CoupleEvent[] }>('/api/events'),
+  createEvent: (input: { name: string; event_date: string; event_type: CoupleEventType; remind_days_before?: number }) =>
+    fetchWithAuth<{ event: CoupleEvent }>('/api/events', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  deleteEvent: (id: string) => fetchWithAuth<{ ok: boolean }>(`/api/events/${id}`, { method: 'DELETE' }),
 };

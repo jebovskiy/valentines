@@ -507,3 +507,178 @@ export async function updatePairMaxStreak(pairId: string, streak: number): Promi
     .lt('max_streak', streak);
   if (error) throw error;
 }
+
+// --- Notes & Reminders --------------------------------------------------------
+
+export interface Note {
+  id: string;
+  pair_id: string;
+  author_id: number;
+  content: string;
+  category: string;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Reminder {
+  id: string;
+  pair_id: string;
+  author_id: number;
+  title: string;
+  message: string | null;
+  remind_at: string;
+  is_recurring: boolean;
+  recurrence: string | null;
+  is_sent: boolean;
+  created_at: string;
+}
+
+export interface CoupleEvent {
+  id: string;
+  pair_id: string;
+  name: string;
+  event_date: string;
+  event_type: string;
+  remind_days_before: number;
+  created_at: string;
+}
+
+export async function getNotes(pairId: string): Promise<Note[]> {
+  const { data, error } = await supabase
+    .from('notes')
+    .select('*')
+    .eq('pair_id', pairId)
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createNote(
+  pairId: string,
+  authorId: number,
+  content: string,
+  category: string
+): Promise<Note> {
+  const { data, error } = await supabase
+    .from('notes')
+    .insert({ pair_id: pairId, author_id: authorId, content, category })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateNote(
+  noteId: string,
+  pairId: string,
+  updates: { content?: string; category?: string; is_pinned?: boolean }
+): Promise<void> {
+  const { error } = await supabase
+    .from('notes')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', noteId)
+    .eq('pair_id', pairId);
+  if (error) throw error;
+}
+
+export async function deleteNote(noteId: string, pairId: string): Promise<void> {
+  const { error } = await supabase.from('notes').delete().eq('id', noteId).eq('pair_id', pairId);
+  if (error) throw error;
+}
+
+export async function getReminders(pairId: string): Promise<Reminder[]> {
+  const { data, error } = await supabase
+    .from('reminders')
+    .select('*')
+    .eq('pair_id', pairId)
+    .order('remind_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createReminder(input: {
+  pair_id: string;
+  author_id: number;
+  title: string;
+  message?: string | null;
+  remind_at: string;
+  is_recurring?: boolean;
+  recurrence?: string | null;
+}): Promise<Reminder> {
+  const { data, error } = await supabase
+    .from('reminders')
+    .insert(input)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteReminder(reminderId: string, pairId: string): Promise<void> {
+  const { error } = await supabase
+    .from('reminders')
+    .delete()
+    .eq('id', reminderId)
+    .eq('pair_id', pairId);
+  if (error) throw error;
+}
+
+export async function getReminderById(reminderId: string): Promise<Reminder | null> {
+  const { data, error } = await supabase
+    .from('reminders')
+    .select('*')
+    .eq('id', reminderId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function markReminderSent(reminderId: string): Promise<void> {
+  const { error } = await supabase.from('reminders').update({ is_sent: true }).eq('id', reminderId);
+  if (error) throw error;
+}
+
+export async function rescheduleRecurringReminder(reminderId: string, nextAt: string): Promise<void> {
+  const { error } = await supabase
+    .from('reminders')
+    .update({ remind_at: nextAt, is_sent: false })
+    .eq('id', reminderId);
+  if (error) throw error;
+}
+
+export async function getCoupleEvents(pairId: string): Promise<CoupleEvent[]> {
+  const { data, error } = await supabase
+    .from('couple_events')
+    .select('*')
+    .eq('pair_id', pairId)
+    .order('event_date', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createCoupleEvent(input: {
+  pair_id: string;
+  name: string;
+  event_date: string;
+  event_type?: string;
+  remind_days_before?: number;
+}): Promise<CoupleEvent> {
+  const { data, error } = await supabase
+    .from('couple_events')
+    .insert(input)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCoupleEvent(eventId: string, pairId: string): Promise<void> {
+  const { error } = await supabase
+    .from('couple_events')
+    .delete()
+    .eq('id', eventId)
+    .eq('pair_id', pairId);
+  if (error) throw error;
+}

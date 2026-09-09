@@ -1,4 +1,4 @@
-import { sendVisiblePush, sendDataPush, sendBothPushes, sendGreetingDataPush, PushPayload } from './fcm';
+import { sendVisiblePush, sendDataPush, sendBothPushes, sendGreetingDataPush, sendReminderPush, PushPayload } from './fcm';
 import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs, getDevicesByPair, Valentine, Pair } from './database';
 
 export interface PushDispatchPayload {
@@ -165,6 +165,43 @@ export async function dispatchDirectValentinePushes(valentine: Valentine): Promi
       }
     } catch (error) {
       console.error(`Direct push error for device ${device.id}:`, error);
+    }
+  }
+}
+
+/**
+ * Sends a reminder notification to all paired devices for the reminder's pair.
+ * Called both inline (from the reminder route when reminder is created with a
+ * past due time) and from the webhook dispatch (triggered by pg_cron).
+ */
+export async function dispatchReminderPushes(reminder: {
+  id: string;
+  pair_id: string;
+  title: string;
+  message: string | null;
+}): Promise<void> {
+  let devices;
+  try {
+    devices = await getDevicesByPair(reminder.pair_id);
+  } catch (error) {
+    console.error('Reminder push: failed to load devices', error);
+    return;
+  }
+
+  for (const device of devices) {
+    if (!device.push_token || device.push_token === 'pending') continue;
+    if (!device.push_permission_granted) {
+      console.log(`Reminder push: permission not granted for device ${device.id}`);
+      continue;
+    }
+    try {
+      const result = await sendReminderPush(device.push_token, {
+        title: reminder.title,
+        message: reminder.message,
+      });
+      console.log(`Reminder push sent to device ${device.id}: ${result.success}`);
+    } catch (error) {
+      console.error(`Reminder push error for device ${device.id}:`, error);
     }
   }
 }
