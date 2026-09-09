@@ -20,13 +20,22 @@ object NotificationHelper {
 
     private const val NOTIFICATION_ID = 1001
     private const val GREETING_NOTIFICATION_ID = 1003
+    private const val REMINDER_NOTIFICATION_ID = 1005
 
     fun ensureChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // Upgrade path: if the channel was created with a lower importance in a
+        // previous version, Android won't change it — recreate it so heads-up
+        // (popup) notifications work for existing installs too.
+        val existing = manager.getNotificationChannel(VALENTINES_CHANNEL_ID)
+        if (existing != null && existing.importance < NotificationManager.IMPORTANCE_HIGH) {
+            manager.deleteNotificationChannel(VALENTINES_CHANNEL_ID)
+        }
         val channel = NotificationChannel(
             VALENTINES_CHANNEL_ID,
             "Валентинки",
-            NotificationManager.IMPORTANCE_DEFAULT,
+            NotificationManager.IMPORTANCE_HIGH,
         )
         channel.description = "Новые валентинки и подсказки про виджет"
         manager.createNotificationChannel(channel)
@@ -118,6 +127,35 @@ object NotificationHelper {
 
         runCatching {
             NotificationManagerCompat.from(context).notify(GREETING_NOTIFICATION_ID, notification)
+        }
+        return true
+    }
+
+    /**
+     * Shows a reminder notification ("⏰ title") for scheduled couple reminders.
+     * Rendered locally in onMessageReceived so it pops up both in the foreground
+     * and background.
+     */
+    suspend fun notifyReminder(context: Context, title: String?, message: String?): Boolean {
+        if (!canNotify(context)) return false
+
+        ensureChannel(context)
+
+        val body = message?.takeIf { it.isNotBlank() } ?: "Запланированное напоминание для вас двоих"
+        val contentIntent = buildContentIntent(context, "reminder")
+
+        val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title?.takeIf { it.isNotBlank() } ?: "⏰ Напоминание")
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        runCatching {
+            NotificationManagerCompat.from(context).notify(REMINDER_NOTIFICATION_ID, notification)
         }
         return true
     }

@@ -30,36 +30,31 @@ export interface SendResult {
   error?: string;
 }
 
+/**
+ * Data-only valentine push. The Android app renders the notification locally
+ * (see ValentinesMessagingService), so it pops up both in the foreground and
+ * in the background without being suppressed by the OS.
+ */
 export async function sendVisiblePush(token: string, payload: PushPayload): Promise<SendResult> {
   try {
     const message = {
       token,
-      notification: {
-        title: `Валентинка от ${payload.from_name}`,
-        body: payload.message || 'Новая валентинка!',
-      },
       data: {
+        event: 'valentine',
         valentine_id: payload.valentine_id,
         from_name: payload.from_name,
         animation_type: payload.animation_type,
         sent_at: payload.sent_at,
-        type: 'visible',
         ...(payload.message !== undefined ? { message: payload.message } : {}),
         ...(payload.photo_url ? { photo_url: payload.photo_url } : {}),
       },
       android: {
         priority: 'high' as const,
-        notification: {
-          channelId: 'valentines_channel',
-          icon: 'ic_notification',
-          color: '#E91E63',
-        },
       },
       apns: {
         payload: {
           aps: {
-            sound: 'default',
-            badge: 1,
+            'content-available': 1,
           },
         },
       },
@@ -77,11 +72,11 @@ export async function sendDataPush(token: string, payload: PushPayload): Promise
     const message = {
       token,
       data: {
+        event: 'valentine',
         valentine_id: payload.valentine_id,
         from_name: payload.from_name,
         animation_type: payload.animation_type,
         sent_at: payload.sent_at,
-        type: 'data',
         ...(payload.message !== undefined ? { message: payload.message } : {}),
         ...(payload.photo_url ? { photo_url: payload.photo_url } : {}),
       },
@@ -134,11 +129,10 @@ export async function sendGreetingDataPush(token: string, greeting: { type: stri
 }
 
 export async function sendBothPushes(token: string, payload: PushPayload): Promise<{ visible: SendResult; data: SendResult }> {
-  const [visible, data] = await Promise.all([
-    sendVisiblePush(token, payload),
-    sendDataPush(token, payload),
-  ]);
-  return { visible, data };
+  // Single data-only push — the Android app renders the popup locally, so one
+  // message is enough (a visible+data pair would double-render on Android).
+  const result = await sendDataPush(token, payload);
+  return { visible: result, data: result };
 }
 
 export async function sendReminderPush(
@@ -148,29 +142,18 @@ export async function sendReminderPush(
   try {
     const message = {
       token,
-      notification: {
-        title: `⏰ ${reminder.title}`,
-        body: reminder.message || 'Запланированное напоминание для вас двоих',
-      },
       data: {
         event: 'reminder',
         title: reminder.title,
         message: reminder.message || '',
-        type: 'visible',
       },
       android: {
         priority: 'high' as const,
-        notification: {
-          channelId: 'valentines_channel',
-          icon: 'ic_notification',
-          color: '#E91E63',
-        },
       },
       apns: {
         payload: {
           aps: {
-            sound: 'default',
-            badge: 1,
+            'content-available': 1,
           },
         },
       },

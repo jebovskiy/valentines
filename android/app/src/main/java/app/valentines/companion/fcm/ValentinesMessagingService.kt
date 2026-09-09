@@ -31,6 +31,17 @@ class ValentinesMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(message)
         val data = message.data
 
+        if (data["event"] == "reminder") {
+            runBlocking {
+                NotificationHelper.notifyReminder(
+                    context = this@ValentinesMessagingService,
+                    title = data["title"],
+                    message = data["message"],
+                )
+            }
+            return
+        }
+
         if (data["event"] == "greeting") {
             runBlocking {
                 NotificationHelper.notifyGreeting(
