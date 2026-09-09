@@ -60,6 +60,11 @@
   100% { transform: translateY(-16vh) translateX(var(--sway, 0px)) rotate(26deg); opacity: 0; }
 }
 
+@keyframes heart-pop {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 /* Valentine streak animations */
 @keyframes va-glow-in {
   from { opacity: 0; transform: scale(0.7); }
