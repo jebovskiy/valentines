@@ -164,10 +164,12 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'center',
     gap: 8,
     height: 44,
+    position: 'relative',
   },
   title: {
     fontSize: 18,
     fontWeight: 700,
+    color: 'var(--ink)',
   },
   topBarRight: {
     marginLeft: 'auto',

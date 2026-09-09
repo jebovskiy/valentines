@@ -1,4 +1,3 @@
-import { CSSProperties } from 'react';
 import { HeartOpenAnimation } from './HeartOpenAnimation';
 import { AnimationType } from '../types';
 
@@ -11,12 +10,12 @@ const COLORS: Record<AnimationType, string> = {
   golden_halo: '#f0b83e',
 };
 
-const SPARKS: Array<{ dx: number; dy: number; delay: number }> = [
-  { dx: 34, dy: -16, delay: 0.12 },
-  { dx: -36, dy: -8, delay: 0.02 },
-  { dx: 26, dy: 30, delay: 0.2 },
-  { dx: -28, dy: 26, delay: 0.08 },
-  { dx: 2, dy: -40, delay: 0.16 },
+const SPARKS = [
+  { x: 0.68, y: 0.22, delay: 0.55 },
+  { x: 0.12, y: 0.34, delay: 0.45 },
+  { x: 0.72, y: 0.76, delay: 0.63 },
+  { x: 0.18, y: 0.7, delay: 0.5 },
+  { x: 0.5, y: 0.05, delay: 0.59 },
 ];
 
 const PETALS = [0, 60, 120, 180, 240, 300];
@@ -30,6 +29,8 @@ export function ValentineAnimation({
   size?: number;
   autoPlay?: boolean;
 }) {
+  const c = COLORS[type] ?? COLORS.heart_open;
+
   return (
     <div
       style={{
@@ -39,7 +40,7 @@ export function ValentineAnimation({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: COLORS[type] ?? COLORS.heart_open,
+        color: c,
       }}
     >
       {type === 'moon' && (
@@ -49,12 +50,14 @@ export function ValentineAnimation({
             width: size * 1.25,
             height: size * 1.25,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(169, 192, 245, 0.55), transparent 70%)',
+            background: 'radial-gradient(circle, rgba(169,192,245,0.55), transparent 70%)',
             opacity: 0,
-            animation: 'va-glow-in 1s ease-out forwards',
+            willChange: 'opacity',
+            animation: autoPlay ? 'va-glow-in 1s ease-out forwards' : 'none',
           }}
         />
       )}
+
       {type === 'flame' && (
         <div
           style={{
@@ -62,69 +65,79 @@ export function ValentineAnimation({
             width: size * 1.2,
             height: size * 1.2,
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255, 140, 60, 0.5), transparent 65%)',
+            background: 'radial-gradient(circle, rgba(255,140,60,0.5), transparent 65%)',
             opacity: 0,
-            animation: 'va-flame-pulse 1s ease-in-out 0.3s both',
+            willChange: 'opacity, transform',
+            animation: autoPlay ? 'va-flame-pulse 1.4s ease-in-out 0.2s both' : 'none',
           }}
         />
       )}
+
       {type === 'golden_halo' && (
         <div
           style={{
             position: 'absolute',
-            width: size * 1.45,
-            height: size * 1.45,
+            width: size * 1.5,
+            height: size * 1.5,
             borderRadius: '50%',
             background:
               'conic-gradient(from 0deg, #f0c869, transparent 30%, #f0c869 60%, transparent 90%)',
             opacity: 0,
-            animation:
-              'va-halo-in 0.6s ease-out 0.3s both, va-halo-spin 4s linear 0.6s infinite',
+            willChange: 'opacity, transform',
+            animation: autoPlay
+              ? 'va-halo-in 0.6s ease-out 0.2s both, va-halo-spin 4s linear 0.5s infinite'
+              : 'none',
           }}
         />
       )}
+
       {type === 'sparkle' &&
-        SPARKS.map((s, i) => (
-          <span
-            key={i}
-            style={
-              {
+        SPARKS.map((s, i) => {
+          const dotSize = Math.max(3, size * 0.08);
+          return (
+            <div
+              key={i}
+              style={{
                 position: 'absolute',
-                width: size * 0.07,
-                height: size * 0.07,
-                background: '#ffb066',
-                borderRadius: 2,
-                transform: 'translate(-50%, -50%)',
+                left: `${s.x * 100}%`,
+                top: `${s.y * 100}%`,
+                width: dotSize,
+                height: dotSize,
+                background: '#ffe27a',
+                borderRadius: '50%',
                 opacity: 0,
-                transformOrigin: 'center',
-                ['--dx' as string]: `${s.dx}px`,
-                ['--dy' as string]: `${s.dy}px`,
-                animation: `va-spark-out 0.9s ease-out ${0.55 + s.delay}s forwards`,
-              } as CSSProperties
-            }
-          />
-        ))}
+                willChange: 'opacity, transform',
+                animation: autoPlay
+                  ? `va-spark-pop 0.6s ease-out ${s.delay}s forwards`
+                  : 'none',
+              }}
+            />
+          );
+        })}
+
       {type === 'bloom_petals' &&
         PETALS.map((ang, i) => (
-          <span
+          <div
             key={i}
-            style={
-              {
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: size * 0.28,
-                height: size * 0.44,
-                background: '#ffc3dc',
-                borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
-                transformOrigin: '50% 100%',
-                opacity: 0,
-                ['--ang' as string]: `${ang}deg`,
-                animation: `va-petal-out 0.7s ease-out ${0.45 + i * 0.06}s both`,
-              } as CSSProperties
-            }
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              width: size * 0.26,
+              height: size * 0.4,
+              background: i % 2 === 0 ? '#ffc3dc' : '#ffb3cd',
+              borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
+              transformOrigin: '50% 100%',
+              opacity: 0,
+              willChange: 'opacity, transform',
+              animation: autoPlay
+                ? `va-petal-bloom 0.6s ease-out ${0.4 + i * 0.06}s forwards`
+                : 'none',
+              ['--petal-ang' as string]: `${ang}deg`,
+            } as React.CSSProperties}
           />
         ))}
+
       <HeartOpenAnimation size={size} autoPlay={autoPlay} duration={900} />
     </div>
   );
