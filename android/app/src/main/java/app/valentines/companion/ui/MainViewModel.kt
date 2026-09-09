@@ -207,6 +207,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val id = _deviceId.value ?: return
         viewModelScope.launch {
             try {
+                if (enabled) {
+                    // Upload a real FCM token — the server skips devices whose
+                    // token is still "pending" (leftover from pairing/denial).
+                    val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+                    ApiClient.api.updatePushToken(
+                        DeviceStatusRequest(deviceId = id, pushToken = token)
+                    )
+                }
                 ApiClient.api.updatePermission(
                     DeviceStatusRequest(deviceId = id, granted = enabled)
                 )

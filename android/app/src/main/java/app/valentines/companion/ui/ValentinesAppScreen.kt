@@ -631,6 +631,11 @@ private fun SetupDoneScreen(
     pushEnabled: Boolean,
     onTogglePush: (Boolean) -> Unit,
 ) {
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> onTogglePush(granted) }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
@@ -668,7 +673,18 @@ private fun SetupDoneScreen(
                 }
                 Switch(
                     checked = pushEnabled,
-                    onCheckedChange = onTogglePush,
+                    onCheckedChange = { want ->
+                        if (want) {
+                            val needPermission =
+                                Build.VERSION.SDK_INT >= 33 &&
+                                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+                                    PackageManager.PERMISSION_GRANTED
+                            if (needPermission) permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            else onTogglePush(true)
+                        } else {
+                            onTogglePush(false)
+                        }
+                    },
                 )
             }
         }

@@ -30,9 +30,9 @@ interface SceneTheme {
 const SCENES: Record<GreetingScene, SceneTheme> = {
   morning: {
     sky: 'linear-gradient(163deg, #ffe9ec 0%, #ffd6dc 16%, #ffc7ad 36%, #ffb15e 62%, #ff8f4d 100%)',
-    horizonGlow: 'radial-gradient(circle at 50% 118%, rgba(255, 247, 214, 0.95) 0%, rgba(255, 236, 179, 0) 55%)',
+    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(255, 245, 220, 0.5) 0%, rgba(255, 230, 180, 0) 42%)',
     sunCore: 'radial-gradient(circle at 38% 32%, #fffdf3 0%, #ffe9a6 46%, #ffc25e 78%, #ffab4f 100%)',
-    sunGlow: 'radial-gradient(circle, rgba(255, 220, 140, 0.85) 0%, rgba(255, 180, 100, 0.35) 42%, rgba(255, 150, 80, 0) 70%)',
+    sunGlow: 'radial-gradient(circle, rgba(255, 220, 140, 0.5) 0%, rgba(255, 190, 120, 0.16) 42%, rgba(255, 180, 110, 0) 68%)',
     rays: 'repeating-conic-gradient(from 0deg, rgba(255, 238, 190, 0.75) 0deg 7deg, rgba(255, 238, 190, 0) 7deg 26deg)',
     titleGradient: 'linear-gradient(90deg, #ff9a3d 0%, #ffd05c 25%, #fff3c4 50%, #ffd05c 75%, #ff9a3d 100%)',
     emoji: '☀️',
@@ -42,9 +42,9 @@ const SCENES: Record<GreetingScene, SceneTheme> = {
   },
   night: {
     sky: 'linear-gradient(165deg, #070b20 0%, #10193d 40%, #232e5c 100%)',
-    horizonGlow: 'radial-gradient(circle at 50% 118%, rgba(90, 120, 220, 0.85) 0%, rgba(40, 60, 140, 0) 55%)',
+    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(110, 140, 235, 0.45) 0%, rgba(60, 80, 180, 0) 42%)',
     sunCore: 'radial-gradient(circle at 38% 32%, #fffbe8 0%, #fdf2c0 40%, #ffe9a0 75%, #ffd76b 100%)',
-    sunGlow: 'radial-gradient(circle, rgba(200, 215, 255, 0.8) 0%, rgba(120, 150, 240, 0.35) 45%, rgba(90, 110, 220, 0) 72%)',
+    sunGlow: 'radial-gradient(circle, rgba(200, 215, 255, 0.45) 0%, rgba(130, 160, 245, 0.15) 42%, rgba(110, 140, 235, 0) 68%)',
     rays: 'repeating-conic-gradient(from 0deg, rgba(210, 220, 255, 0.5) 0deg 7deg, rgba(210, 220, 255, 0) 7deg 26deg)',
     titleGradient: 'linear-gradient(90deg, #aab7ff 0%, #e8e6ff 25%, #ffffff 50%, #e8e6ff 75%, #aab7ff 100%)',
     emoji: '🌙',
@@ -90,6 +90,10 @@ function RandomParticles({ count, chars, maxSize, minSize, scene }: { count: num
 export function GreetingOverlay({ scene, mode, names, senderName, onClose, onSend, sending, sent }: GreetingOverlayProps) {
   const theme = SCENES[scene];
   const night = scene === 'night';
+  const phrase = night ? 'Спокойной ночи' : 'Доброе утро';
+  const receivedLine = night
+    ? `желает тебе спокойной ночи ${theme.emoji}`
+    : `желает тебе доброго утра ${theme.emoji}`;
 
   return (
     <div style={overlayStyle}>
@@ -145,10 +149,9 @@ export function GreetingOverlay({ scene, mode, names, senderName, onClose, onSen
         ))}
       </div>
 
-      {/* sun with rotating soft rays */}
+      {/* sun */}
       <div style={styles.sunWrap}>
         <div style={{ ...styles.sunGlow, background: theme.sunGlow }} />
-        <div style={{ ...styles.rays, background: theme.rays }} />
         <div style={{ ...styles.sun, background: theme.sunCore }} />
       </div>
 
@@ -179,7 +182,7 @@ export function GreetingOverlay({ scene, mode, names, senderName, onClose, onSen
             background: theme.titleGradient,
           }}
         >
-          {scene === 'night' ? 'Спокойной ночи' : 'Доброе утро'}
+          {phrase}
         </h1>
 
         <p style={styles.namesLine}>
@@ -189,7 +192,7 @@ export function GreetingOverlay({ scene, mode, names, senderName, onClose, onSen
 
         {mode === 'received' && senderName ? (
           <p style={styles.receivedLine}>
-            <span style={{ color: 'var(--ink)' }}>{senderName}</span> желает тебе доброго утра 💛
+            <span style={{ color: 'var(--ink)' }}>{senderName}</span> {receivedLine}
           </p>
         ) : (
           <p style={styles.subtitle}>{theme.subtitle}</p>
@@ -198,12 +201,14 @@ export function GreetingOverlay({ scene, mode, names, senderName, onClose, onSen
         <div style={styles.actions}>
           {mode === 'celebrate' && !sent ? (
             <button style={{ ...styles.primaryBtn, background: theme.accent, color: theme.onAccent }} onClick={onSend} disabled={sending}>
-              {sending ? 'Отправляем…' : `${theme.emoji} Пожелать партнёру`}
+              {sending ? 'Отправляем…' : `${theme.emoji} ${night ? 'Пожелать спокойной ночи' : 'Пожелать доброе утро'}`}
             </button>
           ) : (
             <div style={{ ...styles.sentPill, borderColor: 'transparent' }}>
               <span style={{ color: 'var(--ink)' }}>{theme.emoji}</span>
-              {mode === 'received' ? 'Доброе утро уже прозвучало' : 'Доброе утро передано партнёру'}
+              {mode === 'received'
+                ? `${night ? 'Спокойной ночи' : 'Доброе утро'} уже прозвучало`
+                : `${night ? 'Спокойной ночи' : 'Доброе утро'} передано партнёру`}
             </div>
           )}
           <button style={styles.closeBtn} onClick={onClose}>
@@ -263,18 +268,9 @@ const styles: Record<string, CSSProperties> = {
   },
   sunGlow: {
     position: 'absolute',
-    inset: '-36%',
+    inset: '-16%',
     borderRadius: '50%',
     animation: 'greet-glow 4.2s ease-in-out infinite',
-  },
-  rays: {
-    position: 'absolute',
-    inset: '-9%',
-    borderRadius: '50%',
-    opacity: 0.6,
-    animation: 'greet-spin 52s linear infinite',
-    WebkitMaskImage: 'radial-gradient(circle, rgba(0,0,0,1) 34%, rgba(0,0,0,0) 62%)',
-    maskImage: 'radial-gradient(circle, rgba(0,0,0,1) 34%, rgba(0,0,0,0) 62%)',
   },
   sun: {
     position: 'absolute',

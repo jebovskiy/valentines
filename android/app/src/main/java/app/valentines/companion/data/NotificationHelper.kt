@@ -32,6 +32,17 @@ object NotificationHelper {
         manager.createNotificationChannel(channel)
     }
 
+    fun ensureSyncChannel(context: Context) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(
+            NotificationChannel(
+                "widget_sync",
+                "Синхронизация виджета",
+                NotificationManager.IMPORTANCE_LOW,
+            )
+        )
+    }
+
     fun canNotify(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -72,24 +83,28 @@ object NotificationHelper {
     }
 
     /**
-     * Shows a gentle "good morning" notification when the partner sent a greeting.
-     * Deduplicates to once per calendar day.
+     * Shows a gentle "good morning"/"good night" notification when the partner
+     * sent a greeting. Deduplicates to once per greeting type per calendar day.
      */
-    suspend fun notifyGreeting(context: Context, fromName: String?): Boolean {
+    suspend fun notifyGreeting(context: Context, fromName: String?, night: Boolean): Boolean {
         if (!canNotify(context)) return false
 
         val prefs = PrefsRepository(context)
+        val typeKey = if (night) "night" else "morning"
         val today = java.time.LocalDate.now().toString()
-        if (prefs.getLastGreetingDate() == today) return false
-        prefs.setLastGreetingDate(today)
+        val dedupKey = "$today:$typeKey"
+        if (prefs.getLastGreetingDate() == dedupKey) return false
+        prefs.setLastGreetingDate(dedupKey)
 
         ensureChannel(context)
 
-        val title = "Доброе утро ☀️"
+        val noun = if (night) "спокойной ночи" else "доброго утра"
+        val emoji = if (night) "🌙" else "☀️"
+        val title = if (night) "Спокойной ночи $emoji" else "Доброе утро $emoji"
         val content =
-            fromName?.takeIf { it.isNotBlank() }?.let { "$it желает тебе доброго утра" }
-                ?: "Партнёр желает тебе доброго утра"
-        val contentIntent = buildContentIntent(context, "greeting_morning")
+            fromName?.takeIf { it.isNotBlank() }?.let { "$it желает тебе $noun" }
+                ?: "Партнёр желает тебе $noun"
+        val contentIntent = buildContentIntent(context, if (night) "greeting_night" else "greeting_morning")
 
         val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)

@@ -4,7 +4,7 @@ import { useValentinesStore, partnerName, daysTogether } from '../hooks/useValen
 import { setMainButton, hapticFeedback, webApp } from '../utils/telegram';
 import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
 import { AppleEmoji } from '../components/AppleEmoji';
-import { GreetingOverlay, GreetingMode } from '../components/GreetingOverlay';
+import { GreetingOverlay, GreetingMode, GreetingScene } from '../components/GreetingOverlay';
 import { getAnimation } from '../types';
 import { api } from '../api/client';
 import { formatFeedTime } from '../utils/date';
@@ -21,6 +21,7 @@ export function ListScreen() {
 
   const [greetingOpen, setGreetingOpen] = useState(false);
   const [greetingMode, setGreetingMode] = useState<GreetingMode>('celebrate');
+  const [greetingScene, setGreetingScene] = useState<GreetingScene>('morning');
   const [greetingSending, setGreetingSending] = useState(false);
   const [greetingSent, setGreetingSent] = useState(false);
   const [greetingSender, setGreetingSender] = useState<string | null>(null);
@@ -67,7 +68,6 @@ export function ListScreen() {
     if (!greetingEnabled || !greetings.length) return;
     const recent = greetings.find(
       (g) =>
-        g.type === 'morning' &&
         !g.is_own &&
         Date.now() - new Date(g.sent_at).getTime() < 18 * 3600 * 1000
     );
@@ -80,6 +80,7 @@ export function ListScreen() {
         /* ignore */
       }
       setGreetingSender(recent.sender_name);
+      setGreetingScene(recent.type === 'night' ? 'night' : 'morning');
       setGreetingMode('received');
       setGreetingOpen(true);
       hapticFeedback('notification', 'success');
@@ -183,21 +184,40 @@ export function ListScreen() {
       </header>
 
       {greetingEnabled && (
-        <button
-          onClick={() => {
-            hapticFeedback('impact', 'light');
-            setGreetingMode('celebrate');
-            setGreetingOpen(true);
-          }}
-          style={styles.greetingBanner}
-        >
-          <span style={styles.greetingEmoji}>☀️</span>
-          <span style={styles.greetingBannerText}>
-            <span style={styles.greetingBannerTitle}>Доброе утро, {profile?.display_name ?? profile?.first_name ?? ''}</span>
-            <span style={styles.greetingBannerSub}>Нажми, чтобы начать день красиво</span>
-          </span>
-          <span style={styles.greetingBannerArrow}>›</span>
-        </button>
+        <div style={styles.greetingPanel}>
+          <button
+            onClick={() => {
+              hapticFeedback('impact', 'light');
+              setGreetingScene('morning');
+              setGreetingMode('celebrate');
+              setGreetingSent(false);
+              setGreetingOpen(true);
+            }}
+            style={styles.greetingBtnMorning}
+          >
+            <span style={styles.greetingBtnEmoji}>☀️</span>
+            <span style={styles.greetingBtnText}>
+              <span style={styles.greetingBtnTitle}>Доброе утро</span>
+              <span style={styles.greetingBtnSub}>Начать день красиво</span>
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              hapticFeedback('impact', 'light');
+              setGreetingScene('night');
+              setGreetingMode('celebrate');
+              setGreetingSent(false);
+              setGreetingOpen(true);
+            }}
+            style={styles.greetingBtnNight}
+          >
+            <span style={styles.greetingBtnEmoji}>🌙</span>
+            <span style={styles.greetingBtnText}>
+              <span style={styles.greetingBtnTitleNight}>Спокойной ночи</span>
+              <span style={styles.greetingBtnSubNight}>Пожелать сладких снов</span>
+            </span>
+          </button>
+        </div>
       )}
 
       <div style={styles.filterBar} role="tablist">
@@ -301,7 +321,7 @@ export function ListScreen() {
 
       {greetingEnabled && greetingOpen && (
         <GreetingOverlay
-          scene="morning"
+          scene={greetingScene}
           mode={greetingMode}
           names={{ me: profile?.display_name ?? profile?.first_name ?? 'Вы', partner }}
           senderName={greetingMode === 'received' ? greetingSender : null}
@@ -311,7 +331,7 @@ export function ListScreen() {
           }}
           onSend={async () => {
             setGreetingSending(true);
-            const ok = await sendGreeting('morning');
+            const ok = await sendGreeting(greetingScene);
             setGreetingSending(false);
             if (ok) {
               setGreetingSent(true);
@@ -616,52 +636,90 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     color: 'var(--text-faint)',
   },
-  greetingBanner: {
+  greetingPanel: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
+    flexDirection: 'row',
+    gap: '8px',
     marginTop: '12px',
-    padding: '14px 16px',
+  },
+  greetingBtnMorning: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 12px',
     borderRadius: '20px',
     border: '1px solid rgba(255, 200, 130, 0.55)',
     background: 'linear-gradient(120deg, #ffe3c2 0%, #ffd9b0 40%, #ffcf9a 100%)',
     boxShadow: '0 10px 26px rgba(255, 160, 80, 0.28)',
     textAlign: 'left',
     cursor: 'pointer',
+    minWidth: 0,
   },
-  greetingEmoji: {
-    fontSize: 30,
+  greetingBtnNight: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 12px',
+    borderRadius: '20px',
+    border: '1px solid rgba(150, 160, 235, 0.45)',
+    background: 'linear-gradient(120deg, #232e5c 0%, #303e7a 55%, #3d4d99 100%)',
+    boxShadow: '0 10px 26px rgba(70, 90, 190, 0.3)',
+    textAlign: 'left',
+    cursor: 'pointer',
+    minWidth: 0,
+  },
+  greetingBtnEmoji: {
+    fontSize: 24,
     lineHeight: 1,
     animation: 'greet-soft-bounce 2.4s ease-in-out infinite',
-    filter: 'drop-shadow(0 4px 10px rgba(255,170,70,0.5))',
+    filter: 'drop-shadow(0 4px 10px rgba(180,190,255,0.35))',
   },
-  greetingBannerText: {
+  greetingBtnText: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '2px',
+    gap: '1px',
     flex: 1,
     minWidth: 0,
   },
-  greetingBannerTitle: {
+  greetingBtnTitle: {
     fontFamily: 'var(--font-display)',
     fontWeight: '800',
-    fontSize: '17px',
+    fontSize: '15px',
     color: 'rgba(150, 76, 24, 0.98)',
     letterSpacing: '-0.3px',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
-  greetingBannerSub: {
-    fontSize: '12px',
+  greetingBtnSub: {
+    fontSize: '11px',
     color: 'rgba(150, 92, 40, 0.85)',
     fontFamily: 'var(--font-body)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
-  greetingBannerArrow: {
-    fontSize: '26px',
-    color: 'rgba(150, 76, 24, 0.7)',
-    lineHeight: 1,
-    fontWeight: 300,
+  greetingBtnTitleNight: {
+    fontFamily: 'var(--font-display)',
+    fontWeight: '800',
+    fontSize: '15px',
+    color: '#f4f0ff',
+    letterSpacing: '-0.3px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  greetingBtnSubNight: {
+    fontSize: '11px',
+    color: '#b9c2ef',
+    fontFamily: 'var(--font-body)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   filterBar: {
     display: 'flex',
