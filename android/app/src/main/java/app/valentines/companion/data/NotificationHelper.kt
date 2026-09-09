@@ -19,6 +19,7 @@ const val VALENTINES_CHANNEL_ID = "valentines_channel"
 object NotificationHelper {
 
     private const val NOTIFICATION_ID = 1001
+    private const val GREETING_NOTIFICATION_ID = 1003
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -66,6 +67,42 @@ object NotificationHelper {
 
         runCatching {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+        }
+        return true
+    }
+
+    /**
+     * Shows a gentle "good morning" notification when the partner sent a greeting.
+     * Deduplicates to once per calendar day.
+     */
+    suspend fun notifyGreeting(context: Context, fromName: String?): Boolean {
+        if (!canNotify(context)) return false
+
+        val prefs = PrefsRepository(context)
+        val today = java.time.LocalDate.now().toString()
+        if (prefs.getLastGreetingDate() == today) return false
+        prefs.setLastGreetingDate(today)
+
+        ensureChannel(context)
+
+        val title = "Доброе утро ☀️"
+        val content =
+            fromName?.takeIf { it.isNotBlank() }?.let { "$it желает тебе доброго утра" }
+                ?: "Партнёр желает тебе доброго утра"
+        val contentIntent = buildContentIntent(context, "greeting_morning")
+
+        val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        runCatching {
+            NotificationManagerCompat.from(context).notify(GREETING_NOTIFICATION_ID, notification)
         }
         return true
     }

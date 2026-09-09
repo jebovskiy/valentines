@@ -104,6 +104,35 @@ export async function sendDataPush(token: string, payload: PushPayload): Promise
   }
 }
 
+export async function sendGreetingDataPush(token: string, greeting: { type: string; from_name: string }): Promise<SendResult> {
+  try {
+    const message = {
+      token,
+      data: {
+        event: 'greeting',
+        greeting_type: greeting.type,
+        from_name: greeting.from_name,
+        type: 'data',
+      },
+      android: {
+        priority: 'high' as const,
+      },
+      apns: {
+        payload: {
+          aps: {
+            'content-available': 1,
+          },
+        },
+      },
+    };
+
+    const messageId = await getMessaging().send(message);
+    return { success: true, messageId };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
 export async function sendBothPushes(token: string, payload: PushPayload): Promise<{ visible: SendResult; data: SendResult }> {
   const [visible, data] = await Promise.all([
     sendVisiblePush(token, payload),

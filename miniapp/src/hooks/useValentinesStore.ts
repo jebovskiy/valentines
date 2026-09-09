@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines } from '../api/supabase';
 
@@ -52,6 +52,9 @@ interface ValentinesState {
   setupRealtime: (pairId: string) => void;
   cleanupRealtime: () => void;
   clearError: () => void;
+  greetings: Greeting[];
+  fetchGreetings: () => Promise<void>;
+  sendGreeting: (type: GreetingType) => Promise<boolean>;
 }
 
 function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
@@ -88,6 +91,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   isLoading: false,
   error: null,
   realtimeChannel: null,
+  greetings: [],
 
   fetchPair: async () => {
     set({ isLoading: true, error: null });
@@ -284,4 +288,34 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+
+  fetchGreetings: async () => {
+    const { pair, currentUser } = get();
+    if (!pair || !currentUser) return;
+    const result = await api.getGreetings();
+    if (result.error || !result.data) return;
+    const enriched = result.data.greetings.map((g) => ({
+      ...g,
+      sender_name: g.sender_telegram_id === currentUser.id ? 'Вы' : partnerName(pair, currentUser.id),
+      is_own: g.sender_telegram_id === currentUser.id,
+    }));
+    set({ greetings: enriched });
+  },
+
+  sendGreeting: async (type) => {
+    const { currentUser } = get();
+    const result = await api.sendGreeting(type);
+    if (result.error) {
+      set({ error: result.error });
+      return false;
+    }
+    const greeting = result.data!.greeting;
+    const enriched: Greeting = {
+      ...greeting,
+      sender_name: currentUser ? 'Вы' : 'Вы',
+      is_own: true,
+    };
+    set((state) => ({ greetings: [enriched, ...state.greetings] }));
+    return true;
+  },
 }));

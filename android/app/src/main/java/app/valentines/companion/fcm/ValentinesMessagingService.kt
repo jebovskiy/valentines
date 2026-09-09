@@ -30,6 +30,17 @@ class ValentinesMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
         val data = message.data
+
+        if (data["event"] == "greeting") {
+            runBlocking {
+                NotificationHelper.notifyGreeting(
+                    context = this@ValentinesMessagingService,
+                    fromName = data["from_name"],
+                )
+            }
+            return
+        }
+
         val valentineId = data["valentine_id"]
         val fromName = data["from_name"]
         val animationType = data["animation_type"]

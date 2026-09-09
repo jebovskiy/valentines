@@ -97,3 +97,15 @@ export interface UserProfile {
   display_name: string | null;
   avatar_url: string | null;
 }
+
+export type GreetingType = 'morning' | 'night';
+
+export interface Greeting {
+  id: string;
+  pair_id: string;
+  sender_telegram_id: number;
+  type: GreetingType;
+  sent_at: string;
+  sender_name: string;
+  is_own: boolean;
+}

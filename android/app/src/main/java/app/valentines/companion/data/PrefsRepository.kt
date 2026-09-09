@@ -28,6 +28,7 @@ object Preferences {
     val LAST_PHOTO_URL = stringPreferencesKey("widget_photo_url")
     val LAST_VALENTINE_ID = stringPreferencesKey("widget_valentine_id")
     val LAST_NOTIFIED_ID = stringPreferencesKey("last_notified_id")
+    val LAST_GREETING_DATE = stringPreferencesKey("last_greeting_date")
     val SETUP_DONE = booleanPreferencesKey("setup_done")
 }
 
@@ -105,6 +106,12 @@ class PrefsRepository(private val context: Context) {
 
     suspend fun setLastNotifiedId(id: String) {
         context.store.edit { it[Preferences.LAST_NOTIFIED_ID] = id }
+    }
+
+    suspend fun getLastGreetingDate(): String? = context.store.data.first()[Preferences.LAST_GREETING_DATE]
+
+    suspend fun setLastGreetingDate(date: String) {
+        context.store.edit { it[Preferences.LAST_GREETING_DATE] = date }
     }
 
     suspend fun isPairingComplete(): Boolean = deviceId.first() != null

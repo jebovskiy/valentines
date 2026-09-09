@@ -49,6 +49,54 @@ export interface PairingToken {
   expires_at: string;
 }
 
+export type GreetingType = 'morning' | 'night';
+
+export interface Greeting {
+  id: string;
+  pair_id: string;
+  sender_telegram_id: number;
+  type: GreetingType;
+  sent_at: string;
+}
+
+export async function createGreeting(
+  pairId: string,
+  senderTelegramId: number,
+  type: GreetingType
+): Promise<Greeting> {
+  const { data, error } = await supabase
+    .from('greetings')
+    .insert({ pair_id: pairId, sender_telegram_id: senderTelegramId, type })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getLatestGreetingForType(pairId: string, type: GreetingType): Promise<Greeting | null> {
+  const { data, error } = await supabase
+    .from('greetings')
+    .select('*')
+    .eq('pair_id', pairId)
+    .eq('type', type)
+    .order('sent_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function getLatestGreetings(pairId: string): Promise<Greeting[]> {
+  const { data, error } = await supabase
+    .from('greetings')
+    .select('*')
+    .eq('pair_id', pairId)
+    .order('sent_at', { ascending: false })
+    .limit(10);
+  if (error) throw error;
+  return data || [];
+}
+
 export interface UserProfile {
   telegram_user_id: number;
   username: string | null;

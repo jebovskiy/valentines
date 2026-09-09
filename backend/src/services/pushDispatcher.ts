@@ -1,5 +1,5 @@
-import { sendVisiblePush, sendDataPush, sendBothPushes, PushPayload } from './fcm';
-import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs, getDevicesByPair, Valentine } from './database';
+import { sendVisiblePush, sendDataPush, sendBothPushes, sendGreetingDataPush, PushPayload } from './fcm';
+import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs, getDevicesByPair, Valentine, Pair } from './database';
 
 export interface PushDispatchPayload {
   valentine_id: string;
@@ -7,9 +7,43 @@ export interface PushDispatchPayload {
   channel: 'visible' | 'data';
 }
 
-function senderName(pair: { telegram_user_a: number; user_a_name: string | null; telegram_user_b: number; user_b_name: string | null }, senderTelegramId: number): string {
+function senderName(pair: Pair, senderTelegramId: number): string {
   if (pair.telegram_user_a === senderTelegramId) return pair.user_a_name || 'Партнер';
   return pair.user_b_name || 'Партнер';
+}
+
+/**
+ * Sends a lightweight data interaction signal ("доброе утро") to the partner's
+ * companion devices. The miniapp renders the animated scene; the Android app
+ * shows an awareness notification.
+ */
+export async function dispatchGreetingPushes(pairId: string, senderTelegramId: number, greetingType: 'morning' | 'night'): Promise<void> {
+  let fromName = 'Партнер';
+  try {
+    const pair = await getPairById(pairId);
+    if (pair) fromName = senderName(pair, senderTelegramId);
+  } catch (error) {
+    console.error('Greeting push: failed to load pair', error);
+  }
+
+  let devices;
+  try {
+    devices = await getDevicesByPair(pairId);
+  } catch (error) {
+    console.error('Greeting push: failed to load devices', error);
+    return;
+  }
+
+  for (const device of devices) {
+    if (device.telegram_user_id === senderTelegramId) continue;
+    if (!device.push_token || device.push_token === 'pending') continue;
+    try {
+      const result = await sendGreetingDataPush(device.push_token, { type: greetingType, from_name: fromName });
+      console.log(`Greeting push sent to device ${device.id}: ${result.success}`);
+    } catch (error) {
+      console.error(`Greeting push error for device ${device.id}:`, error);
+    }
+  }
 }
 
 export async function dispatchPush(payload: PushDispatchPayload): Promise<void> {

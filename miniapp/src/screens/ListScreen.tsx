@@ -4,18 +4,26 @@ import { useValentinesStore, partnerName, daysTogether } from '../hooks/useValen
 import { setMainButton, hapticFeedback, webApp } from '../utils/telegram';
 import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
 import { AppleEmoji } from '../components/AppleEmoji';
+import { GreetingOverlay, GreetingMode } from '../components/GreetingOverlay';
 import { getAnimation } from '../types';
 import { api } from '../api/client';
 import { formatFeedTime } from '../utils/date';
+import { isGreetingsEnabled } from '../utils/greeting';
 
 export function ListScreen() {
-  const { valentines, isLoading, error, fetchValentines, refreshValentines, markSeen, pair, checkPair, createInvite, joinInvite, profile, androidPaired, refreshPairingStatus } = useValentinesStore();
+  const { valentines, isLoading, error, fetchValentines, refreshValentines, markSeen, pair, checkPair, createInvite, joinInvite, profile, androidPaired, refreshPairingStatus, greetings, fetchGreetings, sendGreeting } = useValentinesStore();
   const navigate = useNavigate();
   const [inviteCode, setInviteCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'received' | 'sent'>('all');
+
+  const [greetingOpen, setGreetingOpen] = useState(false);
+  const [greetingMode, setGreetingMode] = useState<GreetingMode>('celebrate');
+  const [greetingSending, setGreetingSending] = useState(false);
+  const [greetingSent, setGreetingSent] = useState(false);
+  const [greetingSender, setGreetingSender] = useState<string | null>(null);
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -46,6 +54,37 @@ export function ListScreen() {
   useEffect(() => {
     if (pair) setInviteCode('');
   }, [pair]);
+
+  const greetingEnabled = isGreetingsEnabled(pair, useValentinesStore.getState().currentUser?.id ?? null);
+
+  useEffect(() => {
+    if (greetingEnabled && pair) {
+      fetchGreetings();
+    }
+  }, [greetingEnabled, pair, fetchGreetings]);
+
+  useEffect(() => {
+    if (!greetingEnabled || !greetings.length) return;
+    const recent = greetings.find(
+      (g) =>
+        g.type === 'morning' &&
+        !g.is_own &&
+        Date.now() - new Date(g.sent_at).getTime() < 18 * 3600 * 1000
+    );
+    if (recent) {
+      const seenKey = `vn_greeting_seen_${recent.id}`;
+      try {
+        if (localStorage.getItem(seenKey)) return;
+        localStorage.setItem(seenKey, '1');
+      } catch {
+        /* ignore */
+      }
+      setGreetingSender(recent.sender_name);
+      setGreetingMode('received');
+      setGreetingOpen(true);
+      hapticFeedback('notification', 'success');
+    }
+  }, [greetingEnabled, greetings]);
 
   const received = valentines.filter((v) => !v.is_own);
   const sent = valentines.filter((v) => v.is_own);
@@ -142,6 +181,24 @@ export function ListScreen() {
         </div>
         <div style={styles.feedSub}>Вы и {partner} · {days} {formatDays(days)} вместе</div>
       </header>
+
+      {greetingEnabled && (
+        <button
+          onClick={() => {
+            hapticFeedback('impact', 'light');
+            setGreetingMode('celebrate');
+            setGreetingOpen(true);
+          }}
+          style={styles.greetingBanner}
+        >
+          <span style={styles.greetingEmoji}>☀️</span>
+          <span style={styles.greetingBannerText}>
+            <span style={styles.greetingBannerTitle}>Доброе утро, {profile?.display_name ?? profile?.first_name ?? ''}</span>
+            <span style={styles.greetingBannerSub}>Нажми, чтобы начать день красиво</span>
+          </span>
+          <span style={styles.greetingBannerArrow}>›</span>
+        </button>
+      )}
 
       <div style={styles.filterBar} role="tablist">
         {([
@@ -241,6 +298,30 @@ export function ListScreen() {
       >
         ＋
       </button>
+
+      {greetingEnabled && greetingOpen && (
+        <GreetingOverlay
+          scene="morning"
+          mode={greetingMode}
+          names={{ me: profile?.display_name ?? profile?.first_name ?? 'Вы', partner }}
+          senderName={greetingMode === 'received' ? greetingSender : null}
+          onClose={() => {
+            hapticFeedback('selection');
+            setGreetingOpen(false);
+          }}
+          onSend={async () => {
+            setGreetingSending(true);
+            const ok = await sendGreeting('morning');
+            setGreetingSending(false);
+            if (ok) {
+              setGreetingSent(true);
+              hapticFeedback('notification', 'success');
+            }
+          }}
+          sending={greetingSending}
+          sent={greetingSent}
+        />
+      )}
     </div>
   );
 }
@@ -534,6 +615,53 @@ const styles: Record<string, React.CSSProperties> = {
   feedSub: {
     fontSize: '12px',
     color: 'var(--text-faint)',
+  },
+  greetingBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginTop: '12px',
+    padding: '14px 16px',
+    borderRadius: '20px',
+    border: '1px solid rgba(255, 200, 130, 0.55)',
+    background: 'linear-gradient(120deg, #ffe3c2 0%, #ffd9b0 40%, #ffcf9a 100%)',
+    boxShadow: '0 10px 26px rgba(255, 160, 80, 0.28)',
+    textAlign: 'left',
+    cursor: 'pointer',
+  },
+  greetingEmoji: {
+    fontSize: 30,
+    lineHeight: 1,
+    animation: 'greet-soft-bounce 2.4s ease-in-out infinite',
+    filter: 'drop-shadow(0 4px 10px rgba(255,170,70,0.5))',
+  },
+  greetingBannerText: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    flex: 1,
+    minWidth: 0,
+  },
+  greetingBannerTitle: {
+    fontFamily: 'var(--font-display)',
+    fontWeight: '800',
+    fontSize: '17px',
+    color: 'rgba(150, 76, 24, 0.98)',
+    letterSpacing: '-0.3px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  greetingBannerSub: {
+    fontSize: '12px',
+    color: 'rgba(150, 92, 40, 0.85)',
+    fontFamily: 'var(--font-body)',
+  },
+  greetingBannerArrow: {
+    fontSize: '26px',
+    color: 'rgba(150, 76, 24, 0.7)',
+    lineHeight: 1,
+    fontWeight: 300,
   },
   filterBar: {
     display: 'flex',

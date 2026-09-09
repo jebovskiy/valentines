@@ -8,6 +8,8 @@ import type {
   CompletePairingResult,
   UserProfile,
   ApiResponse,
+  Greeting,
+  GreetingType,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -79,8 +81,17 @@ export const api = {
     fetchWithAuth<{ valentine: Valentine }>('/api/valentines', {
       method: 'POST',
       body: JSON.stringify(payload),
-    }),  markSeen: (id: string) =>
+    }),
+  markSeen: (id: string) =>
     fetchWithAuth<{ success: boolean }>(`/api/valentines/${id}/seen`, { method: 'POST' }),
+
+  // Greetings ("доброе утро")
+  getGreetings: () => fetchWithAuth<{ greetings: Greeting[] }>('/api/greetings'),
+  sendGreeting: (type: GreetingType) =>
+    fetchWithAuth<{ greeting: Greeting }>('/api/greetings', {
+      method: 'POST',
+      body: JSON.stringify({ type }),
+    }),
 
   // Users / profile
   getMyProfile: () => fetchWithAuth<{ me: UserProfile; partner: UserProfile | null }>('/api/users/me'),

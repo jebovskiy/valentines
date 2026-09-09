@@ -43,3 +43,15 @@ export const TEST_TELEGRAM_ID = parsed.TEST_TELEGRAM_ID ?? 461666389;
 export function isTestUser(telegramId: number): boolean {
   return telegramId === TEST_TELEGRAM_ID;
 }
+
+// Rollout gate: greetings ("доброе утро" / "спокойной ночи") are piloted with
+// the test user and their partner first.
+const GREETING_ENABLED_PAIR_IDS = new Set<number>([TEST_TELEGRAM_ID]);
+
+export function isGreetingEnabledFor(telegramId: number): boolean {
+  return GREETING_ENABLED_PAIR_IDS.has(telegramId);
+}
+
+export function isGreetingSenderEnabledFor(telegramId: number): boolean {
+  return GREETING_ENABLED_PAIR_IDS.has(telegramId);
+}

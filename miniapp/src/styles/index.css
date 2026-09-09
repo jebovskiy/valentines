@@ -7,6 +7,73 @@
   50% { transform: scale(1.1); opacity: 0.7; }
 }
 
+/* Greeting scenes ("доброе утро" / "спокойной ночи") */
+@keyframes greet-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes greet-pop {
+  0% { opacity: 0; transform: scale(0.72) translateY(14px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes greet-slide-up {
+  0% { opacity: 0; transform: translateY(26px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes greet-sun-rise {
+  0% { transform: translateY(90px) scale(0.6); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes greet-spin {
+  to { transform: rotate(1turn); }
+}
+
+@keyframes greet-lift {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-12px) scale(1.03); }
+}
+
+@keyframes greet-glow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.14); }
+}
+
+@keyframes greet-drift {
+  0% { transform: translateX(0) scale(1); }
+  100% { transform: translateX(128vw) scale(1.12); }
+}
+
+@keyframes greet-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+@keyframes greet-star-dawn {
+  0% { opacity: 0.95; transform: scale(1); }
+  70% { opacity: 0.35; transform: scale(0.9); }
+  100% { opacity: 0; transform: scale(0.7); }
+}
+
+@keyframes greet-shine {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes greet-rise {
+  0% { transform: translate3d(0, 12vh, 0); opacity: 0; }
+  10% { opacity: 0.95; }
+  100% { transform: translate3d(var(--sway, 0px), -112vh, 0); opacity: 0.1; }
+}
+
+@keyframes greet-soft-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
 /* Telegram WebApp specific */
 body {
   margin: 0;
