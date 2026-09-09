@@ -53,6 +53,50 @@ class ValentinesMessagingService : FirebaseMessagingService() {
             return
         }
 
+        if (data["event"] == "note") {
+            runBlocking {
+                NotificationHelper.notifyNote(
+                    context = this@ValentinesMessagingService,
+                    senderName = data["from_name"],
+                    category = data["category"],
+                    content = data["content"],
+                )
+            }
+            return
+        }
+
+        if (data["event"] == "event") {
+            runBlocking {
+                NotificationHelper.notifyEvent(
+                    context = this@ValentinesMessagingService,
+                    name = data["name"],
+                    eventDate = data["event_date"],
+                    remindDaysBefore = data["remind_days_before"],
+                )
+            }
+            return
+        }
+
+        if (data["event"] == "update") {
+            runBlocking {
+                NotificationHelper.notifyUpdate(
+                    context = this@ValentinesMessagingService,
+                    version = data["version"],
+                )
+            }
+            return
+        }
+
+        if (data["event"] == "streak") {
+            runBlocking {
+                NotificationHelper.notifyStreak(
+                    context = this@ValentinesMessagingService,
+                    count = data["count"],
+                )
+            }
+            return
+        }
+
         val valentineId = data["valentine_id"]
         val fromName = data["from_name"]
         val animationType = data["animation_type"]

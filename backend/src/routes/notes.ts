@@ -1,7 +1,9 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getNotes, createNote, updateNote, deleteNote } from '../services/database';
+import { getPairByUser, getNotes, createNote, updateNote, deleteNote, getPartnerTelegramId } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
+import { sendNewNoteNotification } from '../services/telegramNotifier';
+import { dispatchNotePushes } from '../services/pushDispatcher';
 
 const NOTE_CATEGORIES = ['idea', 'todo', 'memory', 'wish'];
 
@@ -34,6 +36,22 @@ export async function notesRoutes(app: FastifyInstance) {
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
     const note = await createNote(pair.id, request.telegramUser!.id, parsed.data.content, parsed.data.category);
+
+    const authorName =
+      pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name : pair.user_b_name;
+    const partnerId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
+    if (partnerId) {
+      void sendNewNoteNotification(partnerId, {
+        content: note.content,
+        category: note.category,
+        author_name: authorName,
+      }).catch((e) => app.log.error('Note Telegram notification failed:', e));
+    }
+    void dispatchNotePushes(pair.id, request.telegramUser!.id, {
+      content: note.content,
+      category: note.category,
+    }, authorName).catch((e) => app.log.error('Note push failed:', e));
+
     return reply.code(201).send({ note });
   });
 

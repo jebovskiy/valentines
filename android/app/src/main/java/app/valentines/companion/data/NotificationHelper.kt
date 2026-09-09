@@ -21,6 +21,10 @@ object NotificationHelper {
     private const val NOTIFICATION_ID = 1001
     private const val GREETING_NOTIFICATION_ID = 1003
     private const val REMINDER_NOTIFICATION_ID = 1005
+    private const val NOTE_NOTIFICATION_ID = 1007
+    private const val EVENT_NOTIFICATION_ID = 1009
+    private const val UPDATE_NOTIFICATION_ID = 1011
+    private const val STREAK_NOTIFICATION_ID = 1013
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -158,6 +162,140 @@ object NotificationHelper {
             NotificationManagerCompat.from(context).notify(REMINDER_NOTIFICATION_ID, notification)
         }
         return true
+    }
+
+    suspend fun notifyNote(context: Context, senderName: String?, category: String?, content: String?): Boolean {
+        if (!canNotify(context)) return false
+
+        ensureChannel(context)
+
+        val categoryLabel = when (category?.takeIf { it.isNotBlank() }) {
+            "idea" -> "Идея"
+            "todo" -> "Задача"
+            "memory" -> "Воспоминание"
+            "wish" -> "Мечта"
+            else -> "Заметка"
+        }
+        val title = senderName?.takeIf { it.isNotBlank() }?.let { "📝 $categoryLabel от $it" } ?: "📝 Новая $categoryLabel"
+        val body = content?.takeIf { it.isNotBlank() } ?: "Партнёр оставил тебе заметку"
+        val contentIntent = buildOpenAppIntent(context)
+
+        val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        runCatching {
+            NotificationManagerCompat.from(context).notify(NOTE_NOTIFICATION_ID, notification)
+        }
+        return true
+    }
+
+    suspend fun notifyEvent(context: Context, name: String?, eventDate: String?, remindDaysBefore: String?): Boolean {
+        if (!canNotify(context)) return false
+        if (name.isNullOrBlank()) return false
+
+        ensureChannel(context)
+
+        val dateLabel = runCatching {
+            java.time.LocalDate.parse(eventDate).format(java.time.format.DateTimeFormatter.ofPattern("d MMMM"))
+        }.getOrDefault(eventDate ?: "")
+        val via = when (remindDaysBefore) {
+            "0" -> "сегодня"
+            "1" -> "завтра"
+            else -> "через $remindDaysBefore дн." 
+        }
+        val title = "📅 $name"
+        val body = "$via · $dateLabel"
+        val contentIntent = buildOpenAppIntent(context)
+
+        val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        runCatching {
+            NotificationManagerCompat.from(context).notify(EVENT_NOTIFICATION_ID, notification)
+        }
+        return true
+    }
+
+    suspend fun notifyUpdate(context: Context, version: String?): Boolean {
+        if (!canNotify(context)) return false
+
+        ensureChannel(context)
+
+        val title = "Доступна новая версия Компаньона"
+        val body = "Вышло обновление (${version ?: "новая сборка"}). Открой приложение, чтобы установить."
+        val contentIntent = buildOpenAppIntent(context)
+
+        val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        runCatching {
+            NotificationManagerCompat.from(context).notify(UPDATE_NOTIFICATION_ID, notification)
+        }
+        return true
+    }
+
+    suspend fun notifyStreak(context: Context, count: String?): Boolean {
+        val days = count?.toIntOrNull()
+        if (days == null || days <= 0) return false
+        if (!canNotify(context)) return false
+
+        ensureChannel(context)
+
+        val emoji = when {
+            days >= 30 -> "🔥"
+            days >= 7 -> "✨"
+            days >= 3 -> "🎉"
+            else -> "💪"
+        }
+        val title = "$emoji Стрик: $days дн. подряд"
+        val body = "Вы с партнёром обмениваетесь валентинками $days дней подряд! Продолжайте в том же духе."
+        val contentIntent = buildOpenAppIntent(context)
+
+        val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        runCatching {
+            NotificationManagerCompat.from(context).notify(STREAK_NOTIFICATION_ID, notification)
+        }
+        return true
+    }
+
+    private fun buildOpenAppIntent(context: Context): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return PendingIntent.getActivity(
+            context,
+            1,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun buildContentIntent(context: Context, valentineId: String): PendingIntent {

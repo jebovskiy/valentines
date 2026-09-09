@@ -1,9 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getReminders, createReminder, deleteReminder, getReminderById, markReminderSent, rescheduleRecurringReminder } from '../services/database';
+import { getPairByUser, getReminders, createReminder, deleteReminder, getReminderById, markReminderSent, rescheduleRecurringReminder, getPairById } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { verifyWebhookSignature } from '../middleware/webhook';
 import { dispatchReminderPushes } from '../services/pushDispatcher';
+import { sendReminderNotification } from '../services/telegramNotifier';
 
 const createReminderSchema = z.object({
   title: z.string().min(1).max(200),
@@ -72,6 +73,14 @@ export async function remindersRoutes(app: FastifyInstance) {
     if (!reminder) return reply.code(404).send({ error: 'Reminder not found' });
 
     await dispatchReminderPushes(reminder);
+
+    const pair = await getPairById(reminder.pair_id);
+    if (pair) {
+      await Promise.allSettled([
+        sendReminderNotification(pair.telegram_user_a, { title: reminder.title, message: reminder.message }),
+        sendReminderNotification(pair.telegram_user_b, { title: reminder.title, message: reminder.message }),
+      ]);
+    }
 
     if (reminder.is_recurring && reminder.recurrence) {
       await rescheduleRecurringReminder(reminder.id, nextRecurrence(reminder.recurrence, new Date(reminder.remind_at)).toISOString());

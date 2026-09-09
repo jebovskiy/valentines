@@ -165,3 +165,28 @@ export async function sendReminderPush(
     return { success: false, error: (error as Error).message };
   }
 }
+
+/**
+ * Generic data-only push for a custom companion event (update, streak, note,
+ * event). The Android app switches on `event` and renders a local notification.
+ */
+export async function sendCustomDataPush(token: string, data: Record<string, string>): Promise<SendResult> {
+  try {
+    const message = {
+      token,
+      data,
+      android: {
+        priority: 'high' as const,
+      },
+      apns: {
+        payload: {
+          aps: { 'content-available': 1 },
+        },
+      },
+    };
+    const messageId = await getMessaging().send(message);
+    return { success: true, messageId };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}

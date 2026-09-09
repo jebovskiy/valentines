@@ -4,7 +4,7 @@ import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen,
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { config, isKnownAnimationType, isTestUser } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
-import { dispatchDirectValentinePushes } from '../services/pushDispatcher';
+import { dispatchDirectValentinePushes, dispatchStreakPushes } from '../services/pushDispatcher';
 import { uploadValentinePhoto } from '../utils/storage';
 
 const MAX_PHOTO_BODY_BYTES = 10 * 1024 * 1024;
@@ -87,6 +87,10 @@ export async function valentinesRoutes(app: FastifyInstance) {
       if (current > (pair.max_streak ?? 0)) {
         await updatePairMaxStreak(pair.id, current);
         pair.max_streak = current;
+        // Celebrate a new milestone with a companion push.
+        void dispatchStreakPushes(pair.id, current).catch((e) => {
+          app.log.error('Streak push failed:', e);
+        });
       }
     } catch (e) {
       app.log.error('Streak update failed: %s', e instanceof Error ? e.message : String(e));

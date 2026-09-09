@@ -47,6 +47,69 @@ export async function sendNewValentineNotification(
   }
 }
 
+export async function sendReminderNotification(
+  chatId: number,
+  reminder: { title: string; message: string | null },
+): Promise<void> {
+  const miniAppUrl = `${config.MINI_APP_URL}/notes`;
+  const text = `⏰ ${reminder.title}${reminder.message ? `\n\n${reminder.message}` : ''}`;
+  await sendMessageWithButton(chatId, text, miniAppUrl, 'Открыть заметки');
+}
+
+export async function sendEventReminderNotification(
+  chatId: number,
+  event: { name: string; event_date: string; remind_days_before: number },
+): Promise<void> {
+  const miniAppUrl = `${config.MINI_APP_URL}/notes`;
+  const dateLabel = new Date(`${event.event_date}T00:00:00`).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+  });
+  const when =
+    event.remind_days_before === 0
+      ? 'Сегодня'
+      : event.remind_days_before === 1
+        ? 'Завтра'
+        : `Через ${event.remind_days_before} дня`;
+  const text = `📅 ${when}: ${event.name} — ${dateLabel}`;
+  await sendMessageWithButton(chatId, text, miniAppUrl, 'Открыть события');
+}
+
+export async function sendNewNoteNotification(
+  chatId: number,
+  note: { content: string; category: string; author_name: string | null },
+): Promise<void> {
+  const miniAppUrl = `${config.MINI_APP_URL}/notes`;
+  const author = note.author_name || 'Партнер';
+  const preview = note.content.length > 200 ? `${note.content.slice(0, 200)}…` : note.content;
+  const text = `📝 ${author} добавил(а) заметку:\n\n«${preview}»`;
+  await sendMessageWithButton(chatId, text, miniAppUrl, 'Открыть заметки');
+}
+
+async function sendMessageWithButton(chatId: number, text: string, webUrl: string, buttonText: string): Promise<void> {
+  try {
+    const result = await sendMessage({
+      chat_id: chatId,
+      text,
+      reply_markup: {
+        inline_keyboard: [[{ text: buttonText, web_app: { url: webUrl } }]],
+      },
+    });
+    if (!result.ok) {
+      console.warn(`TG web_app button rejected (${result.description}), falling back to t.me link`);
+      await sendMessage({
+        chat_id: chatId,
+        text,
+        reply_markup: {
+          inline_keyboard: [[{ text: buttonText, url: webUrl }]],
+        },
+      });
+    }
+  } catch (error) {
+    console.error(`sendMessageWithButton failed:`, error);
+  }
+}
+
 async function sendMessage(body: Record<string, unknown>): Promise<SendMessageResult> {
   const response = await fetch(`${TG_API}/sendMessage`, {
     method: 'POST',

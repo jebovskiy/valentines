@@ -1,13 +1,20 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getCoupleEvents, createCoupleEvent, deleteCoupleEvent } from '../services/database';
+import { getPairByUser, getCoupleEvents, createCoupleEvent, deleteCoupleEvent, getCoupleEventById, markCoupleEventNotified, getPairById } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
+import { verifyWebhookSignature } from '../middleware/webhook';
+import { dispatchEventPushes } from '../services/pushDispatcher';
+import { sendEventReminderNotification } from '../services/telegramNotifier';
 
 const createEventSchema = z.object({
   name: z.string().min(1).max(200),
   event_date: z.string().min(1),
   event_type: z.enum(['first_date', 'wedding', 'birthday', 'custom']).default('custom'),
   remind_days_before: z.number().int().min(0).max(30).default(1),
+});
+
+const dispatchEventSchema = z.object({
+  event_id: z.string().uuid(),
 });
 
 export async function eventsRoutes(app: FastifyInstance) {
@@ -44,5 +51,25 @@ export async function eventsRoutes(app: FastifyInstance) {
 
     await deleteCoupleEvent(id, pair.id);
     return { ok: true };
+  });
+
+  // Webhook: called by pg_cron when an event reminder becomes due.
+  app.post('/dispatch', { preHandler: verifyWebhookSignature }, async (request, reply) => {
+    const body = dispatchEventSchema.parse(request.body);
+    const event = await getCoupleEventById(body.event_id);
+    if (!event) return reply.code(404).send({ error: 'Event not found' });
+
+    const pair = await getPairById(event.pair_id);
+    await Promise.allSettled([
+      pair
+        ? [
+            sendEventReminderNotification(pair.telegram_user_a, event),
+            sendEventReminderNotification(pair.telegram_user_b, event),
+          ]
+        : [],
+      dispatchEventPushes(event.pair_id, event),
+    ]);
+    await markCoupleEventNotified(event.id);
+    return { success: true };
   });
 }

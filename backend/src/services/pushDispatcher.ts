@@ -1,5 +1,5 @@
-import { sendVisiblePush, sendDataPush, sendBothPushes, sendGreetingDataPush, sendReminderPush, PushPayload } from './fcm';
-import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs, getDevicesByPair, Valentine, Pair } from './database';
+import { sendVisiblePush, sendDataPush, sendBothPushes, sendGreetingDataPush, sendReminderPush, sendCustomDataPush, PushPayload } from './fcm';
+import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs, getDevicesByPair, getAllDevices, Valentine, Pair } from './database';
 
 export interface PushDispatchPayload {
   valentine_id: string;
@@ -202,6 +202,113 @@ export async function dispatchReminderPushes(reminder: {
       console.log(`Reminder push sent to device ${device.id}: ${result.success}`);
     } catch (error) {
       console.error(`Reminder push error for device ${device.id}:`, error);
+    }
+  }
+}
+
+/** Sends a "couple event is coming up" push to all devices of the pair. */
+export async function dispatchEventPushes(pairId: string, event: { name: string; event_date: string; remind_days_before: number }): Promise<void> {
+  let devices;
+  try {
+    devices = await getDevicesByPair(pairId);
+  } catch (error) {
+    console.error('Event push: failed to load devices', error);
+    return;
+  }
+
+  for (const device of devices) {
+    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) continue;
+    try {
+      const result = await sendCustomDataPush(device.push_token, {
+        event: 'event',
+        name: event.name,
+        event_date: event.event_date,
+        remind_days_before: String(event.remind_days_before),
+      });
+      console.log(`Event push sent to device ${device.id}: ${result.success}`);
+    } catch (error) {
+      console.error(`Event push error for device ${device.id}:`, error);
+    }
+  }
+}
+
+/** Sends a "new note from partner" push to the recipient's devices. */
+export async function dispatchNotePushes(
+  pairId: string,
+  excludeTelegramId: number,
+  note: { content: string; category: string },
+  authorName?: string | null,
+): Promise<void> {
+  let devices;
+  try {
+    devices = await getDevicesByPair(pairId);
+  } catch (error) {
+    console.error('Note push: failed to load devices', error);
+    return;
+  }
+
+  for (const device of devices) {
+    if (device.telegram_user_id === excludeTelegramId) continue;
+    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) continue;
+    try {
+      const preview = note.content.length > 140 ? `${note.content.slice(0, 140)}…` : note.content;
+      const result = await sendCustomDataPush(device.push_token, {
+        event: 'note',
+        category: note.category,
+        content: preview,
+        ...(authorName ? { from_name: authorName } : {}),
+      });
+      console.log(`Note push sent to device ${device.id}: ${result.success}`);
+    } catch (error) {
+      console.error(`Note push error for device ${device.id}:`, error);
+    }
+  }
+}
+
+/** Sends a "new streak milestone reached" push to all devices of the pair. */
+export async function dispatchStreakPushes(pairId: string, count: number): Promise<void> {
+  let devices;
+  try {
+    devices = await getDevicesByPair(pairId);
+  } catch (error) {
+    console.error('Streak push: failed to load devices', error);
+    return;
+  }
+
+  for (const device of devices) {
+    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) continue;
+    try {
+      const result = await sendCustomDataPush(device.push_token, {
+        event: 'streak',
+        count: String(count),
+      });
+      console.log(`Streak push sent to device ${device.id}: ${result.success}`);
+    } catch (error) {
+      console.error(`Streak push error for device ${device.id}:`, error);
+    }
+  }
+}
+
+/** Broadcasts a "new version available" push to every companion device. */
+export async function broadcastUpdatePush(versionName: string): Promise<void> {
+  let devices;
+  try {
+    devices = await getAllDevices();
+  } catch (error) {
+    console.error('Update broadcast: failed to load devices', error);
+    return;
+  }
+
+  for (const device of devices) {
+    if (!device.push_token || device.push_token === 'pending') continue;
+    try {
+      const result = await sendCustomDataPush(device.push_token, {
+        event: 'update',
+        version: versionName,
+      });
+      console.log(`Update push sent to device ${device.id}: ${result.success}`);
+    } catch (error) {
+      console.error(`Update push error for device ${device.id}:`, error);
     }
   }
 }

@@ -682,3 +682,56 @@ export async function deleteCoupleEvent(eventId: string, pairId: string): Promis
     .eq('pair_id', pairId);
   if (error) throw error;
 }
+
+/** Reminders whose time has come and haven't been delivered yet. */
+export async function getDueReminders(now = new Date().toISOString(), limit = 50): Promise<Reminder[]> {
+  const { data, error } = await supabase
+    .from('reminders')
+    .select('*')
+    .eq('is_sent', false)
+    .lte('remind_at', now)
+    .order('remind_at', { ascending: true })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getCoupleEventById(eventId: string): Promise<CoupleEvent | null> {
+  const { data, error } = await supabase
+    .from('couple_events')
+    .select('*')
+    .eq('id', eventId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/** Events that haven't been announced to the pair yet. */
+export async function getUnnotifiedEvents(limit = 50): Promise<CoupleEvent[]> {
+  const { data, error } = await supabase
+    .from('couple_events')
+    .select('*')
+    .is('notified_at', null)
+    .order('event_date', { ascending: true })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function markCoupleEventNotified(eventId: string): Promise<void> {
+  const { error } = await supabase
+    .from('couple_events')
+    .update({ notified_at: new Date().toISOString() })
+    .eq('id', eventId);
+  if (error) throw error;
+}
+
+/** All devices across all pairs that are allowed to receive notifications. */
+export async function getAllDevices(): Promise<Device[]> {
+  const { data, error } = await supabase
+    .from('devices')
+    .select('*')
+    .eq('push_permission_granted', true);
+  if (error) throw error;
+  return data || [];
+}
