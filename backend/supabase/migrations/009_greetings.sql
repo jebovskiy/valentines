@@ -1,5 +1,6 @@
--- Greetings ("доброе утро" / future "спокойной ночи") for a pair.
-CREATE TABLE greetings (
+-- Greetings ("доброе утро" / "спокойной ночи") for a pair.
+-- Idempotent: safe to re-run if a partial attempt already created the table.
+CREATE TABLE IF NOT EXISTS greetings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   pair_id uuid NOT NULL REFERENCES pairs(id) ON DELETE CASCADE,
   sender_telegram_id bigint NOT NULL,
@@ -7,10 +8,11 @@ CREATE TABLE greetings (
   sent_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_greetings_pair_type ON greetings (pair_id, type, sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_greetings_pair_type ON greetings (pair_id, type, sent_at DESC);
 
 ALTER TABLE greetings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view greetings from their pair" ON greetings;
 CREATE POLICY "Users can view greetings from their pair" ON greetings
   FOR SELECT USING (
     pair_id IN (
@@ -20,6 +22,7 @@ CREATE POLICY "Users can view greetings from their pair" ON greetings
     )
   );
 
+DROP POLICY IF EXISTS "Users can insert greetings to their pair" ON greetings;
 CREATE POLICY "Users can insert greetings to their pair" ON greetings
   FOR INSERT WITH CHECK (
     pair_id IN (

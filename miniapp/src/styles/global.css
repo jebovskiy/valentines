@@ -41,6 +41,8 @@
   --grad-sparkle: linear-gradient(180deg, #fff3c4, #ffe27a);
   --grad-moon: linear-gradient(180deg, #dbe8ff, #b9cdfa);
   --grad-flame: linear-gradient(180deg, #ffe3cc, #ffc9a3);
+  --grad-bloom: linear-gradient(180deg, #ffd7e4, #ffb3cd);
+  --grad-golden: linear-gradient(180deg, #fff3c4, #f0c869);
 
   /* Aliases kept for existing screen styles */
   --bg-page: var(--surface-soft);

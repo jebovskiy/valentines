@@ -28,7 +28,7 @@ export interface Device {
   widget_added: boolean;
 }
 
-export type AnimationType = 'heart_open' | 'sparkle' | 'moon' | 'flame';
+export type AnimationType = 'heart_open' | 'sparkle' | 'moon' | 'flame' | 'bloom_petals' | 'golden_halo';
 
 export interface AnimationDef {
   type: AnimationType;
@@ -41,7 +41,32 @@ export const ANIMATIONS: AnimationDef[] = [
   { type: 'sparkle', emoji: '✨', label: 'Блеск' },
   { type: 'moon', emoji: '🌙', label: 'Ночь' },
   { type: 'flame', emoji: '🔥', label: 'Страсть' },
+  { type: 'bloom_petals', emoji: '🌸', label: 'Цветение' },
+  { type: 'golden_halo', emoji: '👑', label: 'Нимб' },
 ];
+
+export interface StreakTier {
+  day: number;
+  type: AnimationType;
+  icon: string;
+  name: string;
+  soft: string;
+  mid: string;
+}
+
+export const STREAK_TIERS: StreakTier[] = [
+  { day: 1, type: 'heart_open', icon: '💌', name: 'heart_open', soft: '#ffd7dc', mid: '#ffb3bd' },
+  { day: 7, type: 'sparkle', icon: '✨', name: 'sparkle_burst', soft: '#fff3c4', mid: '#ffe27a' },
+  { day: 14, type: 'moon', icon: '🌙', name: 'moon_glow', soft: '#dbe8ff', mid: '#b9cdfa' },
+  { day: 30, type: 'flame', icon: '🔥', name: 'flame_pulse', soft: '#ffe3cc', mid: '#ffc9a3' },
+  { day: 60, type: 'bloom_petals', icon: '🌸', name: 'bloom_petals', soft: '#ffd7e4', mid: '#ffb3cd' },
+  { day: 100, type: 'golden_halo', icon: '👑', name: 'golden_halo', soft: '#fff3c4', mid: '#f0c869' },
+];
+
+export const STREAK_LOCKED_ANIMATIONS: Record<string, number> = {
+  bloom_petals: 60,
+  golden_halo: 100,
+};
 
 export function getAnimation(type: AnimationType): AnimationDef {
   return ANIMATIONS.find((a) => a.type === type) ?? ANIMATIONS[0];

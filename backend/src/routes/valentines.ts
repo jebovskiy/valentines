@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId, createSelfPair } from '../services/database';
+import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId, createSelfPair, getCurrentStreak, updatePairMaxStreak } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { config, isKnownAnimationType, isTestUser } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
@@ -8,6 +8,12 @@ import { dispatchDirectValentinePushes } from '../services/pushDispatcher';
 import { uploadValentinePhoto } from '../utils/storage';
 
 const MAX_PHOTO_BODY_BYTES = 10 * 1024 * 1024;
+
+// Streak-gated animations: unlock for good once the pair hits the day mark.
+const STREAK_LOCKED_ANIMATIONS: Record<string, number> = {
+  bloom_petals: 60,
+  golden_halo: 100,
+};
 
 const sendValentineSchema = z.object({
   animation_type: z.string(),
@@ -66,7 +72,25 @@ export async function valentinesRoutes(app: FastifyInstance) {
       photoUrl = await uploadValentinePhoto(pair.id, body.photo_base64);
     }
 
+    const lockedRequirement = STREAK_LOCKED_ANIMATIONS[body.animation_type];
+    if (lockedRequirement !== undefined && (pair.max_streak ?? 0) < lockedRequirement) {
+      return reply
+        .code(403)
+        .send({ error: `Эта анимация откроется на ${lockedRequirement}-й день стрика` });
+    }
+
     const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null, photoUrl);
+
+    // Advance the streak: any valentine activity today extends the run; keep the best record.
+    try {
+      const current = await getCurrentStreak(pair.id);
+      if (current > (pair.max_streak ?? 0)) {
+        await updatePairMaxStreak(pair.id, current);
+        pair.max_streak = current;
+      }
+    } catch (e) {
+      app.log.error('Streak update failed: %s', e instanceof Error ? e.message : String(e));
+    }
 
     // Notify the companion widget right away: pushes are dispatched inline
     // (independent of the DB trigger / push_jobs pipeline).

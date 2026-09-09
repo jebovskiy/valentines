@@ -55,6 +55,8 @@ interface ValentinesState {
   greetings: Greeting[];
   fetchGreetings: () => Promise<void>;
   sendGreeting: (type: GreetingType) => Promise<boolean>;
+  streak: { current: number; max: number } | null;
+  fetchStreak: () => Promise<void>;
 }
 
 function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
@@ -92,6 +94,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   error: null,
   realtimeChannel: null,
   greetings: [],
+  streak: null,
 
   fetchPair: async () => {
     set({ isLoading: true, error: null });
@@ -227,6 +230,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
 
     const newValentine = enrichValentine(result.data!.valentine, get().pair, currentUser.id);
     set((state) => ({ valentines: [newValentine, ...state.valentines] }));
+    void get().fetchStreak();
     return newValentine;
   },
 
@@ -317,5 +321,13 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     };
     set((state) => ({ greetings: [enriched, ...state.greetings] }));
     return true;
+  },
+
+  fetchStreak: async () => {
+    const { pair } = get();
+    if (!pair) return;
+    const result = await api.getStreak();
+    if (result.error || !result.data) return;
+    set({ streak: result.data.streak });
   },
 }));

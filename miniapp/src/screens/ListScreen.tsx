@@ -65,6 +65,10 @@ export function ListScreen() {
     if (pair) setInviteCode('');
   }, [pair]);
 
+  useEffect(() => {
+    if (pair) void useValentinesStore.getState().fetchStreak();
+  }, [pair]);
+
   const greetingEnabled = isGreetingsEnabled(pair, useValentinesStore.getState().currentUser?.id ?? null);
 
   useEffect(() => {
@@ -222,22 +226,31 @@ export function ListScreen() {
       <header style={styles.feedHeader}>
         <div style={styles.feedHeaderRow}>
           <h1 style={styles.feedTitle}>Валентинки</h1>
-          <button
-            onClick={() => navigate('/profile')}
-            style={styles.widgetBtn}
-            title="Профиль"
-          >
-            {profile ? (
-              <img
-                src={api.selfAvatarUrl(profile.id)}
-                alt=""
-                style={styles.avatarImg}
-                onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-              />
-            ) : (
-              <AppleEmoji emoji="👤" size={16} />
-            )}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => navigate('/streak')}
+              style={styles.widgetBtn}
+              title="Стрик"
+            >
+              <AppleEmoji emoji="🔥" size={16} />
+            </button>
+            <button
+              onClick={() => navigate('/profile')}
+              style={styles.widgetBtn}
+              title="Профиль"
+            >
+              {profile ? (
+                <img
+                  src={api.selfAvatarUrl(profile.id)}
+                  alt=""
+                  style={styles.avatarImg}
+                  onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                />
+              ) : (
+                <AppleEmoji emoji="👤" size={16} />
+              )}
+            </button>
+          </div>
         </div>
         <div style={styles.feedSub}>Вы и {partner} · {days} {formatDays(days)} вместе</div>
       </header>
@@ -469,6 +482,10 @@ function animationGradient(type: string): string {
       return 'var(--grad-moon)';
     case 'flame':
       return 'var(--grad-flame)';
+    case 'bloom_petals':
+      return 'var(--grad-bloom)';
+    case 'golden_halo':
+      return 'var(--grad-golden)';
     default:
       return 'var(--grad-heart)';
   }

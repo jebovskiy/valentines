@@ -8,6 +8,7 @@ export interface Pair {
   user_a_name: string | null;
   user_b_name: string | null;
   created_at: string;
+  max_streak: number;
 }
 
 export interface Device {
@@ -464,4 +465,45 @@ export async function consumeInviteCode(
 
   await supabase.from('pair_invites').delete().eq('code', code.toUpperCase());
   return { creator_telegram_id: data.creator_telegram_id, creator_first_name: data.creator_first_name };
+}
+
+// --- Streak gamification -----------------------------------------------------
+
+function isoDay(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Number of consecutive days (ending today, or yesterday if today is still
+ * empty) on which the pair exchanged at least one valentine.
+ */
+export async function getCurrentStreak(pairId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('valentines')
+    .select('sent_at')
+    .eq('pair_id', pairId);
+  if (error) throw error;
+
+  const activeDays = new Set((data || []).map((row) => isoDay(new Date(row.sent_at))));
+
+  const cursor = new Date();
+  if (!activeDays.has(isoDay(cursor))) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+
+  let streak = 0;
+  while (activeDays.has(isoDay(cursor))) {
+    streak += 1;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return streak;
+}
+
+export async function updatePairMaxStreak(pairId: string, streak: number): Promise<void> {
+  const { error } = await supabase
+    .from('pairs')
+    .update({ max_streak: streak })
+    .eq('id', pairId)
+    .lt('max_streak', streak);
+  if (error) throw error;
 }

@@ -73,6 +73,7 @@ export const api = {
     }),
   getPairingStatus: (token: string) =>
     fetchWithAuth<{ status: 'pending' | 'completed' | 'expired' }>(`/api/pairs/pairing/${token}/status`),
+  getStreak: () => fetchWithAuth<{ streak: { current: number; max: number } }>('/api/pairs/streak'),
 
   // Valentines
   getValentines: () => fetchWithAuth<{ valentines: Valentine[] }>('/api/valentines'),

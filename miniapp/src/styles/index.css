@@ -55,9 +55,43 @@
 }
 
 @keyframes greet-rise {
-  0% { transform: translate3d(0, 12vh, 0); opacity: 0; }
-  10% { opacity: 0.95; }
-  100% { transform: translate3d(var(--sway, 0px), -112vh, 0); opacity: 0.1; }
+  0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+  8% { opacity: 0.9; }
+  100% { transform: translateY(-16vh) translateX(var(--sway, 0px)) rotate(26deg); opacity: 0; }
+}
+
+/* Valentine streak animations */
+@keyframes va-glow-in {
+  0% { opacity: 0; transform: scale(0.7); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes va-flame-pulse {
+  0% { opacity: 0; transform: scale(0.6); }
+  30% { opacity: 0.9; transform: scale(1.18); }
+  50% { opacity: 0.45; transform: scale(0.92); }
+  70% { opacity: 0.9; transform: scale(1.12); }
+  100% { opacity: 0.7; transform: scale(1); }
+}
+
+@keyframes va-spark-out {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3) rotate(0deg); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx))) translateY(calc(-50% + var(--dy))) scale(1) rotate(90deg); }
+}
+
+@keyframes va-petal-out {
+  0% { opacity: 0; transform: translate(-50%, -100%) rotate(var(--ang)) scale(0.3); }
+  100% { opacity: 0.85; transform: translate(-50%, -100%) rotate(var(--ang)) scale(1); }
+}
+
+@keyframes va-halo-in {
+  from { opacity: 0; }
+  to { opacity: 0.85; }
+}
+
+@keyframes va-halo-spin {
+  to { transform: rotate(360deg); }
 }
 
 @keyframes greet-soft-bounce {

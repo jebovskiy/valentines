@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
 import { PhotoLightbox } from '../components/PhotoLightbox';
-import { AppleEmoji } from '../components/AppleEmoji';
+import { ValentineAnimation } from '../components/ValentineAnimation';
 import { getAnimation, ValentineWithSender } from '../types';
 import { formatDateTime } from '../utils/date';
 
@@ -108,7 +108,7 @@ export function DeepValentineScreen() {
         <div style={styles.cardWrap}>
           <div style={{ ...styles.receivedCard, background: gradient }}>
             <div style={styles.cardArt}>
-              <AppleEmoji emoji={anim.emoji} size={104} />
+              <ValentineAnimation type={valentine.animation_type} size={104} />
             </div>
             <div style={styles.cardContent}>
               <div style={styles.overlayPill}>от {senderLabel}</div>
@@ -160,6 +160,10 @@ function animationGradient(type: string): string {
       return 'var(--grad-moon)';
     case 'flame':
       return 'var(--grad-flame)';
+    case 'bloom_petals':
+      return 'var(--grad-bloom)';
+    case 'golden_halo':
+      return 'var(--grad-golden)';
     default:
       return 'var(--grad-heart)';
   }

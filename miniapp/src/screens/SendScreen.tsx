@@ -4,7 +4,7 @@ import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
 import { AppleEmoji } from '../components/AppleEmoji';
-import { ANIMATIONS, AnimationType, TEST_TELEGRAM_ID } from '../types';
+import { ANIMATIONS, AnimationType, STREAK_LOCKED_ANIMATIONS, TEST_TELEGRAM_ID } from '../types';
 
 const MAX_MESSAGE_LENGTH = 500;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -20,7 +20,7 @@ function fileToBase64(file: File): Promise<string> {
 
 export function SendScreen() {
   const navigate = useNavigate();
-  const { sendValentine, currentUser, pair } = useValentinesStore();
+  const { sendValentine, currentUser, pair, streak } = useValentinesStore();
   const [message, setMessage] = useState('');
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [mode, setMode] = useState<'text' | 'photo'>('text');
@@ -29,7 +29,9 @@ export function SendScreen() {
   const [error, setError] = useState<string | null>(null);
   const [charCount, setCharCount] = useState(0);
   const [recipient, setRecipient] = useState<'partner' | 'self'>('partner');
+  const [lockHint, setLockHint] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const maxStreak = streak?.max ?? 0;
 
   const partner = partnerName(pair, currentUser?.id ?? null);
   const isTestUser = currentUser?.id === TEST_TELEGRAM_ID;
@@ -137,12 +139,23 @@ export function SendScreen() {
       <div style={styles.typeRow}>
         {ANIMATIONS.map((anim) => {
           const active = animationType === anim.type;
+          const lockedDay = STREAK_LOCKED_ANIMATIONS[anim.type];
+          const locked = lockedDay !== undefined && maxStreak < lockedDay;
           return (
             <button
               key={anim.type}
-              onClick={() => setAnimationType(anim.type)}
+              onClick={() => {
+                if (locked) {
+                  setLockHint(`Откроется на ${lockedDay}-й день стрика 🔥 (сейчас ${maxStreak})`);
+                  hapticFeedback('impact', 'light');
+                  return;
+                }
+                setLockHint(null);
+                setAnimationType(anim.type);
+              }}
               style={{
                 ...styles.typeChip,
+                opacity: locked ? 0.55 : active ? 1 : 0.9,
                 background: active ? 'var(--ink)' : 'var(--surface-card)',
                 color: active ? 'var(--canvas)' : 'var(--ink)',
                 border: active ? '1px solid var(--ink)' : '1px solid var(--hairline)',
@@ -151,10 +164,15 @@ export function SendScreen() {
             >
               <AppleEmoji emoji={anim.emoji} size={16} />
               {anim.label}
+              {locked ? ' 🔒' : ''}
             </button>
           );
         })}
       </div>
+
+      {lockHint && (
+        <p style={{ margin: '2px 0 0', textAlign: 'center', fontSize: 13, color: 'var(--ink-secondary)' }}>{lockHint}</p>
+      )}
 
       <div style={styles.modeRow}>
         <button
