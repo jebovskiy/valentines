@@ -1021,6 +1021,9 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100%',
     objectFit: 'cover',
     display: 'block',
+    filter: 'blur(14px) brightness(0.92)',
+    transform: 'scale(1.12)',
+    WebkitFilter: 'blur(14px) brightness(0.92)',
   },
   feedPhotoLabel: {
     position: 'absolute',
