@@ -185,5 +185,5 @@ export const api = {
     }),
   getMovieInsight: (id: string) => fetchWithAuth<{ insight: MovieInsight | null }>(`/api/movies/${id}/insight`),
   shareMovie: (id: string) => fetchWithAuth<{ ok: boolean }>(`/api/movies/${id}/share`, { method: 'POST' }),
-  getEveningPick: () => fetchWithAuth<{ movie: MovieListItem }>('/api/movies/evening'),
+  getEveningPick: () => fetchWithAuth<{ movie: MovieListItem }>('/api/movies/evening', { method: 'POST' }),
 };
