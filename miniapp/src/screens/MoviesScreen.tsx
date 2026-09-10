@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
-import type { MovieListItem, PoiskkinoCandidate, MovieReview } from '../types';
+import type { MovieListItem, PoiskkinoCandidate, PoiskkinoPart, MovieReview } from '../types';
 
 type Tab = 'watch' | 'watched';
 const ASPECTS = [
@@ -237,9 +237,13 @@ function InsightBlock({ insight, loading }: { insight: Record<string, unknown> |
 }
 
 function SearchOverlay({ onClose }: { onClose: () => void }) {
-  const { searchMovies, movieSearchResults, movieSearchLoading, addMovie } = useValentinesStore();
+  const { searchMovies, movieSearchResults, movieSearchLoading, getMovieParts, addMovie, addMoviesBatch } = useValentinesStore();
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState<number | null>(null);
+  const [partsPicker, setPartsPicker] = useState<PoiskkinoCandidate | null>(null);
+  const [partsList, setPartsList] = useState<PoiskkinoPart[]>([]);
+  const [selectedParts, setSelectedParts] = useState<number[]>([]);
+  const [partsLoading, setPartsLoading] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const doSearch = (q: string) => {
@@ -251,10 +255,35 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
 
   const handlePick = async (candidate: PoiskkinoCandidate) => {
     setAdding(candidate.kp_id);
-    await addMovie({ kp_id: candidate.kp_id, title: candidate.name || candidate.alternative_name || undefined, year: candidate.year || undefined });
+    const parts = await getMovieParts(candidate.kp_id);
     setAdding(null);
+    if (parts && parts.length > 0) {
+      setPartsList(parts);
+      setPartsPicker(candidate);
+      setSelectedParts(parts.map((p) => p.kp_id));
+      return;
+    }
+    await addMovie({ kp_id: candidate.kp_id, title: candidate.name || candidate.alternative_name || undefined, year: candidate.year || undefined });
     onClose();
     hapticFeedback('notification', 'success');
+  };
+
+  const togglePart = (kpId: number) => {
+    setSelectedParts((prev) =>
+      prev.includes(kpId) ? prev.filter((id) => id !== kpId) : [...prev, kpId]
+    );
+  };
+
+  const handleAddSelected = async () => {
+    setPartsLoading(true);
+    const items = [partsPicker, ...partsList]
+      .filter((p): p is PoiskkinoCandidate | PoiskkinoPart => !!p)
+      .filter((p) => selectedParts.includes(p.kp_id))
+      .map((p) => ({ kp_id: p.kp_id, title: p.name || p.alternative_name || undefined, year: p.year || undefined }));
+    const added = await addMoviesBatch(items);
+    setPartsLoading(false);
+    onClose();
+    if (added !== null && added > 0) hapticFeedback('notification', 'success');
   };
 
   return (
@@ -304,6 +333,50 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
           ))}
         </div>
       </div>
+
+      {partsPicker && (
+        <div style={styles.overlay} onClick={onClose}>
+          <div style={styles.overlayCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.topBar}>
+              <BackButton />
+              <span style={styles.title}>Части фильма</span>
+            </div>
+            <p style={styles.empty}>
+              У «{partsPicker.name || partsPicker.alternative_name}» есть части. Отметьте, что добавить:
+            </p>
+            <div style={styles.results}>
+              {[partsPicker, ...partsList].map((p) => {
+                const checked = selectedParts.includes(p.kp_id);
+                return (
+                  <button key={p.kp_id} onClick={() => togglePart(p.kp_id)} style={styles.partCheckBtn}>
+                    <span style={{ ...styles.checkbox, background: checked ? 'var(--ink)' : 'transparent' }}>
+                      {checked ? '✓' : ''}
+                    </span>
+                    <span style={{ flex: 1 }}>
+                      <p style={styles.resultTitle}>{p.name || p.alternative_name || 'Без названия'}</p>
+                      {p.alternative_name && p.name && p.alternative_name !== p.name && (
+                        <p style={styles.resultAltName}>{p.alternative_name}</p>
+                      )}
+                      <p style={styles.resultMeta}>
+                        {p.year && `${p.year}`}
+                        {p.rating_imdb && ` · IMDb ${p.rating_imdb}`}
+                        {p.kp_id === partsPicker.kp_id ? ' · (выбран фильм)' : ''}
+                      </p>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => void handleAddSelected()}
+              disabled={selectedParts.length === 0 || partsLoading}
+              style={styles.saveBtn}
+            >
+              {partsLoading ? 'Добавляем…' : `Добавить выбранные (${selectedParts.length})`}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -467,6 +540,15 @@ const styles: Record<string, CSSProperties> = {
   resultTitle: { fontSize: 14, fontWeight: 600, color: 'var(--ink)' },
   resultAltName: { fontSize: 12, color: 'var(--ink-secondary)', fontStyle: 'italic' },
   resultMeta: { fontSize: 12, color: 'var(--ink-secondary)' },
+  partCheckBtn: {
+    display: 'flex', alignItems: 'center', gap: 12, padding: '10px', borderRadius: 14,
+    background: 'var(--surface-elevated)', border: '1px solid var(--hairline)', textAlign: 'left',
+  },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, border: '2px solid var(--hairline)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0,
+  },
 
   reviewForm: { display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8 },
   sliderRow: { display: 'flex', alignItems: 'center', gap: 10 },

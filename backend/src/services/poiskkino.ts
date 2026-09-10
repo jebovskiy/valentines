@@ -35,6 +35,17 @@ export interface PoiskkinoDetail {
   countries: string[];
   type: string | null;
   imdb_id: string | null;
+  parts: PoiskkinoPart[];
+}
+
+export interface PoiskkinoPart {
+  kp_id: number;
+  name: string | null;
+  alternative_name: string | null;
+  year: number | null;
+  poster_url: string | null;
+  rating_imdb: number | null;
+  type: string | null;
 }
 
 export async function searchPoiskkino(query: string): Promise<PoiskkinoCandidate[]> {
@@ -82,5 +93,14 @@ export async function getPoiskkinoDetail(kpId: number): Promise<PoiskkinoDetail 
     countries: (m.countries || []).map((c: any) => c.name).filter(Boolean),
     type: m.type ?? null,
     imdb_id: m.externalId?.imdb ?? null,
+    parts: (m.sequelsAndPrequels || []).map((p: any) => ({
+      kp_id: p.id,
+      name: p.name ?? null,
+      alternative_name: p.alternativeName ?? p.enName ?? null,
+      year: p.year ?? null,
+      poster_url: p.poster?.url ?? null,
+      rating_imdb: p.rating?.imdb ?? null,
+      type: p.type ?? null,
+    })),
   };
 }

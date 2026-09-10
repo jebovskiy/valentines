@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines } from '../api/supabase';
 
@@ -75,7 +75,9 @@ interface ValentinesState {
   movieSearchLoading: boolean;
   fetchMovies: () => Promise<void>;
   searchMovies: (q: string) => Promise<void>;
+  getMovieParts: (kpId: number) => Promise<PoiskkinoPart[] | null>;
   addMovie: (input: { kp_id?: number; title?: string; year?: number }) => Promise<MovieListItem | null>;
+  addMoviesBatch: (items: { kp_id?: number; title?: string; year?: number }[]) => Promise<number | null>;
   deleteMovie: (id: string) => Promise<void>;
   markMovieWatched: (id: string) => Promise<void>;
   addMovieReview: (id: string, review: {
@@ -460,6 +462,20 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     const result = await api.searchMovies(q);
     if (result.error || !result.data) { set({ movieSearchResults: [], movieSearchLoading: false }); return; }
     set({ movieSearchResults: result.data.results, movieSearchLoading: false });
+  },
+
+  getMovieParts: async (kpId) => {
+    const result = await api.getMovieParts(kpId);
+    if (result.error || !result.data) { set({ error: result.error }); return null; }
+    return result.data.parts;
+  },
+
+  addMoviesBatch: async (items) => {
+    if (items.length === 0) return 0;
+    const result = await api.addMoviesBatch(items);
+    if (result.error || !result.data) { set({ error: result.error }); return null; }
+    await get().fetchMovies();
+    return result.data.added.length;
   },
 
   addMovie: async (input) => {

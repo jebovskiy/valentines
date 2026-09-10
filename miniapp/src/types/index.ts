@@ -258,3 +258,5 @@ export interface PoiskkinoCandidate {
   genres: string[];
   type: string | null;
 }
+
+export type PoiskkinoPart = Pick<PoiskkinoCandidate, 'kp_id' | 'name' | 'alternative_name' | 'year' | 'poster_url' | 'rating_imdb' | 'type'>;

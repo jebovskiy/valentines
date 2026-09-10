@@ -17,7 +17,7 @@ import {
   getMovieInsight,
   upsertMovieInsight,
 } from '../services/database';
-import { searchPoiskkino, getPoiskkinoDetail } from '../services/poiskkino';
+import { searchPoiskkino, getPoiskkinoDetail, PoiskkinoDetail, PoiskkinoPart } from '../services/poiskkino';
 import { generateMovieInsights, MovieReviewInput } from '../services/gemini';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import {
@@ -44,6 +44,40 @@ const reviewSchema = z.object({
   humor: z.number().int().min(1).max(5),
   comment: z.string().max(1000).nullable().optional(),
 });
+
+const batchItemSchema = z.object({
+  kp_id: z.number().int().positive().optional(),
+  title: z.string().min(1).max(300).optional(),
+  year: z.number().int().positive().nullable().optional(),
+}).refine((v) => v.kp_id || v.title, { message: 'kp_id or title is required' });
+
+const batchSchema = z.object({
+  items: z.array(batchItemSchema).min(1).max(50),
+});
+
+function toCandidate(m: PoiskkinoDetail): {
+  kp_id: number;
+  name: string | null;
+  alternative_name: string | null;
+  year: number | null;
+  poster_url: string | null;
+  rating_kp: number | null;
+  rating_imdb: number | null;
+  genres: string[];
+  type: string | null;
+} {
+  return {
+    kp_id: m.kp_id,
+    name: m.name,
+    alternative_name: m.alternative_name,
+    year: m.year,
+    poster_url: m.poster_url,
+    rating_kp: m.rating_kp,
+    rating_imdb: m.rating_imdb,
+    genres: m.genres,
+    type: m.type,
+  };
+}
 
 export async function moviesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
@@ -80,6 +114,93 @@ export async function moviesRoutes(app: FastifyInstance) {
       app.log.error(`Poiskkino search failed: ${(error as Error).message}`);
       return reply.code(502).send({ error: 'Search service unavailable' });
     }
+  });
+
+  app.get('/parts', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const { kp_id } = request.query as { kp_id?: string };
+    const id = Number(kp_id);
+    if (!Number.isInteger(id) || id <= 0) return reply.code(400).send({ error: 'Invalid kp_id' });
+    try {
+      const detail = await getPoiskkinoDetail(id);
+      if (!detail) return reply.code(404).send({ error: 'Movie not found' });
+      return { movie: toCandidate(detail), parts: detail.parts };
+    } catch (error) {
+      app.log.error(`Poiskkino parts failed: ${(error as Error).message}`);
+      return reply.code(502).send({ error: 'Search service unavailable' });
+    }
+  });
+
+  app.post('/batch', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const parsed = batchSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid batch data' });
+
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+
+    const addedMovies = [];
+    const duplicates: number[] = [];
+    const authorName =
+      pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name : pair.user_b_name;
+
+    for (const item of parsed.data.items) {
+      if (item.kp_id) {
+        const existing = await getMovieByKp(pair.id, item.kp_id);
+        if (existing) {
+          duplicates.push(item.kp_id);
+          continue;
+        }
+      }
+      let detail = null;
+      let title = item.title;
+      if (item.kp_id) {
+        try {
+          detail = await getPoiskkinoDetail(item.kp_id);
+          if (detail) title = detail.name || detail.alternative_name || title;
+        } catch (error) {
+          app.log.error(`Poiskkino detail failed: ${(error as Error).message}`);
+        }
+      }
+      if (!title) continue;
+
+      const genreStr = detail?.genres?.length ? detail.genres.join(', ') : null;
+      const plot = detail?.description || detail?.short_description || null;
+      const posterUrl = detail?.poster_url || null;
+      const runtimeStr = detail?.movie_length ? `${detail.movie_length} мин` : null;
+      const imdbRating = detail?.rating_imdb ? String(detail.rating_imdb) : null;
+
+      const movie = await createMovie({
+        pair_id: pair.id,
+        added_by: request.telegramUser!.id,
+        kp_id: item.kp_id ?? null,
+        title,
+        year: item.year ?? detail?.year ?? null,
+        poster_url: posterUrl,
+        genre: genreStr,
+        description: plot,
+        runtime: runtimeStr,
+        rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
+      });
+      addedMovies.push(movie);
+
+      const partnerId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
+      if (partnerId) {
+        void sendMovieAddedNotification(partnerId, movie, authorName).catch((e) =>
+          app.log.error('Movie added Telegram notification failed:', e),
+        );
+      }
+      void dispatchMoviePushes(
+        pair.id,
+        request.telegramUser!.id,
+        {
+          event: 'added',
+          title: 'Новый фильм в списке',
+          message: `«${movie.year ? `${movie.title} (${movie.year})` : movie.title}»`,
+          movie_title: movie.title,
+        },
+      ).catch((e) => app.log.error('Movie added push failed:', e));
+    }
+
+    return reply.code(201).send({ added: addedMovies, duplicates });
   });
 
   app.post('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
