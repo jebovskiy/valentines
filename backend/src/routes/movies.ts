@@ -295,6 +295,7 @@ export async function moviesRoutes(app: FastifyInstance) {
     const candidates = movies.filter((m) => m.status === 'want_to_watch');
     const pool = candidates.length > 0 ? candidates : movies;
     const movie = pool[Math.floor(Math.random() * pool.length)];
+    request.log.info({ userId: request.telegramUser!.id, movieId: movie.id }, 'evening pick');
     return { movie };
   });
 
