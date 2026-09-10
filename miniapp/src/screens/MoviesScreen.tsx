@@ -187,7 +187,7 @@ function MovieCard({
   }, [bothReviewed, movie.id]);
 
   return (
-    <div style={styles.card}>
+    <div style={styles.card} onClick={onOpenDetail}>
       <div style={styles.cardHeader}>
         {movie.poster_url ? (
           <img src={movie.poster_url} alt="" style={styles.poster} />
@@ -195,26 +195,16 @@ function MovieCard({
           <div style={styles.posterFallback}>🎬</div>
         )}
         <div style={styles.cardInfo}>
-          <button onClick={onOpenDetail} style={styles.cardTitleBtn}>
-            <span style={styles.cardTitle}>
-              {movie.title}{movie.year ? <span style={styles.cardYear}> ({movie.year})</span> : null}
-            </span>
-            <span style={styles.cardMore}>›</span>
-          </button>
+          <span style={styles.cardTitle}>
+            {movie.title}{movie.year ? <span style={styles.cardYear}> ({movie.year})</span> : null}
+          </span>
           {movie.genre && <p style={styles.cardMeta}>{movie.genre}</p>}
           {movie.rating && <p style={styles.cardMeta}>⭐ {movie.rating}</p>}
           <p style={styles.cardMeta}>Добавил(а): {movie.added_by_name ?? 'Партнер'}</p>
         </div>
       </div>
 
-      {movie.description && (
-        <p style={styles.cardPlot}>
-          {movie.description.length > 200 ? `${movie.description.slice(0, 200)}… ` : movie.description}
-          {movie.description.length > 200 && (
-            <button onClick={onOpenDetail} style={styles.moreBtn}>Подробнее</button>
-          )}
-        </p>
-      )}
+      {movie.description && <p style={styles.cardPlot}>{movie.description.length > 200 ? `${movie.description.slice(0, 200)}…` : movie.description}</p>}
 
       {mine && (
         <div style={styles.reviewBadge}>
@@ -231,7 +221,7 @@ function MovieCard({
         <InsightBlock insight={insight} loading={loadingInsight} />
       )}
 
-      <div style={styles.cardActions}>
+      <div style={styles.cardActions} onClick={(e) => e.stopPropagation()}>
         {movie.status === 'want_to_watch' && (
           <button onClick={onMarkWatched} style={styles.cardBtn}>🍿 Смотрели</button>
         )}
@@ -544,6 +534,7 @@ const styles: Record<string, CSSProperties> = {
   card: {
     background: 'var(--surface-card)', borderRadius: 18, padding: '14px 16px',
     display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid var(--hairline)',
+    cursor: 'pointer', transition: 'border-color .2s ease, box-shadow .2s ease',
   },
   cardHeader: { display: 'flex', gap: 12 },
   poster: { width: 64, height: 96, borderRadius: 10, objectFit: 'cover' },
@@ -556,15 +547,6 @@ const styles: Record<string, CSSProperties> = {
   cardYear: { fontWeight: 400, color: 'var(--ink-secondary)' },
   cardMeta: { fontSize: 13, color: 'var(--ink-secondary)' },
   cardPlot: { fontSize: 14, color: 'var(--ink-secondary)', lineHeight: 1.4 },
-  cardTitleBtn: {
-    display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none',
-    padding: 0, textAlign: 'left', cursor: 'pointer',
-  },
-  cardMore: { fontSize: 18, color: 'var(--ash)', fontWeight: 700, lineHeight: 1 },
-  moreBtn: {
-    display: 'inline', background: 'none', border: 'none', padding: 0,
-    color: 'var(--primary)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-  },
 
   detailOverlay: {
     position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,.55)',
