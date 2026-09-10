@@ -11,14 +11,17 @@ import {
   deleteMovie,
   markMovieStatus,
   getMovieReviews,
+  getMovieReviewsBatch,
   upsertMovieReview,
   getMovieWatches,
+  getMovieWatchesBatch,
   upsertMovieWatch,
   getMovieInsight,
   upsertMovieInsight,
 } from '../services/database';
 import { searchPoiskkino, getPoiskkinoDetail, PoiskkinoDetail, PoiskkinoPart } from '../services/poiskkino';
 import { generateMovieInsights, MovieReviewInput } from '../services/gemini';
+import type { MovieReview, MovieWatch } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import {
   sendMovieAddedNotification,
@@ -87,20 +90,33 @@ export async function moviesRoutes(app: FastifyInstance) {
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
     const movies = await getMovies(pair.id);
-    const items = [];
-    for (const movie of movies) {
-      const [reviews, watches] = await Promise.all([
-        getMovieReviews(movie.id),
-        getMovieWatches(movie.id),
-      ]);
-      items.push({
-        ...movie,
-        reviews,
-        watches: watches.map((w) => w.author_telegram_id),
-        added_by_name:
-          movie.added_by === pair.telegram_user_a ? pair.user_a_name : pair.user_b_name || 'Партнер',
-      });
+    if (movies.length === 0) return { movies: [] };
+
+    const [allReviews, allWatches] = await Promise.all([
+      getMovieReviewsBatch(movies.map((m) => m.id)),
+      getMovieWatchesBatch(movies.map((m) => m.id)),
+    ]);
+
+    const reviewsByMovie = new Map<string, MovieReview[]>();
+    for (const r of allReviews) {
+      const list = reviewsByMovie.get(r.movie_id) ?? [];
+      list.push(r);
+      reviewsByMovie.set(r.movie_id, list);
     }
+    const watchesByMovie = new Map<string, MovieWatch[]>();
+    for (const w of allWatches) {
+      const list = watchesByMovie.get(w.movie_id) ?? [];
+      list.push(w);
+      watchesByMovie.set(w.movie_id, list);
+    }
+
+    const items = movies.map((movie) => ({
+      ...movie,
+      reviews: reviewsByMovie.get(movie.id) ?? [],
+      watches: (watchesByMovie.get(movie.id) ?? []).map((w) => w.author_telegram_id),
+      added_by_name:
+        movie.added_by === pair.telegram_user_a ? pair.user_a_name : pair.user_b_name || 'Партнер',
+    }));
     return { movies: items };
   });
 

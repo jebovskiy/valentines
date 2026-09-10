@@ -893,6 +893,13 @@ export async function getMovieReviews(movieId: string): Promise<MovieReview[]> {
   return data || [];
 }
 
+export async function getMovieReviewsBatch(movieIds: string[]): Promise<MovieReview[]> {
+  if (movieIds.length === 0) return [];
+  const { data, error } = await supabase.from('movie_reviews').select('*').in('movie_id', movieIds);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function upsertMovieReview(input: {
   movie_id: string;
   author_telegram_id: number;
@@ -915,6 +922,13 @@ export async function upsertMovieReview(input: {
 
 export async function getMovieWatches(movieId: string): Promise<MovieWatch[]> {
   const { data, error } = await supabase.from('movie_watches').select('*').eq('movie_id', movieId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getMovieWatchesBatch(movieIds: string[]): Promise<MovieWatch[]> {
+  if (movieIds.length === 0) return [];
+  const { data, error } = await supabase.from('movie_watches').select('*').in('movie_id', movieIds);
   if (error) throw error;
   return data || [];
 }
