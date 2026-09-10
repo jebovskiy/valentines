@@ -9,6 +9,7 @@ export interface Pair {
   user_b_name: string | null;
   created_at: string;
   max_streak: number;
+  current_streak?: number;
 }
 
 export interface Device {
@@ -506,6 +507,27 @@ export async function updatePairMaxStreak(pairId: string, streak: number): Promi
     .eq('id', pairId)
     .lt('max_streak', streak);
   if (error) throw error;
+}
+
+/** Sets the pair's manually adjustable current streak counter. */
+export async function setPairCurrentStreak(pairId: string, streak: number): Promise<void> {
+  const { error } = await supabase
+    .from('pairs')
+    .update({ current_streak: Math.max(0, Math.floor(streak)) })
+    .eq('id', pairId);
+  if (error) throw error;
+}
+
+/** Whether the pair exchanged at least one valentine so far today. */
+export async function hasActivityToday(pairId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('valentines')
+    .select('sent_at')
+    .eq('pair_id', pairId)
+    .gte('sent_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  if (error) throw error;
+  const today = new Date().toISOString().slice(0, 10);
+  return (data || []).some((row) => isoDay(new Date(row.sent_at)) === today);
 }
 
 // --- Notes & Reminders --------------------------------------------------------

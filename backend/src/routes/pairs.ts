@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, createSelfPair, getDeviceByUserAndPlatform, getCurrentStreak } from '../services/database';
+import { getPairByUser, createSelfPair, getDeviceByUserAndPlatform, setPairCurrentStreak } from '../services/database';
 import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite, getPairingStatus } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { isTestUser } from '../config';
@@ -40,9 +40,26 @@ export async function pairsRoutes(app: FastifyInstance) {
     if (!pair) {
       return reply.code(404).send({ error: 'Pair not found' });
     }
-    const current = await getCurrentStreak(pair.id);
+    const current = pair.current_streak ?? 0;
     const max = Math.max(pair.max_streak ?? 0, current);
     return { streak: { current, max } };
+  });
+
+  const setStreakSchema = z.object({
+    current_streak: z.number().int().min(0).max(100000),
+  });
+
+  // Manually set the pair's current streak (e.g. a couple who tracked their
+  // run elsewhere wants to backfill it).
+  app.patch('/streak', privateRoutes, async (request, reply) => {
+    const parsed = setStreakSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid streak value' });
+
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+
+    await setPairCurrentStreak(pair.id, parsed.data.current_streak);
+    return { ok: true, streak: { current: parsed.data.current_streak, max: Math.max(pair.max_streak ?? 0, parsed.data.current_streak) } };
   });
 
   app.post('/', privateRoutes, async (request, reply) => {

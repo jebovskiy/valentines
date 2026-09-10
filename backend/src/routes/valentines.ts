@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId, createSelfPair, getCurrentStreak, updatePairMaxStreak } from '../services/database';
+import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId, createSelfPair, updatePairMaxStreak, setPairCurrentStreak, hasActivityToday } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { config, isKnownAnimationType, isTestUser } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
@@ -81,14 +81,19 @@ export async function valentinesRoutes(app: FastifyInstance) {
 
     const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null, photoUrl);
 
-    // Advance the streak: any valentine activity today extends the run; keep the best record.
+    // Advance the streak: first valentine activity of the day extends the run.
     try {
-      const current = await getCurrentStreak(pair.id);
-      if (current > (pair.max_streak ?? 0)) {
-        await updatePairMaxStreak(pair.id, current);
-        pair.max_streak = current;
+      const alreadyActiveToday = await hasActivityToday(pair.id);
+      if (!alreadyActiveToday) {
+        const newStreak = (pair.current_streak ?? 0) + 1;
+        await setPairCurrentStreak(pair.id, newStreak);
+        pair.current_streak = newStreak;
+      }
+      if ((pair.current_streak ?? 0) > (pair.max_streak ?? 0)) {
+        await updatePairMaxStreak(pair.id, pair.current_streak ?? 0);
+        pair.max_streak = pair.current_streak ?? 0;
         // Celebrate a new milestone with a companion push.
-        void dispatchStreakPushes(pair.id, current).catch((e) => {
+        void dispatchStreakPushes(pair.id, pair.current_streak ?? 0).catch((e) => {
           app.log.error('Streak push failed:', e);
         });
       }
