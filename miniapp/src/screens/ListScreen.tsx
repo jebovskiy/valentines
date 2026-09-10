@@ -92,6 +92,7 @@ export function ListScreen() {
   const [filter, setFilter] = useState<'all' | 'received' | 'sent'>('all');
 
   const [greetingOpen, setGreetingOpen] = useState(false);
+  const [greetingsExpanded, setGreetingsExpanded] = useState(false);
   const [greetingMode, setGreetingMode] = useState<GreetingMode>('celebrate');
   const [greetingScene, setGreetingScene] = useState<GreetingScene>('morning');
   const [greetingSending, setGreetingSending] = useState(false);
@@ -349,25 +350,52 @@ export function ListScreen() {
 
       {greetingEnabled && (
         <div style={styles.greetingPanel}>
-          {GREETING_ACTIONS.map((g) => (
+          {!greetingsExpanded ? (
             <button
-              key={g.scene}
               onClick={() => {
                 hapticFeedback('impact', 'light');
-                setGreetingScene(g.scene);
-                setGreetingMode('celebrate');
-                setGreetingSent(false);
-                setGreetingOpen(true);
+                setGreetingsExpanded(true);
               }}
-              style={{ ...styles.greetingCard, background: g.bg, boxShadow: g.shadow }}
+              style={styles.greetingToggle}
             >
-              <span style={styles.greetingBtnEmoji}>{g.emoji}</span>
-              <span style={styles.greetingBtnText}>
-                <span style={{ ...styles.greetingBtnTitle, color: g.titleColor }}>{g.title}</span>
-                <span style={{ ...styles.greetingBtnSub, color: g.subColor }}>{g.sub}</span>
+              <span style={styles.greetingToggleEmoji}>💬</span>
+              <span style={styles.greetingToggleText}>
+                <span style={styles.greetingToggleTitle}>Пожелать что-то</span>
+                <span style={styles.greetingToggleSub}>доброе утро · удачи · хорошего дня</span>
               </span>
+              <span style={styles.greetingToggleChevron}>⌄</span>
             </button>
-          ))}
+          ) : (
+            <>
+              <div style={styles.greetingGrid}>
+                {GREETING_ACTIONS.map((g) => (
+                  <button
+                    key={g.scene}
+                    onClick={() => {
+                      hapticFeedback('impact', 'light');
+                      setGreetingScene(g.scene);
+                      setGreetingMode('celebrate');
+                      setGreetingSent(false);
+                      setGreetingOpen(true);
+                    }}
+                    style={{ ...styles.greetingCard, background: g.bg, boxShadow: g.shadow }}
+                  >
+                    <span style={styles.greetingBtnEmoji}>{g.emoji}</span>
+                    <span style={styles.greetingBtnText}>
+                      <span style={{ ...styles.greetingBtnTitle, color: g.titleColor }}>{g.title}</span>
+                      <span style={{ ...styles.greetingBtnSub, color: g.subColor }}>{g.sub}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setGreetingsExpanded(false)}
+                style={styles.greetingCollapse}
+              >
+                Свернуть
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -797,10 +825,72 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-faint)',
   },
   greetingPanel: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    marginTop: '12px',
+  },
+  greetingGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
     gap: '8px',
-    marginTop: '12px',
+  },
+  greetingToggle: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '12px 14px',
+    borderRadius: '20px',
+    border: '1px solid var(--hairline)',
+    background: 'var(--surface-card)',
+    textAlign: 'left',
+    cursor: 'pointer',
+    WebkitAppearance: 'none' as const,
+  },
+  greetingToggleEmoji: {
+    fontSize: 22,
+    lineHeight: 1,
+  },
+  greetingToggleText: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '1px',
+    flex: 1,
+    minWidth: 0,
+  },
+  greetingToggleTitle: {
+    fontWeight: '700',
+    fontSize: '14px',
+    lineHeight: '18px',
+    color: 'var(--ink)',
+  },
+  greetingToggleSub: {
+    fontSize: '11px',
+    lineHeight: '14px',
+    color: 'var(--text-secondary)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  greetingToggleChevron: {
+    fontSize: 18,
+    lineHeight: 1,
+    color: 'var(--text-secondary)',
+  },
+  greetingCollapse: {
+    padding: '8px 14px',
+    borderRadius: '14px',
+    border: '1px solid var(--hairline)',
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '12px',
+    fontWeight: 600,
+    lineHeight: 1.2,
+    cursor: 'pointer',
+    alignSelf: 'center',
+    WebkitAppearance: 'none' as const,
   },
   greetingCard: {
     display: 'flex',
