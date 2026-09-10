@@ -37,10 +37,15 @@ export function MoviesScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [showReview, setShowReview] = useState<string | null>(null);
   const [eveningMovie, setEveningMovie] = useState<MovieListItem | null>(null);
+  const [eveningError, setEveningError] = useState<string | null>(null);
+  const [eveningLoading, setEveningLoading] = useState(false);
 
   useEffect(() => {
     void fetchMovies();
-    setBackButton(true, () => navigate(-1));
+    setBackButton(true, () => {
+      if (window.history.length > 1) navigate(-1);
+      else navigate('/');
+    });
     setMainButton({ isVisible: false });
     return () => setBackButton(false);
   }, [fetchMovies, navigate]);
@@ -50,10 +55,16 @@ export function MoviesScreen() {
   const activeMovies = tab === 'watch' ? wantToWatch : watched;
 
   const handleEvening = async () => {
+    if (eveningLoading) return;
+    setEveningLoading(true);
+    setEveningError(null);
     const pick = await getEveningPick();
+    setEveningLoading(false);
     if (pick) {
       setEveningMovie(pick);
       hapticFeedback('notification', 'success');
+    } else {
+      setEveningError(movies.length === 0 ? 'Список пуст — добавьте фильм через поиск' : 'Не удалось выбрать фильм, попробуйте ещё раз');
     }
   };
 
@@ -89,10 +100,16 @@ export function MoviesScreen() {
         <button onClick={() => setShowSearch(true)} style={styles.actionBtn}>
           🎬 Найти фильм
         </button>
-        <button onClick={() => void handleEvening()} style={styles.actionBtn}>
-          🎲 На вечер
+        <button onClick={() => void handleEvening()} disabled={eveningLoading} style={styles.actionBtn}>
+          {eveningLoading ? '⏳ Выбираем…' : '🎲 На вечер'}
         </button>
       </div>
+
+      {eveningError && (
+        <div style={styles.eveningError}>
+          <p style={styles.eveningErrorText}>{eveningError}</p>
+        </div>
+      )}
 
       {eveningMovie && (
         <div style={styles.eveningCard}>
@@ -462,6 +479,10 @@ const styles: Record<string, CSSProperties> = {
     width: '100%', padding: '10px', borderRadius: 999, background: '#c59e1a',
     color: '#fff', fontWeight: 700, fontSize: 14,
   },
+  eveningError: {
+    background: '#fdecec', borderRadius: 12, padding: '10px 14px', border: '1px solid #fcc',
+  },
+  eveningErrorText: { fontSize: 13, color: '#b33', fontWeight: 600 },
 
   card: {
     background: 'var(--surface-card)', borderRadius: 18, padding: '14px 16px',
