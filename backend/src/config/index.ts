@@ -13,6 +13,9 @@ const envSchema = z.object({
   WEBHOOK_SHARED_SECRET: z.string().min(32),
   PAIRING_TOKEN_TTL_MINUTES: z.coerce.number().default(10),
   TEST_TELEGRAM_ID: z.coerce.number().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
+  OMDB_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.parse(process.env);

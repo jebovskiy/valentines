@@ -97,6 +97,17 @@ class ValentinesMessagingService : FirebaseMessagingService() {
             return
         }
 
+        if (data["event"] == "movie") {
+            runBlocking {
+                NotificationHelper.notifyMovie(
+                    context = this@ValentinesMessagingService,
+                    title = data["title"],
+                    message = data["message"],
+                )
+            }
+            return
+        }
+
         val valentineId = data["valentine_id"]
         val fromName = data["from_name"]
         val animationType = data["animation_type"]

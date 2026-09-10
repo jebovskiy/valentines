@@ -190,3 +190,67 @@ export interface CoupleEvent {
   remind_days_before: number;
   created_at: string;
 }
+
+// --- Movies --------------------------------------------------------------------
+
+export type MovieStatus = 'want_to_watch' | 'watched';
+
+export interface Movie {
+  id: string;
+  pair_id: string;
+  imdb_id: string | null;
+  title: string;
+  year: string | null;
+  poster_url: string | null;
+  genre: string | null;
+  plot: string | null;
+  runtime: string | null;
+  imdb_rating: string | null;
+  status: MovieStatus;
+  added_by: number;
+  added_at: string;
+  watched_at: string | null;
+}
+
+export interface MovieReview {
+  id: string;
+  movie_id: string;
+  author_telegram_id: number;
+  visuals: number;
+  plot: number;
+  acting: number;
+  music: number;
+  atmosphere: number;
+  humor: number;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface MovieInsight {
+  movie_id: string;
+  result: {
+    summary: string;
+    common_points: string[];
+    liked: { who: string; what: string }[];
+    disliked: string[];
+    disagreements: string[];
+    verdict: string;
+    compatibility_percent: number;
+    similar_movies: { title: string; year: string }[];
+  };
+  created_at: string;
+}
+
+export interface MovieListItem extends Movie {
+  reviews: MovieReview[];
+  watches: number[];
+  added_by_name: string | null;
+}
+
+export interface OmdbCandidate {
+  imdb_id: string;
+  title: string;
+  year: string;
+  type: string;
+  poster: string;
+}

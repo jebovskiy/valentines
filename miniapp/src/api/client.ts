@@ -16,6 +16,10 @@ import type {
   Recurrence,
   CoupleEvent,
   CoupleEventType,
+  MovieListItem,
+  MovieInsight,
+  MovieReview,
+  OmdbCandidate,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -151,4 +155,28 @@ export const api = {
       body: JSON.stringify(input),
     }),
   deleteEvent: (id: string) => fetchWithAuth<{ ok: boolean }>(`/api/events/${id}`, { method: 'DELETE' }),
+
+  // Movies
+  getMovies: () => fetchWithAuth<{ movies: MovieListItem[] }>('/api/movies'),
+  searchMovies: (q: string) => fetchWithAuth<{ results: OmdbCandidate[] }>(`/api/movies/search?q=${encodeURIComponent(q)}`),
+  addMovie: (input: { imdb_id?: string; title?: string; year?: string }) =>
+    fetchWithAuth<{ movie: { id: string }; duplicate?: boolean }>('/api/movies', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  deleteMovie: (id: string) => fetchWithAuth<{ ok: boolean }>(`/api/movies/${id}`, { method: 'DELETE' }),
+  markMovieWatched: (id: string) =>
+    fetchWithAuth<{ movie: { id: string }; watches: number[] }>(`/api/movies/${id}/watched`, { method: 'POST' }),
+  addMovieReview: (id: string, review: {
+    visuals: number; plot: number; acting: number;
+    music: number; atmosphere: number; humor: number;
+    comment?: string | null;
+  }) =>
+    fetchWithAuth<{ review: MovieReview; bothReviewed: boolean }>(`/api/movies/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify(review),
+    }),
+  getMovieInsight: (id: string) => fetchWithAuth<{ insight: MovieInsight | null }>(`/api/movies/${id}/insight`),
+  shareMovie: (id: string) => fetchWithAuth<{ ok: boolean }>(`/api/movies/${id}/share`, { method: 'POST' }),
+  getEveningPick: () => fetchWithAuth<{ movie: MovieListItem }>('/api/movies/evening'),
 };

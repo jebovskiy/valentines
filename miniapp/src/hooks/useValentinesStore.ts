@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, OmdbCandidate } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines } from '../api/supabase';
 
@@ -70,6 +70,22 @@ interface ValentinesState {
   deleteReminder: (id: string) => Promise<void>;
   createEvent: (input: { name: string; event_date: string; event_type: CoupleEventType; remind_days_before?: number }) => Promise<CoupleEvent | null>;
   deleteEvent: (id: string) => Promise<void>;
+  movies: MovieListItem[];
+  movieSearchResults: OmdbCandidate[];
+  movieSearchLoading: boolean;
+  fetchMovies: () => Promise<void>;
+  searchMovies: (q: string) => Promise<void>;
+  addMovie: (input: { imdb_id?: string; title?: string; year?: string }) => Promise<MovieListItem | null>;
+  deleteMovie: (id: string) => Promise<void>;
+  markMovieWatched: (id: string) => Promise<void>;
+  addMovieReview: (id: string, review: {
+    visuals: number; plot: number; acting: number;
+    music: number; atmosphere: number; humor: number;
+    comment?: string | null;
+  }) => Promise<MovieReview | null>;
+  getMovieInsight: (id: string) => Promise<Record<string, unknown> | null>;
+  shareMovie: (id: string) => Promise<void>;
+  getEveningPick: () => Promise<MovieListItem | null>;
 }
 
 function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
@@ -111,6 +127,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   notes: [],
   reminders: [],
   events: [],
+  movies: [],
+  movieSearchResults: [],
+  movieSearchLoading: false,
 
   fetchPair: async () => {
     set({ isLoading: true, error: null });
@@ -425,5 +444,65 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     set((state) => ({ events: state.events.filter((e) => e.id !== id) }));
     const result = await api.deleteEvent(id);
     if (result.error) set({ error: result.error });
+  },
+
+  fetchMovies: async () => {
+    const { pair } = get();
+    if (!pair) return;
+    const result = await api.getMovies();
+    if (result.error || !result.data) return;
+    set({ movies: result.data.movies });
+  },
+
+  searchMovies: async (q) => {
+    if (!q.trim()) { set({ movieSearchResults: [], movieSearchLoading: false }); return; }
+    set({ movieSearchLoading: true });
+    const result = await api.searchMovies(q);
+    if (result.error || !result.data) { set({ movieSearchResults: [], movieSearchLoading: false }); return; }
+    set({ movieSearchResults: result.data.results, movieSearchLoading: false });
+  },
+
+  addMovie: async (input) => {
+    const result = await api.addMovie(input);
+    if (result.error || !result.data) { set({ error: result.error }); return null; }
+    await get().fetchMovies();
+    const movies = get().movies;
+    return movies.find((m) => m.id === result.data!.movie.id) ?? null;
+  },
+
+  deleteMovie: async (id) => {
+    set((state) => ({ movies: state.movies.filter((m) => m.id !== id) }));
+    const result = await api.deleteMovie(id);
+    if (result.error) set({ error: result.error });
+  },
+
+  markMovieWatched: async (id) => {
+    const result = await api.markMovieWatched(id);
+    if (result.error) { set({ error: result.error }); return; }
+    await get().fetchMovies();
+  },
+
+  addMovieReview: async (id, review) => {
+    const result = await api.addMovieReview(id, review);
+    if (result.error || !result.data) { set({ error: result.error }); return null; }
+    await get().fetchMovies();
+    return result.data.review;
+  },
+
+  getMovieInsight: async (id) => {
+    const result = await api.getMovieInsight(id);
+    if (result.error || !result.data?.insight) return null;
+    return result.data.insight.result;
+  },
+
+  shareMovie: async (id) => {
+    const result = await api.shareMovie(id);
+    if (result.error) set({ error: result.error });
+  },
+
+  getEveningPick: async () => {
+    const result = await api.getEveningPick();
+    if (result.error || !result.data?.movie) { set({ error: result.error }); return null; }
+    return result.data.movie;
   },
 }));

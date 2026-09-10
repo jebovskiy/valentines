@@ -321,6 +321,13 @@ export function ListScreen() {
               <AppleEmoji emoji="📝" size={16} />
             </button>
             <button
+              onClick={() => navigate('/movies')}
+              style={styles.widgetBtn}
+              title="Фильмы"
+            >
+              <AppleEmoji emoji="🎬" size={16} />
+            </button>
+            <button
               onClick={() => navigate('/streak')}
               style={styles.widgetBtn}
               title="Стрик"

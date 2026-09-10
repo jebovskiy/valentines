@@ -25,6 +25,7 @@ object NotificationHelper {
     private const val EVENT_NOTIFICATION_ID = 1009
     private const val UPDATE_NOTIFICATION_ID = 1011
     private const val STREAK_NOTIFICATION_ID = 1013
+    private const val MOVIE_NOTIFICATION_ID = 1015
 
     private data class GreetingTheme(
         val title: String,
@@ -322,6 +323,31 @@ suspend fun notifyGreeting(context: Context, fromName: String?, type: String?): 
 
         runCatching {
             NotificationManagerCompat.from(context).notify(STREAK_NOTIFICATION_ID, notification)
+        }
+        return true
+    }
+
+    suspend fun notifyMovie(context: Context, title: String?, message: String?): Boolean {
+        if (!canNotify(context)) return false
+
+        ensureChannel(context)
+
+        val head = title?.takeIf { it.isNotBlank() } ?: "🎬 Фильмы"
+        val body = message?.takeIf { it.isNotBlank() } ?: "Партнёр добавил фильм в список"
+        val contentIntent = buildOpenAppIntent(context)
+
+        val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(head)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        runCatching {
+            NotificationManagerCompat.from(context).notify(MOVIE_NOTIFICATION_ID, notification)
         }
         return true
     }

@@ -1,9 +1,10 @@
-import { getPairById, getDueReminders, getUnnotifiedEvents, markReminderSent, rescheduleRecurringReminder, markCoupleEventNotified } from './database';
-import { dispatchReminderPushes, dispatchEventPushes } from './pushDispatcher';
-import { sendReminderNotification, sendEventReminderNotification } from './telegramNotifier';
+import { getPairById, getDueReminders, getUnnotifiedEvents, markReminderSent, rescheduleRecurringReminder, markCoupleEventNotified, getPairsForMovieReminder, getMovies, logMovieReminder } from './database';
+import { dispatchReminderPushes, dispatchEventPushes, dispatchMoviePushes } from './pushDispatcher';
+import { sendReminderNotification, sendEventReminderNotification, sendMovieReminderNotification } from './telegramNotifier';
 
 const REMINDER_TICK_MS = 60 * 1000;
 const EVENT_TICK_MS = 10 * 60 * 1000;
+const MOVIE_REMINDER_TICK_MS = 4 * 60 * 60 * 1000;
 
 function nextRecurrence(recurrence: string, from: Date): Date {
   const next = new Date(from);
@@ -75,6 +76,32 @@ async function processUpcomingEvents(): Promise<void> {
   }
 }
 
+async function processMovieReminders(): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  const pairIds = await getPairsForMovieReminder(today);
+  for (const pairId of pairIds) {
+    try {
+      const pair = await getPairById(pairId);
+      if (!pair) continue;
+      const movies = await getMovies(pairId);
+      const pending = movies.filter((m) => m.status === 'want_to_watch');
+      if (pending.length === 0) continue;
+      const titles = pending.map((m) => m.year ? `${m.title} (${m.year})` : m.title);
+      const sent1 = sendMovieReminderNotification(pair.telegram_user_a, titles, pending.length);
+      const sent2 = sendMovieReminderNotification(pair.telegram_user_b, titles, pending.length);
+      const push1 = dispatchMoviePushes(pairId, null, {
+        event: 'reminder',
+        title: 'Фильмы на вечер',
+        message: `У вас ${pending.length} фильм(ов) в списке`,
+      });
+      await Promise.allSettled([sent1, sent2, push1]);
+      await logMovieReminder(pairId, today);
+    } catch (error) {
+      console.error(`Scheduler: movie reminder for pair ${pairId} failed:`, error);
+    }
+  }
+}
+
 export function startNotificationScheduler(): NodeJS.Timeout[] {
   const reminderTimer = setInterval(() => {
     processDueReminders().catch((e) => console.error('Scheduler: reminder sweep failed:', e));
@@ -84,11 +111,16 @@ export function startNotificationScheduler(): NodeJS.Timeout[] {
     processUpcomingEvents().catch((e) => console.error('Scheduler: event sweep failed:', e));
   }, EVENT_TICK_MS);
 
+  const movieReminderTimer = setInterval(() => {
+    processMovieReminders().catch((e) => console.error('Scheduler: movie reminder sweep failed:', e));
+  }, MOVIE_REMINDER_TICK_MS);
+
   // Run once shortly after startup as well.
   setTimeout(() => {
     void processDueReminders().catch((e) => console.error('Scheduler: initial reminder sweep failed:', e));
     void processUpcomingEvents().catch((e) => console.error('Scheduler: initial event sweep failed:', e));
+    void processMovieReminders().catch((e) => console.error('Scheduler: initial movie reminder sweep failed:', e));
   }, 5_000);
 
-  return [reminderTimer, eventTimer];
+  return [reminderTimer, eventTimer, movieReminderTimer];
 }

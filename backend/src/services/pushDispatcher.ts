@@ -312,3 +312,35 @@ export async function broadcastUpdatePush(versionName: string): Promise<void> {
     }
   }
 }
+
+/** Sends a movie event push (added / watched / review / insight) to devices. */
+export async function dispatchMoviePushes(
+  pairId: string,
+  excludeTelegramId: number | null,
+  data: { event: string; title: string; message: string; movie_title?: string },
+): Promise<void> {
+  let devices;
+  try {
+    devices = await getDevicesByPair(pairId);
+  } catch (error) {
+    console.error('Movie push: failed to load devices', error);
+    return;
+  }
+
+  for (const device of devices) {
+    if (excludeTelegramId !== null && device.telegram_user_id === excludeTelegramId) continue;
+    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) continue;
+    try {
+      const result = await sendCustomDataPush(device.push_token, {
+        event: 'movie',
+        kind: data.event,
+        title: data.title,
+        message: data.message,
+        ...(data.movie_title ? { movie_title: data.movie_title } : {}),
+      });
+      console.log(`Movie push sent to device ${device.id}: ${result.success}`);
+    } catch (error) {
+      console.error(`Movie push error for device ${device.id}:`, error);
+    }
+  }
+}

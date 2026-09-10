@@ -757,3 +757,203 @@ export async function getAllDevices(): Promise<Device[]> {
   if (error) throw error;
   return data || [];
 }
+
+// --- Movies -------------------------------------------------------------------
+
+export type MovieStatus = 'want_to_watch' | 'watched';
+
+export interface Movie {
+  id: string;
+  pair_id: string;
+  imdb_id: string | null;
+  title: string;
+  year: string | null;
+  poster_url: string | null;
+  genre: string | null;
+  plot: string | null;
+  runtime: string | null;
+  imdb_rating: string | null;
+  status: MovieStatus;
+  added_by: number;
+  added_at: string;
+  watched_at: string | null;
+}
+
+export interface MovieReview {
+  id: string;
+  movie_id: string;
+  author_telegram_id: number;
+  visuals: number;
+  plot: number;
+  acting: number;
+  music: number;
+  atmosphere: number;
+  humor: number;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface MovieInsight {
+  movie_id: string;
+  result: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface MovieWatch {
+  movie_id: string;
+  author_telegram_id: number;
+  watched_at: string;
+}
+
+export interface MovieListItem extends Movie {
+  reviews: MovieReview[];
+  watches: number[];
+  added_by_name?: string;
+}
+
+export async function getMovies(pairId: string): Promise<Movie[]> {
+  const { data, error } = await supabase
+    .from('movies')
+    .select('*')
+    .eq('pair_id', pairId)
+    .order('added_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getMovieById(movieId: string): Promise<Movie | null> {
+  const { data, error } = await supabase
+    .from('movies')
+    .select('*')
+    .eq('id', movieId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function getMovieByImdb(pairId: string, imdbId: string): Promise<Movie | null> {
+  const { data, error } = await supabase
+    .from('movies')
+    .select('*')
+    .eq('pair_id', pairId)
+    .eq('imdb_id', imdbId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function createMovie(input: {
+  pair_id: string;
+  added_by: number;
+  imdb_id?: string | null;
+  title: string;
+  year?: string | null;
+  poster_url?: string | null;
+  genre?: string | null;
+  plot?: string | null;
+  runtime?: string | null;
+  imdb_rating?: string | null;
+}): Promise<Movie> {
+  const { data, error } = await supabase
+    .from('movies')
+    .insert({
+      pair_id: input.pair_id,
+      added_by: input.added_by,
+      imdb_id: input.imdb_id ?? null,
+      title: input.title,
+      year: input.year ?? null,
+      poster_url: input.poster_url ?? null,
+      genre: input.genre ?? null,
+      plot: input.plot ?? null,
+      runtime: input.runtime ?? null,
+      imdb_rating: input.imdb_rating ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteMovie(movieId: string, pairId: string): Promise<void> {
+  const { error } = await supabase.from('movies').delete().eq('id', movieId).eq('pair_id', pairId);
+  if (error) throw error;
+}
+
+export async function markMovieStatus(movieId: string, status: MovieStatus, watchedAt: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('movies')
+    .update({ status, watched_at: watchedAt })
+    .eq('id', movieId);
+  if (error) throw error;
+}
+
+export async function getMovieReviews(movieId: string): Promise<MovieReview[]> {
+  const { data, error } = await supabase.from('movie_reviews').select('*').eq('movie_id', movieId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function upsertMovieReview(input: {
+  movie_id: string;
+  author_telegram_id: number;
+  visuals: number;
+  plot: number;
+  acting: number;
+  music: number;
+  atmosphere: number;
+  humor: number;
+  comment: string | null;
+}): Promise<MovieReview> {
+  const { data, error } = await supabase
+    .from('movie_reviews')
+    .upsert(input, { onConflict: 'movie_id,author_telegram_id' })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getMovieWatches(movieId: string): Promise<MovieWatch[]> {
+  const { data, error } = await supabase.from('movie_watches').select('*').eq('movie_id', movieId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function upsertMovieWatch(movieId: string, authorTelegramId: number): Promise<void> {
+  const { error } = await supabase
+    .from('movie_watches')
+    .upsert({ movie_id: movieId, author_telegram_id: authorTelegramId }, { onConflict: 'movie_id,author_telegram_id' });
+  if (error) throw error;
+}
+
+export async function getMovieInsight(movieId: string): Promise<MovieInsight | null> {
+  const { data, error } = await supabase.from('movie_insights').select('*').eq('movie_id', movieId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function upsertMovieInsight(movieId: string, result: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase
+    .from('movie_insights')
+    .upsert({ movie_id: movieId, result, created_at: new Date().toISOString() });
+  if (error) throw error;
+}
+
+/** Pairs that have any movies but haven't received a reminder today. */
+export async function getPairsForMovieReminder(today: string): Promise<string[]> {
+  const [moviesRes, logRes] = await Promise.all([
+    supabase.from('movies').select('pair_id'),
+    supabase.from('movie_reminder_log').select('pair_id').eq('last_sent_on', today),
+  ]);
+  if (moviesRes.error) throw moviesRes.error;
+  if (logRes.error) throw logRes.error;
+  const logged = new Set((logRes.data || []).map((r) => r.pair_id));
+  return [...new Set((moviesRes.data || []).map((m) => m.pair_id))].filter((id) => !logged.has(id));
+}
+
+export async function logMovieReminder(pairId: string, today: string): Promise<void> {
+  const { error } = await supabase
+    .from('movie_reminder_log')
+    .upsert({ pair_id: pairId, last_sent_on: today }, { onConflict: 'pair_id' });
+  if (error) throw error;
+}
