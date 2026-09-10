@@ -36,6 +36,7 @@ export function MoviesScreen() {
   const [tab, setTab] = useState<Tab>('watch');
   const [showSearch, setShowSearch] = useState(false);
   const [showReview, setShowReview] = useState<string | null>(null);
+  const [showDetail, setShowDetail] = useState<MovieListItem | null>(null);
   const [eveningMovie, setEveningMovie] = useState<MovieListItem | null>(null);
   const [eveningError, setEveningError] = useState<string | null>(null);
   const [eveningLoading, setEveningLoading] = useState(false);
@@ -138,6 +139,7 @@ export function MoviesScreen() {
           key={movie.id}
           movie={movie}
           myId={myId}
+          onOpenDetail={() => { setShowDetail(movie); hapticFeedback('selection'); }}
           onMarkWatched={() => { void markMovieWatched(movie.id); hapticFeedback('notification', 'success'); }}
           onOpenReview={() => { setShowReview(movie.id); hapticFeedback('selection'); }}
           onDelete={() => { void deleteMovie(movie.id); hapticFeedback('notification', 'error'); }}
@@ -148,6 +150,7 @@ export function MoviesScreen() {
 
       {showSearch && <SearchOverlay onClose={() => setShowSearch(false)} />}
       {showReview && <ReviewOverlay movieId={showReview} onClose={() => setShowReview(null)} />}
+      {showDetail && <DetailOverlay movie={showDetail} onClose={() => setShowDetail(null)} />}
     </div>
   );
 }
@@ -155,6 +158,7 @@ export function MoviesScreen() {
 function MovieCard({
   movie,
   myId,
+  onOpenDetail,
   onMarkWatched,
   onOpenReview,
   onDelete,
@@ -163,6 +167,7 @@ function MovieCard({
 }: {
   movie: MovieListItem;
   myId: number | null;
+  onOpenDetail: () => void;
   onMarkWatched: () => void;
   onOpenReview: () => void;
   onDelete: () => void;
@@ -190,16 +195,26 @@ function MovieCard({
           <div style={styles.posterFallback}>🎬</div>
         )}
         <div style={styles.cardInfo}>
-          <p style={styles.cardTitle}>
-            {movie.title}{movie.year ? <span style={styles.cardYear}> ({movie.year})</span> : null}
-          </p>
+          <button onClick={onOpenDetail} style={styles.cardTitleBtn}>
+            <span style={styles.cardTitle}>
+              {movie.title}{movie.year ? <span style={styles.cardYear}> ({movie.year})</span> : null}
+            </span>
+            <span style={styles.cardMore}>›</span>
+          </button>
           {movie.genre && <p style={styles.cardMeta}>{movie.genre}</p>}
           {movie.rating && <p style={styles.cardMeta}>⭐ {movie.rating}</p>}
           <p style={styles.cardMeta}>Добавил(а): {movie.added_by_name ?? 'Партнер'}</p>
         </div>
       </div>
 
-      {movie.description && <p style={styles.cardPlot}>{movie.description.length > 200 ? `${movie.description.slice(0, 200)}…` : movie.description}</p>}
+      {movie.description && (
+        <p style={styles.cardPlot}>
+          {movie.description.length > 200 ? `${movie.description.slice(0, 200)}… ` : movie.description}
+          {movie.description.length > 200 && (
+            <button onClick={onOpenDetail} style={styles.moreBtn}>Подробнее</button>
+          )}
+        </p>
+      )}
 
       {mine && (
         <div style={styles.reviewBadge}>
@@ -254,6 +269,43 @@ function InsightBlock({ insight, loading }: { insight: Record<string, unknown> |
           Похожие: {i.similar_movies.map((m: any) => `${m.title}${m.year ? ` (${m.year})` : ''}`).join(', ')}
         </p>
       )}
+    </div>
+  );
+}
+
+function DetailOverlay({ movie, onClose }: { movie: MovieListItem; onClose: () => void }) {
+  return (
+    <div style={styles.detailOverlay}>
+      <div style={styles.detailCard}>
+        <div style={styles.detailHeader}>
+          {movie.poster_url ? (
+            <img src={movie.poster_url} alt="" style={styles.detailPoster} />
+          ) : (
+            <div style={styles.detailPoster}>🎬</div>
+          )}
+          <div style={styles.detailInfo}>
+            <p style={styles.detailTitle}>
+              {movie.title}{movie.year ? <span style={styles.cardYear}> ({movie.year})</span> : null}
+            </p>
+            {movie.genre && <p style={styles.detailMeta}>{movie.genre}</p>}
+            {movie.rating && <p style={styles.detailMeta}>⭐ Рейтинг: {movie.rating}</p>}
+            {movie.added_by_name && <p style={styles.detailMeta}>Добавил(а): {movie.added_by_name}</p>}
+          </div>
+        </div>
+
+        {movie.description && (
+          <div style={styles.detailSection}>
+            <p style={styles.detailSectionTitle}>Описание</p>
+            <p style={styles.detailText}>{movie.description}</p>
+          </div>
+        )}
+
+        <div style={styles.detailStatus}>
+          {movie.status === 'want_to_watch' ? '📌 В планах посмотреть' : '🍿 Уже смотрели'}
+        </div>
+
+        <button onClick={onClose} style={styles.detailClose}>Закрыть</button>
+      </div>
     </div>
   );
 }
@@ -504,6 +556,46 @@ const styles: Record<string, CSSProperties> = {
   cardYear: { fontWeight: 400, color: 'var(--ink-secondary)' },
   cardMeta: { fontSize: 13, color: 'var(--ink-secondary)' },
   cardPlot: { fontSize: 14, color: 'var(--ink-secondary)', lineHeight: 1.4 },
+  cardTitleBtn: {
+    display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none',
+    padding: 0, textAlign: 'left', cursor: 'pointer',
+  },
+  cardMore: { fontSize: 18, color: 'var(--ash)', fontWeight: 700, lineHeight: 1 },
+  moreBtn: {
+    display: 'inline', background: 'none', border: 'none', padding: 0,
+    color: 'var(--primary)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+  },
+
+  detailOverlay: {
+    position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,.55)',
+    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+  },
+  detailCard: {
+    width: '100%', maxWidth: 480, maxHeight: '85vh', overflowY: 'auto',
+    background: 'var(--bg)', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: '20px 18px 28px', display: 'flex', flexDirection: 'column', gap: 14,
+    border: '1px solid var(--hairline)', borderBottom: 'none',
+  },
+  detailHeader: { display: 'flex', gap: 14 },
+  detailPoster: {
+    width: 100, height: 150, borderRadius: 12, objectFit: 'cover', flexShrink: 0,
+    background: 'var(--secondary-bg)', display: 'flex', alignItems: 'center',
+    justifyContent: 'center', fontSize: 40,
+  },
+  detailInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: 4 },
+  detailTitle: { fontSize: 19, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 },
+  detailMeta: { fontSize: 13, color: 'var(--ink-secondary)' },
+  detailSection: { display: 'flex', flexDirection: 'column', gap: 6 },
+  detailSectionTitle: { fontSize: 14, fontWeight: 700, color: 'var(--ink)' },
+  detailText: { fontSize: 14, color: 'var(--ink-secondary)', lineHeight: 1.55, whiteSpace: 'pre-wrap' },
+  detailStatus: {
+    padding: '8px 12px', borderRadius: 999, background: 'var(--secondary-bg)',
+    fontSize: 13, fontWeight: 600, color: 'var(--ink)', alignSelf: 'flex-start',
+  },
+  detailClose: {
+    padding: '14px', borderRadius: 999, background: 'var(--ink)', color: '#fff',
+    fontSize: 15, fontWeight: 700, border: 'none', width: '100%',
+  },
 
   reviewBadge: {
     padding: '6px 12px', borderRadius: 999, background: '#d8f0dc', color: '#0a5c1e',
