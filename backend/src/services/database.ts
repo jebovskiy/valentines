@@ -51,7 +51,7 @@ export interface PairingToken {
   expires_at: string;
 }
 
-export type GreetingType = 'morning' | 'night';
+export type GreetingType = 'morning' | 'night' | 'luck' | 'day' | 'evening' | 'care';
 
 export interface Greeting {
   id: string;

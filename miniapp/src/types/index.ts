@@ -123,7 +123,7 @@ export interface UserProfile {
   avatar_url: string | null;
 }
 
-export type GreetingType = 'morning' | 'night';
+export type GreetingType = 'morning' | 'night' | 'luck' | 'day' | 'evening' | 'care';
 
 export interface Greeting {
   id: string;

@@ -10,6 +10,78 @@ import { api } from '../api/client';
 import { formatFeedTime } from '../utils/date';
 import { isGreetingsEnabled } from '../utils/greeting';
 
+const GREETING_ACTIONS: {
+  scene: GreetingScene;
+  emoji: string;
+  title: string;
+  sub: string;
+  bg: string;
+  titleColor: string;
+  subColor: string;
+  shadow: string;
+}[] = [
+  {
+    scene: 'morning',
+    emoji: '☀️',
+    title: 'Доброе утро',
+    sub: 'Тёплого дня',
+    bg: 'linear-gradient(120deg, #ffe3c2 0%, #ffd9b0 40%, #ffcf9a 100%)',
+    titleColor: 'rgba(100, 50, 10, 1)',
+    subColor: 'rgba(130, 80, 30, 0.85)',
+    shadow: '0 10px 26px rgba(255, 160, 80, 0.28)',
+  },
+  {
+    scene: 'night',
+    emoji: '🌙',
+    title: 'Спокойной ночи',
+    sub: 'Сладких снов',
+    bg: 'linear-gradient(120deg, #232e5c 0%, #303e7a 55%, #3d4d99 100%)',
+    titleColor: '#fff',
+    subColor: '#c0c8f0',
+    shadow: '0 10px 26px rgba(70, 90, 190, 0.3)',
+  },
+  {
+    scene: 'luck',
+    emoji: '🍀',
+    title: 'Удачи',
+    sub: 'Пусть всё получится',
+    bg: 'linear-gradient(120deg, #e8f7d8 0%, #d8f0bd 50%, #c5e8a0 100%)',
+    titleColor: 'rgba(40, 80, 20, 1)',
+    subColor: 'rgba(60, 110, 35, 0.85)',
+    shadow: '0 10px 26px rgba(130, 190, 80, 0.28)',
+  },
+  {
+    scene: 'day',
+    emoji: '🌞',
+    title: 'Хорошего дня',
+    sub: 'Отличного настроения',
+    bg: 'linear-gradient(120deg, #dceefe 0%, #c4e4fa 50%, #aad8f5 100%)',
+    titleColor: 'rgba(15, 70, 110, 1)',
+    subColor: 'rgba(30, 100, 150, 0.85)',
+    shadow: '0 10px 26px rgba(100, 170, 220, 0.28)',
+  },
+  {
+    scene: 'evening',
+    emoji: '🌆',
+    title: 'Хорошего вечера',
+    sub: 'Приятного отдыха',
+    bg: 'linear-gradient(120deg, #ffdfcc 0%, #ffc9ae 50%, #f2b093 100%)',
+    titleColor: 'rgba(120, 45, 30, 1)',
+    subColor: 'rgba(150, 70, 45, 0.85)',
+    shadow: '0 10px 26px rgba(215, 130, 90, 0.28)',
+  },
+  {
+    scene: 'care',
+    emoji: '🤗',
+    title: 'Береги себя',
+    sub: 'Будь аккуратнее',
+    bg: 'linear-gradient(120deg, #ffe4ec 0%, #ffd0e0 50%, #f5bcd4 100%)',
+    titleColor: 'rgba(130, 50, 85, 1)',
+    subColor: 'rgba(160, 70, 110, 0.85)',
+    shadow: '0 10px 26px rgba(230, 140, 175, 0.28)',
+  },
+];
+
 export function ListScreen() {
   const { valentines, isLoading, error, fetchValentines, refreshValentines, markSeen, pair, checkPair, createInvite, joinInvite, profile, androidPaired, refreshPairingStatus, greetings, fetchGreetings, sendGreeting } = useValentinesStore();
   const navigate = useNavigate();
@@ -33,6 +105,10 @@ export function ListScreen() {
     const sp = (window.Telegram?.WebApp as any)?.initDataUnsafe?.start_param;
     if (sp === 'greeting_morning') forcedGreeting.current = 'morning';
     else if (sp === 'greeting_night') forcedGreeting.current = 'night';
+    else if (sp === 'greeting_luck') forcedGreeting.current = 'luck';
+    else if (sp === 'greeting_day') forcedGreeting.current = 'day';
+    else if (sp === 'greeting_evening') forcedGreeting.current = 'evening';
+    else if (sp === 'greeting_care') forcedGreeting.current = 'care';
   }, []);
 
   useEffect(() => {
@@ -77,6 +153,15 @@ export function ListScreen() {
     }
   }, [greetingEnabled, pair, fetchGreetings]);
 
+  const OPEN_GREETING_SCENES: Record<string, GreetingScene> = {
+    morning: 'morning',
+    night: 'night',
+    luck: 'luck',
+    day: 'day',
+    evening: 'evening',
+    care: 'care',
+  };
+
   const openReceivedGreeting = (g: { id: string; type: string; sender_name?: string | null }) => {
     const seenKey = `vn_greeting_seen_${g.id}`;
     try {
@@ -85,7 +170,7 @@ export function ListScreen() {
       /* ignore */
     }
     setGreetingSender(g.sender_name ?? null);
-    setGreetingScene(g.type === 'night' ? 'night' : 'morning');
+    setGreetingScene(OPEN_GREETING_SCENES[g.type] ?? 'morning');
     setGreetingMode('received');
     setGreetingOpen(true);
     hapticFeedback('notification', 'success');
@@ -264,38 +349,25 @@ export function ListScreen() {
 
       {greetingEnabled && (
         <div style={styles.greetingPanel}>
-          <button
-            onClick={() => {
-              hapticFeedback('impact', 'light');
-              setGreetingScene('morning');
-              setGreetingMode('celebrate');
-              setGreetingSent(false);
-              setGreetingOpen(true);
-            }}
-            style={styles.greetingBtnMorning}
-          >
-            <span style={styles.greetingBtnEmoji}>☀️</span>
-            <span style={styles.greetingBtnText}>
-              <span style={styles.greetingBtnTitle}>Доброе утро</span>
-              <span style={styles.greetingBtnSub}>Начать день красиво</span>
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              hapticFeedback('impact', 'light');
-              setGreetingScene('night');
-              setGreetingMode('celebrate');
-              setGreetingSent(false);
-              setGreetingOpen(true);
-            }}
-            style={styles.greetingBtnNight}
-          >
-            <span style={styles.greetingBtnEmoji}>🌙</span>
-            <span style={styles.greetingBtnText}>
-              <span style={styles.greetingBtnTitleNight}>Спокойной ночи</span>
-              <span style={styles.greetingBtnSubNight}>Пожелать сладких снов</span>
-            </span>
-          </button>
+          {GREETING_ACTIONS.map((g) => (
+            <button
+              key={g.scene}
+              onClick={() => {
+                hapticFeedback('impact', 'light');
+                setGreetingScene(g.scene);
+                setGreetingMode('celebrate');
+                setGreetingSent(false);
+                setGreetingOpen(true);
+              }}
+              style={{ ...styles.greetingCard, background: g.bg, boxShadow: g.shadow }}
+            >
+              <span style={styles.greetingBtnEmoji}>{g.emoji}</span>
+              <span style={styles.greetingBtnText}>
+                <span style={{ ...styles.greetingBtnTitle, color: g.titleColor }}>{g.title}</span>
+                <span style={{ ...styles.greetingBtnSub, color: g.subColor }}>{g.sub}</span>
+              </span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -725,13 +797,12 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-faint)',
   },
   greetingPanel: {
-    display: 'flex',
-    flexDirection: 'row',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
     gap: '8px',
     marginTop: '12px',
   },
-  greetingBtnMorning: {
-    flex: 1,
+  greetingCard: {
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -739,24 +810,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '12px 12px',
     borderRadius: '20px',
     border: 'none',
-    background: 'linear-gradient(120deg, #ffe3c2 0%, #ffd9b0 40%, #ffcf9a 100%)',
-    boxShadow: '0 10px 26px rgba(255, 160, 80, 0.28)',
-    textAlign: 'left',
-    cursor: 'pointer',
-    minWidth: 0,
-    WebkitAppearance: 'none' as const,
-  },
-  greetingBtnNight: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px 12px',
-    borderRadius: '20px',
-    border: 'none',
-    background: 'linear-gradient(120deg, #232e5c 0%, #303e7a 55%, #3d4d99 100%)',
-    boxShadow: '0 10px 26px rgba(70, 90, 190, 0.3)',
     textAlign: 'left',
     cursor: 'pointer',
     minWidth: 0,
@@ -779,28 +832,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: '800',
     fontSize: '15px',
     lineHeight: '20px',
-    color: 'rgba(100, 50, 10, 1)',
     letterSpacing: '-0.3px',
     whiteSpace: 'nowrap',
   },
   greetingBtnSub: {
     fontSize: '11px',
     lineHeight: '14px',
-    color: 'rgba(130, 80, 30, 0.85)',
-    whiteSpace: 'nowrap',
-  },
-  greetingBtnTitleNight: {
-    fontWeight: '800',
-    fontSize: '15px',
-    lineHeight: '20px',
-    color: '#fff',
-    letterSpacing: '-0.3px',
-    whiteSpace: 'nowrap',
-  },
-  greetingBtnSubNight: {
-    fontSize: '11px',
-    lineHeight: '14px',
-    color: '#c0c8f0',
     whiteSpace: 'nowrap',
   },
   filterBar: {

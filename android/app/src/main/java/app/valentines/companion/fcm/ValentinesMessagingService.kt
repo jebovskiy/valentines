@@ -47,7 +47,7 @@ class ValentinesMessagingService : FirebaseMessagingService() {
                 NotificationHelper.notifyGreeting(
                     context = this@ValentinesMessagingService,
                     fromName = data["from_name"],
-                    night = data["greeting_type"] == "night",
+                    type = data["greeting_type"],
                 )
             }
             return

@@ -1,5 +1,5 @@
 import { sendVisiblePush, sendDataPush, sendBothPushes, sendGreetingDataPush, sendReminderPush, sendCustomDataPush, PushPayload } from './fcm';
-import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs, getDevicesByPair, getAllDevices, Valentine, Pair } from './database';
+import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs, getDevicesByPair, getAllDevices, Valentine, Pair, GreetingType } from './database';
 
 export interface PushDispatchPayload {
   valentine_id: string;
@@ -17,7 +17,7 @@ function senderName(pair: Pair, senderTelegramId: number): string {
  * companion devices. The miniapp renders the animated scene; the Android app
  * shows an awareness notification.
  */
-export async function dispatchGreetingPushes(pairId: string, senderTelegramId: number, greetingType: 'morning' | 'night'): Promise<void> {
+export async function dispatchGreetingPushes(pairId: string, senderTelegramId: number, greetingType: GreetingType): Promise<void> {
   let fromName = 'Партнер';
   try {
     const pair = await getPairById(pairId);

@@ -26,6 +26,45 @@ object NotificationHelper {
     private const val UPDATE_NOTIFICATION_ID = 1011
     private const val STREAK_NOTIFICATION_ID = 1013
 
+    private data class GreetingTheme(
+        val title: String,
+        val receivedValue: String,
+        val receivedDefault: String,
+    )
+
+    private val GREETING_THEMES: Map<String, GreetingTheme> = mapOf(
+        "morning" to GreetingTheme(
+            title = "Доброе утро ☀️",
+            receivedValue = "желает тебе доброго утра ☀️",
+            receivedDefault = "Партнёр желает тебе доброго утра ☀️",
+        ),
+        "night" to GreetingTheme(
+            title = "Спокойной ночи 🌙",
+            receivedValue = "желает тебе спокойной ночи 🌙",
+            receivedDefault = "Партнёр желает тебе спокойной ночи 🌙",
+        ),
+        "luck" to GreetingTheme(
+            title = "Удачи 🍀",
+            receivedValue = "желает тебе удачи 🍀",
+            receivedDefault = "Партнёр желает тебе удачи 🍀",
+        ),
+        "day" to GreetingTheme(
+            title = "Хорошего дня 🌞",
+            receivedValue = "желает тебе хорошего дня 🌞",
+            receivedDefault = "Партнёр желает тебе хорошего дня 🌞",
+        ),
+        "evening" to GreetingTheme(
+            title = "Хорошего вечера 🌆",
+            receivedValue = "желает тебе хорошего вечера 🌆",
+            receivedDefault = "Партнёр желает тебе хорошего вечера 🌆",
+        ),
+        "care" to GreetingTheme(
+            title = "Береги себя 🤗",
+            receivedValue = "просит тебя беречь себя 🤗",
+            receivedDefault = "Партнёр просит тебя беречь себя 🤗",
+        ),
+    )
+
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -95,45 +134,44 @@ object NotificationHelper {
         return true
     }
 
-    /**
-     * Shows a gentle "good morning"/"good night" notification when the partner
-     * sent a greeting. Deduplicates to once per greeting type per calendar day.
-     */
-    suspend fun notifyGreeting(context: Context, fromName: String?, night: Boolean): Boolean {
-        if (!canNotify(context)) return false
+/**
+ * Shows a "good morning"/"good night"/"good luck"/etc. notification when the
+ * partner sent a greeting. Deduplicates to once per greeting type per calendar
+ * day.
+ */
+suspend fun notifyGreeting(context: Context, fromName: String?, type: String?): Boolean {
+    if (!canNotify(context)) return false
 
-        val prefs = PrefsRepository(context)
-        val typeKey = if (night) "night" else "morning"
-        val today = java.time.LocalDate.now().toString()
-        val dedupKey = "$today:$typeKey"
-        if (prefs.getLastGreetingDate() == dedupKey) return false
-        prefs.setLastGreetingDate(dedupKey)
+    val prefs = PrefsRepository(context)
+    val typeKey = type ?: "morning"
+    val today = java.time.LocalDate.now().toString()
+    val dedupKey = "$today:$typeKey"
+    if (prefs.getLastGreetingDate() == dedupKey) return false
+    prefs.setLastGreetingDate(dedupKey)
 
-        ensureChannel(context)
+    ensureChannel(context)
 
-        val noun = if (night) "спокойной ночи" else "доброго утра"
-        val emoji = if (night) "🌙" else "☀️"
-        val title = if (night) "Спокойной ночи $emoji" else "Доброе утро $emoji"
-        val content =
-            fromName?.takeIf { it.isNotBlank() }?.let { "$it желает тебе $noun" }
-                ?: "Партнёр желает тебе $noun"
-        val contentIntent = buildContentIntent(context, if (night) "greeting_night" else "greeting_morning")
+    val theme = GREETING_THEMES[typeKey] ?: GREETING_THEMES["morning"]!!
+    val content =
+        fromName?.takeIf { it.isNotBlank() }?.let { "$it ${theme.receivedValue}" }
+            ?: theme.receivedDefault
+    val contentIntent = buildContentIntent(context, "greeting_$typeKey")
 
-        val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(content)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
-            .setContentIntent(contentIntent)
-            .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build()
+    val notification = NotificationCompat.Builder(context, VALENTINES_CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_notification)
+        .setContentTitle(theme.title)
+        .setContentText(content)
+        .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+        .setContentIntent(contentIntent)
+        .setAutoCancel(true)
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .build()
 
-        runCatching {
-            NotificationManagerCompat.from(context).notify(GREETING_NOTIFICATION_ID, notification)
-        }
-        return true
+    runCatching {
+        NotificationManagerCompat.from(context).notify(GREETING_NOTIFICATION_ID, notification)
     }
+    return true
+}
 
     /**
      * Shows a reminder notification ("⏰ title") for scheduled couple reminders.

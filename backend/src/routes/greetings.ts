@@ -11,7 +11,7 @@ import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth'
 import { dispatchGreetingPushes } from '../services/pushDispatcher';
 
 const sendGreetingSchema = z.object({
-  type: z.enum(['morning', 'night']),
+  type: z.enum(['morning', 'night', 'luck', 'day', 'evening', 'care']),
 });
 
 export async function greetingsRoutes(app: FastifyInstance) {

@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-export type GreetingScene = 'morning' | 'night';
+export type GreetingScene = 'morning' | 'night' | 'luck' | 'day' | 'evening' | 'care';
 export type GreetingMode = 'celebrate' | 'received';
 
 interface GreetingOverlayProps {
@@ -21,7 +21,10 @@ interface SceneTheme {
   sunCore: string;
   titleColor: string;
   emoji: string;
-  subtitle: string;
+  title: string;
+  action: string;
+  received: string;
+  isDark: boolean;
   accent: string;
   onAccent: string;
 }
@@ -33,7 +36,10 @@ const SCENES: Record<GreetingScene, SceneTheme> = {
     sunCore: 'radial-gradient(circle at 38% 32%, #fffdf3 0%, #ffe9a6 46%, #ffc25e 78%, #ffab4f 100%)',
     titleColor: '#a04400',
     emoji: '☀️',
-    subtitle: 'Тёплого спокойного дня',
+    title: 'Доброе утро',
+    action: 'Пожелать доброе утро',
+    received: 'желает тебе доброго утра',
+    isDark: false,
     accent: '#ff8f4d',
     onAccent: '#fff7ea',
   },
@@ -43,8 +49,63 @@ const SCENES: Record<GreetingScene, SceneTheme> = {
     sunCore: 'radial-gradient(circle at 38% 32%, #fffbe8 0%, #fdf2c0 40%, #ffe9a0 75%, #ffd76b 100%)',
     titleColor: '#e8e6ff',
     emoji: '🌙',
-    subtitle: 'Сладких снов',
+    title: 'Спокойной ночи',
+    action: 'Пожелать спокойной ночи',
+    received: 'желает тебе спокойной ночи',
+    isDark: true,
     accent: '#5f7bff',
+    onAccent: '#ffffff',
+  },
+  luck: {
+    sky: 'linear-gradient(163deg, #eefbe4 0%, #dcf7c0 22%, #c9ef9a 48%, #a5dc6b 78%, #7fc44e 100%)',
+    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(255, 255, 220, 0.4) 0%, rgba(210, 255, 170, 0) 42%)',
+    sunCore: 'radial-gradient(circle at 38% 32%, #ffffff 0%, #fff9d6 46%, #ffe9a6 78%, #ffd76b 100%)',
+    titleColor: '#2f5d1e',
+    emoji: '🍀',
+    title: 'Удачи',
+    action: 'Пожелать удачи',
+    received: 'желает тебе удачи',
+    isDark: false,
+    accent: '#7fc44e',
+    onAccent: '#ffffff',
+  },
+  day: {
+    sky: 'linear-gradient(163deg, #e8f6ff 0%, #d4ecfa 18%, #bcdff3 40%, #8fc8ec 66%, #5fa8e0 100%)',
+    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(255, 250, 215, 0.35) 0%, rgba(255, 235, 180, 0) 42%)',
+    sunCore: 'radial-gradient(circle at 38% 32%, #fffef8 0%, #ffe9a6 46%, #ffd25e 78%, #ffb84a 100%)',
+    titleColor: '#0f4c81',
+    emoji: '🌞',
+    title: 'Хорошего дня',
+    action: 'Пожелать хорошего дня',
+    received: 'желает тебе хорошего дня',
+    isDark: false,
+    accent: '#5fa8e0',
+    onAccent: '#ffffff',
+  },
+  evening: {
+    sky: 'linear-gradient(163deg, #fff1e0 0%, #ffdcc2 18%, #f7b58a 42%, #d47a5e 68%, #8a4a76 100%)',
+    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(255, 200, 150, 0.35) 0%, rgba(220, 110, 90, 0) 42%)',
+    sunCore: 'radial-gradient(circle at 38% 32%, #fffbe8 0%, #ffd9ad 48%, #ff9e5e 80%, #ff7d3f 100%)',
+    titleColor: '#7a2d52',
+    emoji: '🌆',
+    title: 'Хорошего вечера',
+    action: 'Пожелать хорошего вечера',
+    received: 'желает тебе хорошего вечера',
+    isDark: false,
+    accent: '#d47a5e',
+    onAccent: '#ffffff',
+  },
+  care: {
+    sky: 'linear-gradient(163deg, #ffeef2 0%, #ffe0e9 18%, #ffc8d9 42%, #f2a3c2 68%, #c47ba6 100%)',
+    horizonGlow: 'radial-gradient(circle at 50% 132%, rgba(255, 240, 250, 0.4) 0%, rgba(255, 200, 230, 0) 42%)',
+    sunCore: 'radial-gradient(circle at 38% 32%, #fffdf9 0%, #ffe3ef 46%, #ffc0dc 78%, #f7a3c8 100%)',
+    titleColor: '#8a3360',
+    emoji: '🤗',
+    title: 'Береги себя',
+    action: 'Попросить беречь себя',
+    received: 'просит тебя беречь себя',
+    isDark: false,
+    accent: '#e58ab0',
     onAccent: '#ffffff',
   },
 };
@@ -71,7 +132,7 @@ function RandomParticles({ count, chars, maxSize, minSize, scene }: { count: num
               ['--sway' as string]: `${sway}px`,
               opacity: 0,
               textShadow: '0 2px 14px rgba(255,255,255,0.55)',
-              filter: scene === 'night' ? 'brightness(0.9)' : undefined,
+              filter: scene === 'night' || scene === 'evening' ? 'brightness(0.9)' : undefined,
             }}
           >
             {char}
@@ -84,11 +145,8 @@ function RandomParticles({ count, chars, maxSize, minSize, scene }: { count: num
 
 export function GreetingOverlay({ scene, mode, names, senderName, onClose, onReply, onSend, sending, sent }: GreetingOverlayProps) {
   const theme = SCENES[scene];
-  const night = scene === 'night';
-  const phrase = night ? 'Спокойной ночи' : 'Доброе утро';
-  const receivedLine = night
-    ? `желает тебе спокойной ночи ${theme.emoji}`
-    : `желает тебе доброго утра ${theme.emoji}`;
+  const phrase = theme.title;
+  const receivedLine = theme.received;
 
   return (
     <div style={overlayStyle}>
@@ -113,7 +171,7 @@ export function GreetingOverlay({ scene, mode, names, senderName, onClose, onRep
               borderRadius: '50%',
               background: '#fff9e0',
               boxShadow: '0 0 10px 2px rgba(255,255,255,0.75)',
-              animation: `greet-star-dawn ${night ? 0.01 : 5 + (i * 0.7)}s ease forwards ${i * 0.35}s, greet-twinkle 1.6s ease-in-out ${i * 0.4}s infinite`,
+              animation: `greet-star-dawn ${theme.isDark ? 0.01 : 5 + (i * 0.7)}s ease forwards ${i * 0.35}s, greet-twinkle 1.6s ease-in-out ${i * 0.4}s infinite`,
             }}
           />
         ))}
@@ -186,10 +244,10 @@ export function GreetingOverlay({ scene, mode, names, senderName, onClose, onRep
 
         {mode === 'received' && senderName ? (
           <p style={styles.receivedLine}>
-            <span style={{ color: 'var(--ink)' }}>{senderName}</span> {receivedLine}
+            <span style={{ color: 'var(--ink)' }}>{senderName}</span> {receivedLine} {theme.emoji}
           </p>
         ) : (
-          <p style={styles.subtitle}>{theme.subtitle}</p>
+          <p style={styles.subtitle}>{theme.emoji}</p>
         )}
 
         <div style={styles.actions}>
@@ -202,14 +260,14 @@ export function GreetingOverlay({ scene, mode, names, senderName, onClose, onRep
             </button>
           ) : mode === 'celebrate' && !sent ? (
             <button style={{ ...styles.primaryBtn, background: theme.accent, color: theme.onAccent }} onClick={onSend} disabled={sending}>
-              {sending ? 'Отправляем…' : `${theme.emoji} ${night ? 'Пожелать спокойной ночи' : 'Пожелать доброе утро'}`}
+              {sending ? 'Отправляем…' : `${theme.emoji} ${theme.action}`}
             </button>
           ) : (
             <div style={{ ...styles.sentPill, borderColor: 'transparent' }}>
               <span style={{ color: 'var(--ink)' }}>{theme.emoji}</span>
               {mode === 'received'
-                ? `${night ? 'Спокойной ночи' : 'Доброе утро'} уже прозвучало`
-                : `${night ? 'Спокойной ночи' : 'Доброе утро'} передано партнёру`}
+                ? `${theme.title} уже передано`
+                : `${theme.title} передано партнёру`}
             </div>
           )}
           <button style={styles.closeBtn} onClick={onClose}>
