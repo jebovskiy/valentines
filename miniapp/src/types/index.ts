@@ -198,9 +198,9 @@ export type MovieStatus = 'want_to_watch' | 'watched';
 export interface Movie {
   id: string;
   pair_id: string;
-  imdb_id: string | null;
+  kp_id: number | null;
   title: string;
-  year: string | null;
+  year: number | null;
   poster_url: string | null;
   genre: string | null;
   plot: string | null;
@@ -247,10 +247,14 @@ export interface MovieListItem extends Movie {
   added_by_name: string | null;
 }
 
-export interface OmdbCandidate {
-  imdb_id: string;
-  title: string;
-  year: string;
-  type: string;
-  poster: string;
+export interface PoiskkinoCandidate {
+  kp_id: number;
+  name: string | null;
+  alternative_name: string | null;
+  year: number | null;
+  poster_url: string | null;
+  rating_kp: number | null;
+  rating_imdb: number | null;
+  genres: string[];
+  type: string | null;
 }

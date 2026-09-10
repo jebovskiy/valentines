@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, OmdbCandidate } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines } from '../api/supabase';
 
@@ -71,11 +71,11 @@ interface ValentinesState {
   createEvent: (input: { name: string; event_date: string; event_type: CoupleEventType; remind_days_before?: number }) => Promise<CoupleEvent | null>;
   deleteEvent: (id: string) => Promise<void>;
   movies: MovieListItem[];
-  movieSearchResults: OmdbCandidate[];
+  movieSearchResults: PoiskkinoCandidate[];
   movieSearchLoading: boolean;
   fetchMovies: () => Promise<void>;
   searchMovies: (q: string) => Promise<void>;
-  addMovie: (input: { imdb_id?: string; title?: string; year?: string }) => Promise<MovieListItem | null>;
+  addMovie: (input: { kp_id?: number; title?: string; year?: number }) => Promise<MovieListItem | null>;
   deleteMovie: (id: string) => Promise<void>;
   markMovieWatched: (id: string) => Promise<void>;
   addMovieReview: (id: string, review: {

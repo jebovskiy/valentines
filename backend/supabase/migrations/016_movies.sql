@@ -1,13 +1,13 @@
 -- Shared movie list for a pair + reviews + AI insights.
--- OMDB metadata; reviews on 6 aspects; per-partner "watched" marks; one AI
+-- Poiskkino (KinoPoisk) metadata; reviews on 6 aspects; per-partner "watched" marks; one AI
 -- insight per movie generated once both partners reviewed it.
 
 CREATE TABLE IF NOT EXISTS movies (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   pair_id uuid NOT NULL REFERENCES pairs(id) ON DELETE CASCADE,
-  imdb_id text,
+  kp_id integer,
   title text NOT NULL,
-  year text,
+  year integer,
   poster_url text,
   genre text,
   plot text,

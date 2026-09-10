@@ -15,7 +15,7 @@ const envSchema = z.object({
   TEST_TELEGRAM_ID: z.coerce.number().optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
-  OMDB_API_KEY: z.string().optional(),
+  POISKKINO_API_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.parse(process.env);

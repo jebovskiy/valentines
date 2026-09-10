@@ -765,9 +765,9 @@ export type MovieStatus = 'want_to_watch' | 'watched';
 export interface Movie {
   id: string;
   pair_id: string;
-  imdb_id: string | null;
+  kp_id: number | null;
   title: string;
-  year: string | null;
+  year: number | null;
   poster_url: string | null;
   genre: string | null;
   plot: string | null;
@@ -831,12 +831,12 @@ export async function getMovieById(movieId: string): Promise<Movie | null> {
   return data;
 }
 
-export async function getMovieByImdb(pairId: string, imdbId: string): Promise<Movie | null> {
+export async function getMovieByKp(pairId: string, kpId: number): Promise<Movie | null> {
   const { data, error } = await supabase
     .from('movies')
     .select('*')
     .eq('pair_id', pairId)
-    .eq('imdb_id', imdbId)
+    .eq('kp_id', kpId)
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -845,9 +845,9 @@ export async function getMovieByImdb(pairId: string, imdbId: string): Promise<Mo
 export async function createMovie(input: {
   pair_id: string;
   added_by: number;
-  imdb_id?: string | null;
+  kp_id?: number | null;
   title: string;
-  year?: string | null;
+  year?: number | null;
   poster_url?: string | null;
   genre?: string | null;
   plot?: string | null;
@@ -859,7 +859,7 @@ export async function createMovie(input: {
     .insert({
       pair_id: input.pair_id,
       added_by: input.added_by,
-      imdb_id: input.imdb_id ?? null,
+      kp_id: input.kp_id ?? null,
       title: input.title,
       year: input.year ?? null,
       poster_url: input.poster_url ?? null,

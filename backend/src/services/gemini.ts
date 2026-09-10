@@ -13,7 +13,7 @@ export interface MovieReviewInput {
 
 export interface MovieInfoInput {
   title: string;
-  year: string | null;
+  year: number | null;
   genre: string | null;
   plot: string | null;
 }
@@ -26,7 +26,7 @@ export interface MovieInsightResult {
   disagreements: string[];
   verdict: string;
   compatibility_percent: number;
-  similar_movies: { title: string; year: string }[];
+  similar_movies: { title: string; year: number | string }[];
 }
 
 const ASPECT_NAMES = ['Визуал/картинка', 'Сюжет', 'Актёрская игра', 'Музыка', 'Атмосфера', 'Юмор'] as const;

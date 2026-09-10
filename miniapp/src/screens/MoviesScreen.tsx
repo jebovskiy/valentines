@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
-import type { MovieListItem, OmdbCandidate, MovieReview } from '../types';
+import type { MovieListItem, PoiskkinoCandidate, MovieReview } from '../types';
 
 type Tab = 'watch' | 'watched';
 const ASPECTS = [
@@ -239,7 +239,7 @@ function InsightBlock({ insight, loading }: { insight: Record<string, unknown> |
 function SearchOverlay({ onClose }: { onClose: () => void }) {
   const { searchMovies, movieSearchResults, movieSearchLoading, addMovie } = useValentinesStore();
   const [query, setQuery] = useState('');
-  const [adding, setAdding] = useState<string | null>(null);
+  const [adding, setAdding] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>();
 
   const doSearch = (q: string) => {
@@ -249,19 +249,9 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
     timer.current = setTimeout(() => void searchMovies(q), 350);
   };
 
-  const handlePick = async (candidate: OmdbCandidate) => {
-    setAdding(candidate.imdb_id);
-    await addMovie({ imdb_id: candidate.imdb_id, title: candidate.title, year: candidate.year });
-    setAdding(null);
-    onClose();
-    hapticFeedback('notification', 'success');
-  };
-
-  const handleManualAdd = async () => {
-    const title = query.trim();
-    if (!title) return;
-    setAdding('manual');
-    await addMovie({ title });
+  const handlePick = async (candidate: PoiskkinoCandidate) => {
+    setAdding(candidate.kp_id);
+    await addMovie({ kp_id: candidate.kp_id, title: candidate.name || candidate.alternative_name || undefined, year: candidate.year || undefined });
     setAdding(null);
     onClose();
     hapticFeedback('notification', 'success');
@@ -277,38 +267,41 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
         <input
           value={query}
           onChange={(e) => doSearch(e.target.value)}
-          placeholder="Название фильма (EN или RU)…"
+          placeholder="Название фильма (RU или EN)…"
           autoFocus
           style={styles.searchInput}
         />
         {movieSearchLoading && <p style={styles.empty}>Ищем…</p>}
         {!movieSearchLoading && movieSearchResults.length === 0 && query.length >= 2 && (
-          <p style={styles.empty}>Ничего не найдено в OMDB</p>
+          <p style={styles.empty}>Ничего не найдено</p>
         )}
         <div style={styles.results}>
           {movieSearchResults.map((r) => (
             <button
-              key={r.imdb_id}
+              key={r.kp_id}
               onClick={() => void handlePick(r)}
               disabled={adding !== null}
               style={styles.resultBtn}
             >
-              {r.poster && <img src={r.poster} alt="" style={styles.resultPoster} />}
-              <div>
-                <p style={styles.resultTitle}>{r.title}</p>
-                <p style={styles.resultMeta}>{r.year}</p>
+              {r.poster_url ? (
+                <img src={r.poster_url} alt="" style={styles.resultPoster} />
+              ) : (
+                <div style={styles.resultPosterFallback}>🎬</div>
+              )}
+              <div style={{ flex: 1 }}>
+                <p style={styles.resultTitle}>{r.name || r.alternative_name || 'Без названия'}</p>
+                {r.alternative_name && r.name && r.alternative_name !== r.name && (
+                  <p style={styles.resultAltName}>{r.alternative_name}</p>
+                )}
+                <p style={styles.resultMeta}>
+                  {r.year && `${r.year}`}
+                  {r.rating_kp && ` · КП ${r.rating_kp}`}
+                  {r.rating_imdb && ` · IMDb ${r.rating_imdb}`}
+                  {r.genres?.length > 0 && ` · ${r.genres.slice(0, 2).join(', ')}`}
+                </p>
               </div>
             </button>
           ))}
-          {query.trim().length >= 2 && !movieSearchLoading && (
-            <button
-              onClick={() => void handleManualAdd()}
-              disabled={adding !== null}
-              style={styles.manualAddBtn}
-            >
-              {adding === 'manual' ? 'Добавляем…' : `Добавить «${query.trim()}» вручную`}
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -467,13 +460,13 @@ const styles: Record<string, CSSProperties> = {
     background: 'var(--surface-elevated)', border: '1px solid var(--hairline)', textAlign: 'left',
   },
   resultPoster: { width: 40, height: 60, borderRadius: 6, objectFit: 'cover' },
-  resultTitle: { fontSize: 14, fontWeight: 600, color: 'var(--ink)' },
-  resultMeta: { fontSize: 12, color: 'var(--ink-secondary)' },
-  manualAddBtn: {
-    padding: '12px 16px', borderRadius: 14,
-    border: '1.5px dashed var(--stone)', background: 'var(--surface-elevated)',
-    fontSize: 14, fontWeight: 600, color: 'var(--ink)', textAlign: 'center', marginTop: 4,
+  resultPosterFallback: {
+    width: 40, height: 60, borderRadius: 6, background: 'var(--secondary-bg)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
   },
+  resultTitle: { fontSize: 14, fontWeight: 600, color: 'var(--ink)' },
+  resultAltName: { fontSize: 12, color: 'var(--ink-secondary)', fontStyle: 'italic' },
+  resultMeta: { fontSize: 12, color: 'var(--ink-secondary)' },
 
   reviewForm: { display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8 },
   sliderRow: { display: 'flex', alignItems: 'center', gap: 10 },

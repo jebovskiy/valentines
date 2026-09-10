@@ -19,7 +19,7 @@ import type {
   MovieListItem,
   MovieInsight,
   MovieReview,
-  OmdbCandidate,
+  PoiskkinoCandidate,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -158,8 +158,8 @@ export const api = {
 
   // Movies
   getMovies: () => fetchWithAuth<{ movies: MovieListItem[] }>('/api/movies'),
-  searchMovies: (q: string) => fetchWithAuth<{ results: OmdbCandidate[] }>(`/api/movies/search?q=${encodeURIComponent(q)}`),
-  addMovie: (input: { imdb_id?: string; title?: string; year?: string }) =>
+  searchMovies: (q: string) => fetchWithAuth<{ results: PoiskkinoCandidate[] }>(`/api/movies/search?q=${encodeURIComponent(q)}`),
+  addMovie: (input: { kp_id?: number; title?: string; year?: number }) =>
     fetchWithAuth<{ movie: { id: string }; duplicate?: boolean }>('/api/movies', {
       method: 'POST',
       body: JSON.stringify(input),

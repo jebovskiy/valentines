@@ -88,13 +88,13 @@ export async function sendNewNoteNotification(
 
 const MOVIES_URL = `${config.MINI_APP_URL}/movies`;
 
-function movieTitle(movie: { title: string; year: string | null }): string {
+function movieTitle(movie: { title: string; year: number | null }): string {
   return movie.year ? `${movie.title} (${movie.year})` : movie.title;
 }
 
 export async function sendMovieAddedNotification(
   chatId: number,
-  movie: { title: string; year: string | null },
+  movie: { title: string; year: number | null },
   authorName: string | null,
 ): Promise<void> {
   const author = authorName || 'Партнер';
@@ -104,7 +104,7 @@ export async function sendMovieAddedNotification(
 
 export async function sendMovieWatchedNotification(
   chatId: number,
-  movie: { title: string; year: string | null },
+  movie: { title: string; year: number | null },
   authorName: string | null,
 ): Promise<void> {
   const author = authorName || 'Партнер';
@@ -114,7 +114,7 @@ export async function sendMovieWatchedNotification(
 
 export async function sendMovieReviewRequestNotification(
   chatId: number,
-  movie: { title: string; year: string | null },
+  movie: { title: string; year: number | null },
   partnerName: string | null,
 ): Promise<void> {
   const partner = partnerName || 'Партнер';
@@ -124,7 +124,7 @@ export async function sendMovieReviewRequestNotification(
 
 export async function sendMovieInsightReadyNotification(
   chatId: number,
-  movie: { title: string; year: string | null },
+  movie: { title: string; year: number | null },
   summary: string | null,
 ): Promise<void> {
   const text = `✨ Общий анализ по «${movieTitle(movie)}» готов${summary ? `:\n\n${summary}` : '!'}`;
@@ -145,7 +145,7 @@ export async function sendMovieShareNotification(
   chatId: number,
   movie: {
     title: string;
-    year: string | null;
+    year: number | null;
     poster_url: string | null;
     genre: string | null;
     plot: string | null;

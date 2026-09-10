@@ -6,7 +6,7 @@ import {
   getPartnerTelegramId,
   getMovies,
   getMovieById,
-  getMovieByImdb,
+  getMovieByKp,
   createMovie,
   deleteMovie,
   markMovieStatus,
@@ -17,7 +17,7 @@ import {
   getMovieInsight,
   upsertMovieInsight,
 } from '../services/database';
-import { searchOmdb, getOmdbDetail } from '../services/omdb';
+import { searchPoiskkino, getPoiskkinoDetail } from '../services/poiskkino';
 import { generateMovieInsights, MovieReviewInput } from '../services/gemini';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import {
@@ -30,10 +30,10 @@ import {
 import { dispatchMoviePushes } from '../services/pushDispatcher';
 
 const createMovieSchema = z.object({
-  imdb_id: z.string().min(1).optional(),
+  kp_id: z.number().int().positive().optional(),
   title: z.string().min(1).max(300).optional(),
-  year: z.string().max(10).nullable().optional(),
-}).refine((v) => v.imdb_id || v.title, { message: 'imdb_id or title is required' });
+  year: z.number().int().positive().nullable().optional(),
+}).refine((v) => v.kp_id || v.title, { message: 'kp_id or title is required' });
 
 const reviewSchema = z.object({
   visuals: z.number().int().min(1).max(5),
@@ -74,10 +74,10 @@ export async function moviesRoutes(app: FastifyInstance) {
     const { q } = request.query as { q?: string };
     if (!q || q.trim().length < 2) return reply.code(400).send({ error: 'Query too short' });
     try {
-      const results = await searchOmdb(q.trim());
+      const results = await searchPoiskkino(q.trim());
       return { results };
     } catch (error) {
-      app.log.error(`OMDB search failed: ${(error as Error).message}`);
+      app.log.error(`Poiskkino search failed: ${(error as Error).message}`);
       return reply.code(502).send({ error: 'Search service unavailable' });
     }
   });
@@ -89,34 +89,41 @@ export async function moviesRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
-    if (parsed.data.imdb_id) {
-      const existing = await getMovieByImdb(pair.id, parsed.data.imdb_id);
+    if (parsed.data.kp_id) {
+      const existing = await getMovieByKp(pair.id, parsed.data.kp_id);
       if (existing) return reply.code(200).send({ movieId: existing.id, duplicate: true });
     }
 
     let detail = null;
     let title = parsed.data.title;
-    if (parsed.data.imdb_id) {
+    if (parsed.data.kp_id) {
       try {
-        detail = await getOmdbDetail(parsed.data.imdb_id);
-        if (detail) title = detail.title;
+        detail = await getPoiskkinoDetail(parsed.data.kp_id);
+        if (detail) title = detail.name || detail.alternative_name || title;
       } catch (error) {
-        app.log.error(`OMDB detail failed: ${(error as Error).message}`);
+        app.log.error(`Poiskkino detail failed: ${(error as Error).message}`);
       }
     }
     if (!title) return reply.code(400).send({ error: 'Title is required' });
 
+    const genreStr = detail?.genres?.length ? detail.genres.join(', ') : null;
+    const countryStr = detail?.countries?.length ? detail.countries.join(', ') : null;
+    const plot = detail?.description || detail?.short_description || null;
+    const posterUrl = detail?.poster_url || null;
+    const runtimeStr = detail?.movie_length ? `${detail.movie_length} мин` : null;
+    const imdbRating = detail?.rating_imdb ? String(detail.rating_imdb) : null;
+
     const movie = await createMovie({
       pair_id: pair.id,
       added_by: request.telegramUser!.id,
-      imdb_id: parsed.data.imdb_id ?? null,
+      kp_id: parsed.data.kp_id ?? null,
       title,
-      year: detail?.year ?? parsed.data.year ?? null,
-      poster_url: detail?.poster ?? null,
-      genre: detail?.genre ?? null,
-      plot: detail?.plot ?? null,
-      runtime: detail?.runtime ?? null,
-      imdb_rating: detail?.imdb_rating ?? null,
+      year: parsed.data.year ?? detail?.year ?? null,
+      poster_url: posterUrl,
+      genre: genreStr,
+      plot,
+      runtime: runtimeStr,
+      imdb_rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
     });
 
     const authorName =
