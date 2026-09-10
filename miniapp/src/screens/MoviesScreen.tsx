@@ -265,8 +265,8 @@ function InsightBlock({ insight, loading }: { insight: Record<string, unknown> |
 
 function DetailOverlay({ movie, onClose }: { movie: MovieListItem; onClose: () => void }) {
   return (
-    <div style={styles.detailOverlay}>
-      <div style={styles.detailCard}>
+    <div style={styles.detailOverlay} onClick={onClose}>
+      <div style={styles.detailCard} onClick={(e) => e.stopPropagation()}>
         <div style={styles.detailHeader}>
           {movie.poster_url ? (
             <img src={movie.poster_url} alt="" style={styles.detailPoster} />
@@ -549,14 +549,15 @@ const styles: Record<string, CSSProperties> = {
   cardPlot: { fontSize: 14, color: 'var(--ink-secondary)', lineHeight: 1.4 },
 
   detailOverlay: {
-    position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,.55)',
-    display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(255,255,255,.85)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '20px', backdropFilter: 'blur(4px)',
   },
   detailCard: {
-    width: '100%', maxWidth: 480, maxHeight: '85vh', overflowY: 'auto',
-    background: 'var(--bg)', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: '20px 18px 28px', display: 'flex', flexDirection: 'column', gap: 14,
-    border: '1px solid var(--hairline)', borderBottom: 'none',
+    width: '100%', maxWidth: 420, maxHeight: '82vh', overflowY: 'auto',
+    background: '#fff', borderRadius: 20,
+    padding: '20px 18px 24px', display: 'flex', flexDirection: 'column', gap: 14,
+    border: '1px solid var(--hairline)', boxShadow: '0 12px 40px rgba(0,0,0,.18)',
   },
   detailHeader: { display: 'flex', gap: 14 },
   detailPoster: {
