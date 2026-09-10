@@ -257,6 +257,16 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
     hapticFeedback('notification', 'success');
   };
 
+  const handleManualAdd = async () => {
+    const title = query.trim();
+    if (!title) return;
+    setAdding('manual');
+    await addMovie({ title });
+    setAdding(null);
+    onClose();
+    hapticFeedback('notification', 'success');
+  };
+
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.overlayCard} onClick={(e) => e.stopPropagation()}>
@@ -267,20 +277,20 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
         <input
           value={query}
           onChange={(e) => doSearch(e.target.value)}
-          placeholder="Название фильма…"
+          placeholder="Название фильма (EN или RU)…"
           autoFocus
           style={styles.searchInput}
         />
         {movieSearchLoading && <p style={styles.empty}>Ищем…</p>}
         {!movieSearchLoading && movieSearchResults.length === 0 && query.length >= 2 && (
-          <p style={styles.empty}>Ничего не найдено</p>
+          <p style={styles.empty}>Ничего не найдено в OMDB</p>
         )}
         <div style={styles.results}>
           {movieSearchResults.map((r) => (
             <button
               key={r.imdb_id}
               onClick={() => void handlePick(r)}
-              disabled={adding === r.imdb_id}
+              disabled={adding !== null}
               style={styles.resultBtn}
             >
               {r.poster && <img src={r.poster} alt="" style={styles.resultPoster} />}
@@ -290,6 +300,15 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
               </div>
             </button>
           ))}
+          {query.trim().length >= 2 && !movieSearchLoading && (
+            <button
+              onClick={() => void handleManualAdd()}
+              disabled={adding !== null}
+              style={styles.manualAddBtn}
+            >
+              {adding === 'manual' ? 'Добавляем…' : `Добавить «${query.trim()}» вручную`}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -450,6 +469,11 @@ const styles: Record<string, CSSProperties> = {
   resultPoster: { width: 40, height: 60, borderRadius: 6, objectFit: 'cover' },
   resultTitle: { fontSize: 14, fontWeight: 600, color: 'var(--ink)' },
   resultMeta: { fontSize: 12, color: 'var(--ink-secondary)' },
+  manualAddBtn: {
+    padding: '12px 16px', borderRadius: 14,
+    border: '1.5px dashed var(--stone)', background: 'var(--surface-elevated)',
+    fontSize: 14, fontWeight: 600, color: 'var(--ink)', textAlign: 'center', marginTop: 4,
+  },
 
   reviewForm: { display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 8 },
   sliderRow: { display: 'flex', alignItems: 'center', gap: 10 },
