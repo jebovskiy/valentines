@@ -100,7 +100,7 @@ export function MoviesScreen() {
           <p style={styles.eveningName}>
             {eveningMovie.title}{eveningMovie.year ? ` (${eveningMovie.year})` : ''}
           </p>
-          {eveningMovie.plot && <p style={styles.eveningPlot}>{eveningMovie.plot}</p>}
+          {eveningMovie.description && <p style={styles.eveningPlot}>{eveningMovie.description}</p>}
           <button onClick={() => { setEveningMovie(null); }} style={styles.eveningClose}>Закрыть</button>
         </div>
       )}
@@ -172,12 +172,12 @@ function MovieCard({
             {movie.title}{movie.year ? <span style={styles.cardYear}> ({movie.year})</span> : null}
           </p>
           {movie.genre && <p style={styles.cardMeta}>{movie.genre}</p>}
-          {movie.imdb_rating && <p style={styles.cardMeta}>⭐ {movie.imdb_rating}</p>}
+          {movie.rating && <p style={styles.cardMeta}>⭐ {movie.rating}</p>}
           <p style={styles.cardMeta}>Добавил(а): {movie.added_by_name ?? 'Партнер'}</p>
         </div>
       </div>
 
-      {movie.plot && <p style={styles.cardPlot}>{movie.plot.length > 200 ? `${movie.plot.slice(0, 200)}…` : movie.plot}</p>}
+      {movie.description && <p style={styles.cardPlot}>{movie.description.length > 200 ? `${movie.description.slice(0, 200)}…` : movie.description}</p>}
 
       {mine && (
         <div style={styles.reviewBadge}>

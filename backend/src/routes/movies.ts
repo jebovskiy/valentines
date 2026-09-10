@@ -121,9 +121,9 @@ export async function moviesRoutes(app: FastifyInstance) {
       year: parsed.data.year ?? detail?.year ?? null,
       poster_url: posterUrl,
       genre: genreStr,
-      plot,
+      description: plot,
       runtime: runtimeStr,
-      imdb_rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
+      rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
     });
 
     const authorName =
@@ -231,7 +231,7 @@ export async function moviesRoutes(app: FastifyInstance) {
       music: parsed.data.music,
       atmosphere: parsed.data.atmosphere,
       humor: parsed.data.humor,
-      comment: parsed.data.comment ?? null,
+      review_text: parsed.data.comment ?? null,
     });
 
     const reviews = await getMovieReviews(movie.id);
@@ -272,11 +272,11 @@ export async function moviesRoutes(app: FastifyInstance) {
             music: r.music,
             atmosphere: r.atmosphere,
             humor: r.humor,
-            comment: r.comment,
+            comment: r.review_text,
           }));
           const [a, b] = inputs;
           const insight = await generateMovieInsights(
-            { title: movie.title, year: movie.year, genre: movie.genre, plot: movie.plot },
+            { title: movie.title, year: movie.year, genre: movie.genre, plot: movie.description },
             [a, b],
           );
           const stored = await getMovieInsight(movie.id);

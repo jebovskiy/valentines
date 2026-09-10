@@ -203,9 +203,9 @@ export interface Movie {
   year: number | null;
   poster_url: string | null;
   genre: string | null;
-  plot: string | null;
+  description: string | null;
   runtime: string | null;
-  imdb_rating: string | null;
+  rating: string | null;
   status: MovieStatus;
   added_by: number;
   added_at: string;
@@ -222,7 +222,7 @@ export interface MovieReview {
   music: number;
   atmosphere: number;
   humor: number;
-  comment: string | null;
+  review_text: string | null;
   created_at: string;
 }
 

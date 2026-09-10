@@ -770,9 +770,9 @@ export interface Movie {
   year: number | null;
   poster_url: string | null;
   genre: string | null;
-  plot: string | null;
+  description: string | null;
   runtime: string | null;
-  imdb_rating: string | null;
+  rating: string | null;
   status: MovieStatus;
   added_by: number;
   added_at: string;
@@ -789,7 +789,7 @@ export interface MovieReview {
   music: number;
   atmosphere: number;
   humor: number;
-  comment: string | null;
+  review_text: string | null;
   created_at: string;
 }
 
@@ -850,9 +850,9 @@ export async function createMovie(input: {
   year?: number | null;
   poster_url?: string | null;
   genre?: string | null;
-  plot?: string | null;
+  description?: string | null;
   runtime?: string | null;
-  imdb_rating?: string | null;
+  rating?: string | null;
 }): Promise<Movie> {
   const { data, error } = await supabase
     .from('movies')
@@ -864,9 +864,9 @@ export async function createMovie(input: {
       year: input.year ?? null,
       poster_url: input.poster_url ?? null,
       genre: input.genre ?? null,
-      plot: input.plot ?? null,
+      description: input.description ?? null,
       runtime: input.runtime ?? null,
-      imdb_rating: input.imdb_rating ?? null,
+      rating: input.rating ?? null,
     })
     .select()
     .single();
@@ -902,7 +902,7 @@ export async function upsertMovieReview(input: {
   music: number;
   atmosphere: number;
   humor: number;
-  comment: string | null;
+  review_text: string | null;
 }): Promise<MovieReview> {
   const { data, error } = await supabase
     .from('movie_reviews')

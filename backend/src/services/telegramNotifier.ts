@@ -148,9 +148,9 @@ export async function sendMovieShareNotification(
     year: number | null;
     poster_url: string | null;
     genre: string | null;
-    plot: string | null;
+    description: string | null;
     runtime: string | null;
-    imdb_rating: string | null;
+    rating: string | null;
     status: string;
   },
   authorName: string | null,
@@ -159,8 +159,8 @@ export async function sendMovieShareNotification(
   const lines = [`🎬 *${movieTitle(movie)}*`];
   if (movie.year) lines.push(`📅 ${movie.year}${movie.runtime ? ` · ${movie.runtime}` : ''}`);
   if (movie.genre) lines.push(`🏷 ${movie.genre}`);
-  if (movie.imdb_rating) lines.push(`⭐ ${movie.imdb_rating} (IMDb)`);
-  if (movie.plot) lines.push(`\n${movie.plot}`);
+  if (movie.rating) lines.push(`⭐ ${movie.rating}`);
+  if (movie.description) lines.push(`\n${movie.description}`);
   lines.push(`\n${author} делится с вами фильмом.`);
   const text = lines.join('\n');
   await sendMessageWithButton(chatId, text, MOVIES_URL, 'Открыть фильм');
