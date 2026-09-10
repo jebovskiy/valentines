@@ -58,13 +58,18 @@ export function MoviesScreen() {
     if (eveningLoading) return;
     setEveningLoading(true);
     setEveningError(null);
+    const store = useValentinesStore.getState();
+    store.clearError();
     const pick = await getEveningPick();
+    const serverError = useValentinesStore.getState().error;
     setEveningLoading(false);
     if (pick) {
       setEveningMovie(pick);
       hapticFeedback('notification', 'success');
     } else {
-      setEveningError(movies.length === 0 ? 'Список пуст — добавьте фильм через поиск' : 'Не удалось выбрать фильм, попробуйте ещё раз');
+      setEveningError(
+        serverError || (movies.length === 0 ? 'Список пуст — добавьте фильм через поиск' : 'Не удалось выбрать фильм, попробуйте ещё раз')
+      );
     }
   };
 

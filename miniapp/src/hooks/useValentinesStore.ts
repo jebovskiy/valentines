@@ -518,7 +518,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
 
   getEveningPick: async () => {
     const result = await api.getEveningPick();
-    if (result.error || !result.data?.movie) { set({ error: result.error }); return null; }
+    if (result.error || !result.data?.movie) { set({ error: result.error || 'No evening movie' }); return null; }
     return result.data.movie;
   },
 }));
