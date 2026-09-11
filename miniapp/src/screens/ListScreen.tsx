@@ -786,6 +786,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
+    position: 'relative',
   },
   widgetBtn: {
     width: '40px',
@@ -821,11 +822,17 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
   },
   feedTitle: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    pointerEvents: 'none',
     fontFamily: 'var(--font-display)',
     fontWeight: '700',
     fontSize: '24px',
     color: 'var(--ink)',
     letterSpacing: '-0.5px',
+    zIndex: 1,
   },
   feedSub: {
     fontSize: '12px',

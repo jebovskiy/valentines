@@ -106,7 +106,7 @@ export function TasteProfileScreen() {
 const styles: Record<string, CSSProperties> = {
   container: { padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 },
   topBar: { display: 'flex', alignItems: 'center', gap: 8, height: 44, position: 'relative' },
-  title: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginLeft: 48, zIndex: 1 },
+  title: { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 18, fontWeight: 700, color: 'var(--ink)', zIndex: 1, pointerEvents: 'none' },
   subtitle: { fontSize: 14, color: 'var(--ink-secondary)', lineHeight: 1.4 },
   form: { display: 'flex', flexDirection: 'column', gap: 12 },
   sliderCard: {

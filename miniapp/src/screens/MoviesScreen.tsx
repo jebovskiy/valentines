@@ -556,7 +556,7 @@ function ReviewOverlay({ movieId, onClose }: { movieId: string; onClose: () => v
 const styles: Record<string, CSSProperties> = {
   container: { padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 },
   topBar: { display: 'flex', alignItems: 'center', gap: 8, height: 44, position: 'relative' },
-  title: { fontSize: 18, fontWeight: 700, color: 'var(--ink)', marginLeft: 48, zIndex: 1 },
+  title: { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 18, fontWeight: 700, color: 'var(--ink)', zIndex: 1, pointerEvents: 'none' },
   tabs: { display: 'flex', gap: 6, background: 'var(--surface-card)', borderRadius: 999, padding: 4 },
   tabBtn: { flex: 1, padding: '9px 4px', borderRadius: 999, fontSize: 13, fontWeight: 600, transition: 'background .2s ease' },
   actionsRow: { display: 'flex', gap: 8 },

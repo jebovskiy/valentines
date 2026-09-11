@@ -300,7 +300,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '24px',
     color: 'var(--ink)',
     letterSpacing: '-0.5px',
-    paddingLeft: '48px',
+    textAlign: 'center',
   },
   subtitle: {
     color: 'var(--text-faint)',

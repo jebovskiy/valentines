@@ -466,11 +466,15 @@ const styles: Record<string, CSSProperties> = {
     position: 'relative',
   },
   title: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
     fontSize: 18,
     fontWeight: 700,
     color: 'var(--ink)',
-    marginLeft: 48,
     zIndex: 1,
+    pointerEvents: 'none',
   },
   tabs: {
     display: 'flex',
