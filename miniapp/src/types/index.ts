@@ -232,11 +232,11 @@ export interface MovieInsight {
     summary: string;
     common_points: string[];
     liked: { who: string; what: string }[];
-    disliked: string[];
+    disliked: { who: string; what: string }[];
     disagreements: string[];
     verdict: string;
     compatibility_percent: number;
-    similar_movies: { title: string; year: string }[];
+    similar_movies: { title: string; year: number }[];
   };
   created_at: string;
 }

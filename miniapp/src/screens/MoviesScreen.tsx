@@ -254,6 +254,16 @@ function InsightBlock({ insight, loading }: { insight: Record<string, unknown> |
       {Array.isArray(i.disagreements) && i.disagreements.length > 0 && (
         <p style={styles.insightSection}>Разногласия: {i.disagreements.join('; ')}</p>
       )}
+      {Array.isArray(i.liked) && i.liked.length > 0 && (
+        <p style={styles.insightSection}>
+          Понравилось: {i.liked.map((l: any) => `${l.who ? `${l.who}: ` : ''}${l.what}`).join('; ')}
+        </p>
+      )}
+      {Array.isArray(i.disliked) && i.disliked.length > 0 && (
+        <p style={styles.insightSection}>
+          Не понравилось: {i.disliked.map((d: any) => `${d.who ? `${d.who}: ` : ''}${d.what}`).join('; ')}
+        </p>
+      )}
       {Array.isArray(i.similar_movies) && i.similar_movies.length > 0 && (
         <p style={styles.insightSection}>
           Похожие: {i.similar_movies.map((m: any) => `${m.title}${m.year ? ` (${m.year})` : ''}`).join(', ')}

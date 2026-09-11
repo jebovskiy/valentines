@@ -17,7 +17,9 @@ import {
   getMovieWatchesBatch,
   upsertMovieWatch,
   getMovieInsight,
-  upsertMovieInsight,
+  claimMovieInsight,
+  finishMovieInsight,
+  abandonMovieInsight,
 } from '../services/database';
 import { searchPoiskkino, getPoiskkinoDetail, PoiskkinoDetail, PoiskkinoPart } from '../services/poiskkino';
 import { generateMovieInsights, MovieReviewInput } from '../services/gemini';
@@ -395,50 +397,61 @@ export async function moviesRoutes(app: FastifyInstance) {
       ).catch((e) => app.log.error('Review request push failed:', e));
     }
 
-    if (bothReviewed && !(await getMovieInsight(movie.id))) {
-      void (async () => {
-        try {
-          const pairInfo = await getPairById(pair.id);
-          const inputs: MovieReviewInput[] = reviews.map((r) => ({
-            author_name:
-              r.author_telegram_id === pair.telegram_user_a
-                ? (pairInfo?.user_a_name ?? 'Партнёр 1')
-                : (pairInfo?.user_b_name ?? 'Партнёр 2'),
-            visuals: r.visuals,
-            plot: r.plot,
-            acting: r.acting,
-            music: r.music,
-            atmosphere: r.atmosphere,
-            humor: r.humor,
-            comment: r.review_text,
-          }));
-          const [a, b] = inputs;
-          const insight = await generateMovieInsights(
-            { title: movie.title, year: movie.year, genre: movie.genre, plot: movie.description },
-            [a, b],
-          );
-          const stored = await getMovieInsight(movie.id);
-          if (stored) return;
-          await upsertMovieInsight(movie.id, insight as unknown as Record<string, unknown>);
-          const summary = insight.summary || insight.verdict || null;
-          const authorSet = new Set(reviews.map((r) => r.author_telegram_id));
-          for (const chatId of [pair.telegram_user_a, pair.telegram_user_b]) {
-            if (authorSet.has(chatId)) {
-              void sendMovieInsightReadyNotification(chatId, movie, summary).catch((e) =>
-                app.log.error('Insight Telegram notification failed:', e),
-              );
+    if (bothReviewed) {
+      const claimed = await claimMovieInsight(movie.id);
+      if (claimed) {
+        void (async () => {
+          try {
+            const pairInfo = await getPairById(pair.id);
+            const inputs: MovieReviewInput[] = reviews.map((r) => ({
+              author_name:
+                r.author_telegram_id === pair.telegram_user_a
+                  ? (pairInfo?.user_a_name ?? 'Партнёр 1')
+                  : (pairInfo?.user_b_name ?? 'Партнёр 2'),
+              visuals: r.visuals,
+              plot: r.plot,
+              acting: r.acting,
+              music: r.music,
+              atmosphere: r.atmosphere,
+              humor: r.humor,
+              comment: r.review_text,
+            }));
+            const [a, b] = inputs;
+            const insight = await generateMovieInsights(
+              { title: movie.title, year: movie.year, genre: movie.genre, plot: movie.description },
+              [a, b],
+            );
+            const stored = await getMovieInsight(movie.id);
+            if (stored) {
+              await abandonMovieInsight(movie.id);
+              return;
+            }
+            await finishMovieInsight(movie.id, insight as unknown as Record<string, unknown>);
+            const summary = insight.summary || insight.verdict || null;
+            const authorSet = new Set(reviews.map((r) => r.author_telegram_id));
+            for (const chatId of [pair.telegram_user_a, pair.telegram_user_b]) {
+              if (authorSet.has(chatId)) {
+                void sendMovieInsightReadyNotification(chatId, movie, summary).catch((e) =>
+                  app.log.error('Insight Telegram notification failed:', e),
+                );
+              }
+            }
+            void dispatchMoviePushes(pair.id, null, {
+              event: 'insight',
+              title: 'Анализ фильма готов',
+              message: `Общий отзыв по «${movie.title}» готов${summary ? `: ${summary}` : ''}`,
+              movie_title: movie.title,
+            }).catch((e) => app.log.error('Insight push failed:', e));
+          } catch (error) {
+            app.log.error(`Insight generation failed: ${(error as Error).message}`);
+            try {
+              await abandonMovieInsight(movie.id);
+            } catch (abandonError) {
+              app.log.error(`Failed to abandon insight claim: ${(abandonError as Error).message}`);
             }
           }
-          void dispatchMoviePushes(pair.id, null, {
-            event: 'insight',
-            title: 'Анализ фильма готов',
-            message: `Общий отзыв по «${movie.title}» готов${summary ? `: ${summary}` : ''}`,
-            movie_title: movie.title,
-          }).catch((e) => app.log.error('Insight push failed:', e));
-        } catch (error) {
-          app.log.error(`Insight generation failed: ${(error as Error).message}`);
-        }
-      })();
+        })();
+      }
     }
 
     return { review, bothReviewed };

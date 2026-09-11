@@ -796,6 +796,7 @@ export interface MovieReview {
 export interface MovieInsight {
   movie_id: string;
   result: Record<string, unknown>;
+  status: 'generating' | 'done';
   created_at: string;
 }
 
@@ -940,16 +941,46 @@ export async function upsertMovieWatch(movieId: string, authorTelegramId: number
   if (error) throw error;
 }
 
+/** Returns a completed insight only (skips rows still being generated). */
 export async function getMovieInsight(movieId: string): Promise<MovieInsight | null> {
-  const { data, error } = await supabase.from('movie_insights').select('*').eq('movie_id', movieId).maybeSingle();
+  const { data, error } = await supabase
+    .from('movie_insights')
+    .select('*')
+    .eq('movie_id', movieId)
+    .eq('status', 'done')
+    .maybeSingle();
   if (error) throw error;
   return data;
 }
 
-export async function upsertMovieInsight(movieId: string, result: Record<string, unknown>): Promise<void> {
+/**
+ * Atomically claims the right to generate an insight for a movie.
+ * Inserts a 'generating' row via INSERT ... ON CONFLICT DO NOTHING.
+ * Returns true only if this caller inserted a fresh row (won the race).
+ */
+export async function claimMovieInsight(movieId: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('movie_insights')
+    .upsert(
+      { movie_id: movieId, result: {}, status: 'generating' },
+      { onConflict: 'movie_id', ignoreDuplicates: true, count: 'exact' }
+    );
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
+/** Marks the claim row as done with the final result. */
+export async function finishMovieInsight(movieId: string, result: Record<string, unknown>): Promise<void> {
   const { error } = await supabase
     .from('movie_insights')
-    .upsert({ movie_id: movieId, result, created_at: new Date().toISOString() });
+    .update({ result, status: 'done', created_at: new Date().toISOString() })
+    .eq('movie_id', movieId);
+  if (error) throw error;
+}
+
+/** Releases the claim row (deletes it) so a later retry can re-generate. */
+export async function abandonMovieInsight(movieId: string): Promise<void> {
+  const { error } = await supabase.from('movie_insights').delete().eq('movie_id', movieId);
   if (error) throw error;
 }
 
