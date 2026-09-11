@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines } from '../api/supabase';
 
@@ -88,6 +88,9 @@ interface ValentinesState {
   getMovieInsight: (id: string) => Promise<Record<string, unknown> | null>;
   shareMovie: (id: string) => Promise<void>;
   getEveningPick: () => Promise<MovieListItem | null>;
+  tasteProfile: TasteProfile | null;
+  fetchTasteProfile: () => Promise<void>;
+  saveTasteProfile: (aspectWeights: Record<string, number>) => Promise<boolean>;
 }
 
 function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
@@ -132,6 +135,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   movies: [],
   movieSearchResults: [],
   movieSearchLoading: false,
+  tasteProfile: null,
 
   fetchPair: async () => {
     set({ isLoading: true, error: null });
@@ -520,5 +524,18 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     const result = await api.getEveningPick();
     if (result.error || !result.data?.movie) { set({ error: result.error || 'No evening movie' }); return null; }
     return result.data.movie;
+  },
+
+  fetchTasteProfile: async () => {
+    const result = await api.getTasteProfile();
+    if (result.error || !result.data) return;
+    set({ tasteProfile: result.data });
+  },
+
+  saveTasteProfile: async (aspectWeights) => {
+    const result = await api.saveTasteProfile(aspectWeights);
+    if (result.error || !result.data) { set({ error: result.error }); return false; }
+    set({ tasteProfile: result.data });
+    return true;
   },
 }));

@@ -29,6 +29,55 @@ export interface MovieInsightResult {
   similar_movies: { title: string; year: number }[];
 }
 
+export interface AspectScores {
+  visual: number;
+  plot: number;
+  acting: number;
+  music: number;
+  atmosphere: number;
+  humor: number;
+  [key: string]: number;
+}
+
+export interface MovieAspectClassification {
+  aspect_scores: AspectScores;
+  tags: string[];
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface MovieClassifyInput {
+  title: string;
+  year: number | null;
+  genres: string[];
+  runtime: number | null;
+  rating: number | null;
+  description: string | null;
+}
+
+export const ASPECT_SCORE_KEYS: (keyof AspectScores)[] = ['visual', 'plot', 'acting', 'music', 'atmosphere', 'humor'];
+export type AspectScoreKey = keyof AspectScores;
+
+const CLASSIFICATION_SCHEMA = {
+  type: 'object',
+  properties: {
+    aspect_scores: {
+      type: 'object',
+      properties: {
+        visual: { type: 'integer', minimum: 1, maximum: 5 },
+        plot: { type: 'integer', minimum: 1, maximum: 5 },
+        acting: { type: 'integer', minimum: 1, maximum: 5 },
+        music: { type: 'integer', minimum: 1, maximum: 5 },
+        atmosphere: { type: 'integer', minimum: 1, maximum: 5 },
+        humor: { type: 'integer', minimum: 1, maximum: 5 },
+      },
+      required: ['visual', 'plot', 'acting', 'music', 'atmosphere', 'humor'],
+    },
+    tags: { type: 'array', items: { type: 'string' } },
+    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+  },
+  required: ['aspect_scores', 'tags', 'confidence'],
+} as const;
+
 const ASPECT_NAMES = ['Визуал/картинка', 'Сюжет', 'Актёрская игра', 'Музыка', 'Атмосфера', 'Юмор'] as const;
 const aspectKeys: (keyof MovieReviewInput & string)[] = ['visuals', 'plot', 'acting', 'music', 'atmosphere', 'humor'];
 
@@ -120,12 +169,146 @@ const RESPONSE_SCHEMA = {
   required: ['summary', 'compatibility_percent'],
 } as const;
 
+interface GeminiResponse {
+  candidates?: { content?: { parts?: { text?: string }[] } }[];
+}
+
+async function callGemini(
+  prompt: string,
+  schema: Record<string, unknown>
+): Promise<{ body: GeminiResponse; error: FallbackReason | null }> {
+  if (!config.GEMINI_API_KEY) {
+    return { body: {}, error: { kind: 'no_config' } };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${config.GEMINI_MODEL}:generateContent`,
+      {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': config.GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: schema,
+            temperature: 0.7,
+          },
+        }),
+      }
+    );
+    if (!res.ok) {
+      console.error(`[gemini] HTTP ${res.status} from generateContent, body redacted`);
+      return { body: {}, error: { kind: 'http', status: res.status } };
+    }
+    const body = (await res.json()) as GeminiResponse;
+    return { body, error: null };
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') {
+      console.error('[gemini] request timed out');
+      return { body: {}, error: { kind: 'timeout' } };
+    }
+    console.error('[gemini] request failed, body redacted:', (error as Error).message);
+    return { body: {}, error: { kind: 'network', message: (error as Error).message } };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function asAspectScores(raw: unknown): AspectScores | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, unknown>;
+  const scores: Partial<AspectScores> = {};
+  for (const key of ASPECT_SCORE_KEYS) {
+    const v = obj[key];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+    scores[key] = Math.max(1, Math.min(5, Math.round(v)));
+  }
+  return scores as AspectScores;
+}
+
+export async function classifyMovieAspects(movie: MovieClassifyInput): Promise<MovieAspectClassification | null> {
+  if (!config.GEMINI_API_KEY) {
+    console.warn(`[gemini] classify skipped for "${movie.title}": API key not configured`);
+    return null;
+  }
+  const prompt = `Фильм: "${movie.title}" (${movie.year ?? 'год неизвестен'}, жанры: ${movie.genres.join(', ') || 'нет данных'}).
+Ключевые слова/теги: ${movie.genres.join(', ') || 'нет данных'}.
+Средний рейтинг: ${movie.rating ?? 'нет данных'}. Хронометраж: ${movie.runtime ?? '?'} мин.
+Краткий сюжет: ${movie.description ?? 'нет данных'}.
+
+Оцени этот фильм по 6 аспектам, по шкале от 1 до 5, где:
+1 — почти не выражено / слабая сторона фильма
+5 — очень сильно выражено / явная сильная сторона фильма
+
+Аспекты:
+- visual: визуальный стиль, операторская работа, спецэффекты, постановка кадра
+- plot: сложность и оригинальность сюжета, непредсказуемость, глубина истории
+- acting: качество актёрской игры, харизма актёров, убедительность персонажей
+- music: выразительность саундтрека и звукового оформления
+- atmosphere: насколько сильно фильм создаёт погружающее настроение/атмосферу
+- humor: количество и качество юмора (0 не бывает — если юмора нет вообще, ставь 1)
+
+Ответь строго в формате JSON (без markdown-обёртки):
+{
+  "aspect_scores": {
+    "visual": <1-5>,
+    "plot": <1-5>,
+    "acting": <1-5>,
+    "music": <1-5>,
+    "atmosphere": <1-5>,
+    "humor": <1-5>
+  },
+  "tags": ["3-5 коротких смысловых тегов настроения фильма, например 'неторопливый', 'психологический', 'нелинейный сюжет'"],
+  "confidence": "high" | "medium" | "low"
+}
+
+Оценивай на основе общеизвестной репутации фильма и предоставленных данных, а не только краткого сюжета.
+Если информации недостаточно для уверенной оценки какого-то аспекта — всё равно дай оценку, но понизь confidence.`;
+
+  const { body, error } = await callGemini(prompt, CLASSIFICATION_SCHEMA);
+  if (error) {
+    console.warn(`[gemini] classify fallback for "${movie.title}": ${error.kind === 'http' ? `HTTP ${error.status}` : error.kind === 'timeout' ? 'timeout' : error.kind === 'no_config' ? 'no key' : (error as { message: string }).message}`);
+    return null;
+  }
+  const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    console.warn(`[gemini] classify empty response for "${movie.title}"`);
+    return null;
+  }
+
+  const cleaned = text.trim().replace(/^```json\s*/, '').replace(/```$/, '').trim();
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(cleaned) as Record<string, unknown>;
+  } catch {
+    console.error('[gemini] classify: invalid JSON from model');
+    return null;
+  }
+  const scores = asAspectScores(parsed.aspect_scores);
+  if (!scores) {
+    console.error('[gemini] classify: missing or invalid aspect_scores in model response');
+    return null;
+  }
+  const confidence = parsed.confidence === 'high' || parsed.confidence === 'medium' || parsed.confidence === 'low'
+    ? parsed.confidence
+    : 'medium';
+  const tags = Array.isArray(parsed.tags)
+    ? parsed.tags.filter((t): t is string => typeof t === 'string').slice(0, 5)
+    : [];
+  return { aspect_scores: scores, tags, confidence };
+}
+
 async function tryGemini(movie: MovieInfoInput, reviews: [MovieReviewInput, MovieReviewInput]): Promise<MovieInsightResult | null> {
   if (!config.GEMINI_API_KEY) {
     lastFallbackReason = { kind: 'no_config' };
     return null;
   }
-  const model = config.GEMINI_MODEL;
   const [ra, rb] = reviews;
   const prompt = `Ты — приложение для пар, которое помогает понять, стоит ли смотреть кино вместе.
 
@@ -153,42 +336,17 @@ ${reviewToText(rb)}
 
 В similar_movies укажи 4-5 реальных фильмов, похожих по вашим двум ревью и жанру фильма.`;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-
+  const { body, error } = await callGemini(prompt, RESPONSE_SCHEMA);
+  if (error) {
+    lastFallbackReason = error;
+    return null;
+  }
+  const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    lastFallbackReason = { kind: 'invalid_response', message: 'empty candidates[0].content.parts[0].text' };
+    return null;
+  }
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': config.GEMINI_API_KEY,
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: RESPONSE_SCHEMA,
-            temperature: 0.7,
-          },
-        }),
-      }
-    );
-    if (!res.ok) {
-      lastFallbackReason = { kind: 'http', status: res.status };
-      console.error(`[gemini] HTTP ${res.status} from generateContent, body redacted`);
-      return null;
-    }
-    const body = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      lastFallbackReason = { kind: 'invalid_response', message: 'empty candidates[0].content.parts[0].text' };
-      return null;
-    }
     const cleaned = text.trim().replace(/^```json\s*/, '').replace(/```$/, '').trim();
     const parsed = JSON.parse(cleaned) as Partial<MovieInsightResult>;
     if (!parsed.summary && !parsed.verdict) {
@@ -211,17 +369,8 @@ ${reviewToText(rb)}
         : [],
     };
   } catch (error) {
-    if ((error as Error).name === 'AbortError') {
-      lastFallbackReason = { kind: 'timeout' };
-    } else if ((error as Error).name === 'SyntaxError') {
-      lastFallbackReason = { kind: 'invalid_response', message: (error as Error).message };
-    } else {
-      lastFallbackReason = { kind: 'network', message: (error as Error).message };
-    }
-    console.error('[gemini] request failed, body redacted:', (error as Error).message);
+    lastFallbackReason = { kind: 'invalid_response', message: (error as Error).message };
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 }
 

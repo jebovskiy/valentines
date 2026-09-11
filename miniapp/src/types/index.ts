@@ -245,6 +245,12 @@ export interface MovieListItem extends Movie {
   reviews: MovieReview[];
   watches: number[];
   added_by_name: string | null;
+  aspect_scores: Record<string, number> | null;
+  taste_match: number | null;
+}
+
+export interface TasteProfile {
+  aspect_weights: Record<string, number>;
 }
 
 export interface PoiskkinoCandidate {

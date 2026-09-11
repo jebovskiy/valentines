@@ -15,6 +15,15 @@ const ASPECTS = [
   { key: 'humor', label: 'Юмор' },
 ] as const;
 
+const ASPECT_LABELS: Record<string, string> = {
+  visual: 'Картинка',
+  plot: 'Сюжет',
+  acting: 'Актёры',
+  music: 'Музыка',
+  atmosphere: 'Атмосфера',
+  humor: 'Юмор',
+};
+
 function myReview(movie: MovieListItem, myId: number | null): MovieReview | undefined {
   if (!myId) return undefined;
   return movie.reviews.find((r) => r.author_telegram_id === myId);
@@ -108,6 +117,9 @@ export function MoviesScreen() {
         </button>
         <button onClick={() => void handleEvening()} disabled={eveningLoading} style={styles.actionBtn}>
           {eveningLoading ? '⏳ Выбираем…' : '🎲 На вечер'}
+        </button>
+        <button onClick={() => navigate('/movies/taste')} style={styles.actionBtn}>
+          🎚️ Мой вкус
         </button>
       </div>
 
@@ -206,6 +218,12 @@ function MovieCard({
 
       {movie.description && <p style={styles.cardPlot}>{movie.description.length > 200 ? `${movie.description.slice(0, 200)}…` : movie.description}</p>}
 
+      {movie.taste_match != null && (
+        <div style={styles.tasteBadge}>
+          🎯 Ваше совпадение: <strong>{movie.taste_match}%</strong>
+        </div>
+      )}
+
       {mine && (
         <div style={styles.reviewBadge}>
           ✅ Ваш отзыв
@@ -297,6 +315,28 @@ function DetailOverlay({ movie, onClose }: { movie: MovieListItem; onClose: () =
           <div style={styles.detailSection}>
             <p style={styles.detailSectionTitle}>Описание</p>
             <p style={styles.detailText}>{movie.description}</p>
+          </div>
+        )}
+
+        {movie.taste_match != null && (
+          <div style={styles.tasteBadgeFull}>
+            🎯 Ваше совпадение: <strong>{movie.taste_match}%</strong>
+          </div>
+        )}
+
+        {movie.aspect_scores && (
+          <div style={styles.detailSection}>
+            <p style={styles.detailSectionTitle}>Сильные стороны фильма</p>
+            <div style={styles.aspectGrid}>
+              {Object.entries(movie.aspect_scores)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 3)
+                .map(([key, val]) => (
+                  <span key={key} style={styles.aspectChip}>
+                    {ASPECT_LABELS[key] ?? key}: <strong>{val}/5</strong>
+                  </span>
+                ))}
+            </div>
           </div>
         )}
 
@@ -557,6 +597,20 @@ const styles: Record<string, CSSProperties> = {
   cardYear: { fontWeight: 400, color: 'var(--ink-secondary)' },
   cardMeta: { fontSize: 13, color: 'var(--ink-secondary)' },
   cardPlot: { fontSize: 14, color: 'var(--ink-secondary)', lineHeight: 1.4 },
+
+  tasteBadge: {
+    padding: '6px 12px', borderRadius: 999, background: '#e6ecff', color: '#2b4bd6',
+    fontSize: 13, fontWeight: 600, alignSelf: 'flex-start',
+  },
+  tasteBadgeFull: {
+    textAlign: 'center', padding: '10px', borderRadius: 14, background: '#e6ecff',
+    color: '#2b4bd6', fontSize: 15, fontWeight: 600,
+  },
+  aspectGrid: { display: 'flex', flexWrap: 'wrap', gap: 6 },
+  aspectChip: {
+    padding: '5px 10px', borderRadius: 999, background: 'var(--secondary-bg)',
+    fontSize: 13, color: 'var(--ink)', fontWeight: 500,
+  },
 
   detailOverlay: {
     position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(255,255,255,.85)',

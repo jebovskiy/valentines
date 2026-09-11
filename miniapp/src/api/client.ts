@@ -21,6 +21,7 @@ import type {
   MovieReview,
   PoiskkinoCandidate,
   PoiskkinoPart,
+  TasteProfile,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -186,4 +187,12 @@ export const api = {
   getMovieInsight: (id: string) => fetchWithAuth<{ insight: MovieInsight | null }>(`/api/movies/${id}/insight`),
   shareMovie: (id: string) => fetchWithAuth<{ ok: boolean }>(`/api/movies/${id}/share`, { method: 'POST' }),
   getEveningPick: () => fetchWithAuth<{ movie: MovieListItem }>('/api/movies/evening', { method: 'POST' }),
+  getTasteProfile: () => fetchWithAuth<TasteProfile>('/api/movies/taste-profile'),
+  saveTasteProfile: (aspectWeights: Record<string, number>) =>
+    fetchWithAuth<TasteProfile>('/api/movies/taste-profile', {
+      method: 'POST',
+      body: JSON.stringify({ aspect_weights: aspectWeights }),
+    }),
+  getMovieAspects: (id: string) =>
+    fetchWithAuth<{ aspect_scores: Record<string, number> | null; taste_match: number | null }>(`/api/movies/${id}/aspects`),
 };

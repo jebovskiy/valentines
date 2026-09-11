@@ -777,6 +777,7 @@ export interface Movie {
   added_by: number;
   added_at: string;
   watched_at: string | null;
+  aspect_scores: Record<string, number> | null;
 }
 
 export interface MovieReview {
@@ -1000,5 +1001,40 @@ export async function logMovieReminder(pairId: string, today: string): Promise<v
   const { error } = await supabase
     .from('movie_reminder_log')
     .upsert({ pair_id: pairId, last_sent_on: today }, { onConflict: 'pair_id' });
+  if (error) throw error;
+}
+
+export async function saveMovieAspectScores(movieId: string, scores: Record<string, number>): Promise<void> {
+  const { error } = await supabase
+    .from('movies')
+    .update({ aspect_scores: scores })
+    .eq('id', movieId);
+  if (error) throw error;
+}
+
+export interface TasteProfile {
+  user_telegram_id: number;
+  aspect_weights: Record<string, number>;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getTasteProfile(userTelegramId: number): Promise<TasteProfile | null> {
+  const { data, error } = await supabase
+    .from('taste_profiles')
+    .select('*')
+    .eq('user_telegram_id', userTelegramId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function upsertTasteProfile(userTelegramId: number, aspectWeights: Record<string, number>): Promise<void> {
+  const { error } = await supabase
+    .from('taste_profiles')
+    .upsert(
+      { user_telegram_id: userTelegramId, aspect_weights: aspectWeights, updated_at: new Date().toISOString() },
+      { onConflict: 'user_telegram_id' }
+    );
   if (error) throw error;
 }

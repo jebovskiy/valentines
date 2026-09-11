@@ -22,7 +22,13 @@ import {
   abandonMovieInsight,
 } from '../services/database';
 import { searchPoiskkino, getPoiskkinoDetail, PoiskkinoDetail, PoiskkinoPart } from '../services/poiskkino';
-import { generateMovieInsights, MovieReviewInput } from '../services/gemini';
+import { generateMovieInsights, classifyMovieAspects, MovieReviewInput } from '../services/gemini';
+import { computeCompatibility, normalizeWeights, DEFAULT_ASPECT_WEIGHTS } from '../services/taste';
+import {
+  getTasteProfile,
+  upsertTasteProfile,
+  saveMovieAspectScores,
+} from '../services/database';
 import type { MovieReview, MovieWatch } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import {
@@ -60,6 +66,19 @@ const batchSchema = z.object({
   items: z.array(batchItemSchema).min(1).max(50),
 });
 
+const aspectWeightsSchema = z.object({
+  visual: z.number().int().min(1).max(5),
+  plot: z.number().int().min(1).max(5),
+  acting: z.number().int().min(1).max(5),
+  music: z.number().int().min(1).max(5),
+  atmosphere: z.number().int().min(1).max(5),
+  humor: z.number().int().min(1).max(5),
+});
+
+const tasteProfileSchema = z.object({
+  aspect_weights: aspectWeightsSchema,
+});
+
 function toCandidate(m: PoiskkinoDetail): {
   kp_id: number;
   name: string | null;
@@ -84,6 +103,40 @@ function toCandidate(m: PoiskkinoDetail): {
   };
 }
 
+function parseRuntimeMinutes(runtime: string | null): number | null {
+  if (!runtime) return null;
+  const match = runtime.match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function parseRatingValue(rating: string | null): number | null {
+  if (!rating) return null;
+  const match = rating.match(/(\d+(?:\.\d+)?)/);
+  return match ? Number(match[1]) : null;
+}
+
+async function ensureMovieAspectScores(movieId: string, app: FastifyInstance): Promise<void> {
+  try {
+    const movie = await getMovieById(movieId);
+    if (!movie || movie.aspect_scores) return;
+
+    const classification = await classifyMovieAspects({
+      title: movie.title,
+      year: movie.year,
+      genres: movie.genre ? movie.genre.split(',').map((g) => g.trim()).filter(Boolean) : [],
+      runtime: parseRuntimeMinutes(movie.runtime),
+      rating: parseRatingValue(movie.rating),
+      description: movie.description,
+    });
+    if (classification) {
+      await saveMovieAspectScores(movie.id, classification.aspect_scores);
+      app.log.info(`Aspect scores saved for movie "${movie.title}" (${movie.id})`);
+    }
+  } catch (error) {
+    app.log.error(`Aspect score generation failed for movie ${movieId}: ${(error as Error).message}`);
+  }
+}
+
 export async function moviesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
@@ -94,10 +147,12 @@ export async function moviesRoutes(app: FastifyInstance) {
     const movies = await getMovies(pair.id);
     if (movies.length === 0) return { movies: [] };
 
-    const [allReviews, allWatches] = await Promise.all([
+    const [allReviews, allWatches, tasteProfile] = await Promise.all([
       getMovieReviewsBatch(movies.map((m) => m.id)),
       getMovieWatchesBatch(movies.map((m) => m.id)),
+      getTasteProfile(request.telegramUser!.id),
     ]);
+    const weights = tasteProfile ? normalizeWeights(tasteProfile.aspect_weights) : DEFAULT_ASPECT_WEIGHTS;
 
     const reviewsByMovie = new Map<string, MovieReview[]>();
     for (const r of allReviews) {
@@ -118,8 +173,38 @@ export async function moviesRoutes(app: FastifyInstance) {
       watches: (watchesByMovie.get(movie.id) ?? []).map((w) => w.author_telegram_id),
       added_by_name:
         movie.added_by === pair.telegram_user_a ? pair.user_a_name : pair.user_b_name || 'Партнер',
+      taste_match: movie.aspect_scores ? computeCompatibility(weights, movie.aspect_scores) : null,
     }));
     return { movies: items };
+  });
+
+  app.get('/taste-profile', { preHandler: requireTelegramAuth }, async (request) => {
+    const profile = await getTasteProfile(request.telegramUser!.id);
+    return { aspect_weights: profile ? normalizeWeights(profile.aspect_weights) : DEFAULT_ASPECT_WEIGHTS };
+  });
+
+  app.post('/taste-profile', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const parsed = tasteProfileSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid taste profile' });
+    const weights = normalizeWeights(parsed.data.aspect_weights);
+    await upsertTasteProfile(request.telegramUser!.id, weights);
+    return { aspect_weights: weights };
+  });
+
+  app.get('/:id/aspects', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+
+    const movie = await getMovieById(id);
+    if (!movie || movie.pair_id !== pair.id) return reply.code(404).send({ error: 'Movie not found' });
+
+    const profile = await getTasteProfile(request.telegramUser!.id);
+    const weights = profile ? normalizeWeights(profile.aspect_weights) : DEFAULT_ASPECT_WEIGHTS;
+    return {
+      aspect_scores: movie.aspect_scores,
+      taste_match: movie.aspect_scores ? computeCompatibility(weights, movie.aspect_scores) : null,
+    };
   });
 
   app.get('/search', { preHandler: requireTelegramAuth }, async (request, reply) => {
@@ -199,6 +284,7 @@ export async function moviesRoutes(app: FastifyInstance) {
         rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
       });
       addedMovies.push(movie);
+      void ensureMovieAspectScores(movie.id, app);
 
       const partnerId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
       if (partnerId) {
@@ -230,7 +316,10 @@ export async function moviesRoutes(app: FastifyInstance) {
 
     if (parsed.data.kp_id) {
       const existing = await getMovieByKp(pair.id, parsed.data.kp_id);
-      if (existing) return reply.code(200).send({ movieId: existing.id, duplicate: true });
+      if (existing) {
+        void ensureMovieAspectScores(existing.id, app);
+        return reply.code(200).send({ movieId: existing.id, duplicate: true });
+      }
     }
 
     let detail = null;
@@ -264,6 +353,8 @@ export async function moviesRoutes(app: FastifyInstance) {
       runtime: runtimeStr,
       rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
     });
+
+    void ensureMovieAspectScores(movie.id, app);
 
     const authorName =
       pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name : pair.user_b_name;

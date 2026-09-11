@@ -8,6 +8,7 @@ import { SendScreen } from './screens/SendScreen';
 import { StreakScreen } from './screens/StreakScreen';
 import { NotesScreen } from './screens/NotesScreen';
 import { MoviesScreen } from './screens/MoviesScreen';
+import { TasteProfileScreen } from './screens/TasteProfileScreen';
 import { DetailScreen } from './screens/DetailScreen';
 import { PairingScreen } from './screens/PairingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
@@ -76,6 +77,7 @@ function App() {
           <Route path="streak" element={<StreakScreen />} />
           <Route path="notes" element={<NotesScreen />} />
           <Route path="movies" element={<MoviesScreen />} />
+          <Route path="movies/taste" element={<TasteProfileScreen />} />
         </Route>
         <Route path="/c/:token" element={<CompanionRedirect />} />
         <Route path="/v/:id" element={<DeepValentineScreen />} />
