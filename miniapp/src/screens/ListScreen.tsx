@@ -312,7 +312,7 @@ export function ListScreen() {
       <header style={styles.feedHeader}>
         <div style={styles.feedHeaderRow}>
           <h1 style={styles.feedTitle}>Валентинки</h1>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
             <button
               onClick={() => navigate('/notes')}
               style={styles.widgetBtn}
