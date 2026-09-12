@@ -311,8 +311,9 @@ export function ListScreen() {
     <div style={styles.container}>
       <header style={styles.feedHeader}>
         <div style={styles.feedHeaderRow}>
+          <div />
           <h1 style={styles.feedTitle}>Валентинки</h1>
-          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button
               onClick={() => navigate('/notes')}
               style={styles.widgetBtn}
@@ -782,11 +783,10 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '16px 4px 4px',
   },
   feedHeaderRow: {
-    display: 'flex',
+    display: 'grid',
+    gridTemplateColumns: '1fr auto 1fr',
     alignItems: 'center',
-    justifyContent: 'space-between',
     width: '100%',
-    position: 'relative',
   },
   widgetBtn: {
     width: '40px',
@@ -822,17 +822,12 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
   },
   feedTitle: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
     textAlign: 'center',
-    pointerEvents: 'none',
     fontFamily: 'var(--font-display)',
     fontWeight: '700',
     fontSize: '24px',
     color: 'var(--ink)',
     letterSpacing: '-0.5px',
-    zIndex: 1,
   },
   feedSub: {
     fontSize: '12px',
