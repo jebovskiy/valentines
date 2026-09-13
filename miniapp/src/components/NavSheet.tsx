@@ -341,6 +341,7 @@ export function NavSheet() {
   ];
 
   const onStreak = location.pathname === '/streak';
+  const avatarTop = location.pathname === '/' ? 26 : 18;
 
   const partnerAv = partnerProfile ? api.avatarUrl(partnerProfile.id) : null;
   const selfAv = profile ? api.selfAvatarUrl(profile.id) : null;
@@ -354,7 +355,7 @@ export function NavSheet() {
         className={press ? 'animate-avatar-press' : undefined}
         style={{
           position: 'fixed',
-          top: 12,
+          top: avatarTop,
           right: onStreak ? 60 : 12,
           zIndex: 1300,
           width: 40,
