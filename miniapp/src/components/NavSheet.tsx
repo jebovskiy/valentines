@@ -126,8 +126,8 @@ export function NavSheet() {
     }, 260);
   };
 
-  const openSheet = () => {
-    if (onboardingActiveRef.current && stepRef.current === 1) return;
+  const openSheet = ({ allowDuringStep1 = false }: { allowDuringStep1?: boolean } = {}) => {
+    if (onboardingActiveRef.current && stepRef.current === 1 && !allowDuringStep1) return;
     if (phaseRef.current !== 'closed') return;
     hapticFeedback('impact', 'light');
     setPhase('opening');
@@ -228,7 +228,7 @@ export function NavSheet() {
     hapticFeedback('impact', 'light');
     if (step === 1) {
       setStep(2);
-      openSheet();
+      openSheet({ allowDuringStep1: true });
     } else if (step === 2) {
       setStep(3);
     } else if (step === 3) {
@@ -349,7 +349,7 @@ export function NavSheet() {
     <>
       <button
         ref={avatarRef}
-        onClick={openSheet}
+        onClick={() => openSheet()}
         onPointerDown={handleAvatarPress}
         className={press ? 'animate-avatar-press' : undefined}
         style={{
