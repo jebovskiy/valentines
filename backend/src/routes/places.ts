@@ -29,7 +29,6 @@ export async function placesRoutes(app: FastifyInstance) {
         mood: parsed.data.mood ?? null,
         category: parsed.data.category ?? null,
         budget: parsed.data.budget ?? 'any',
-        openNow: parsed.data.open_now ?? null,
         count: parsed.data.count ?? 10,
       });
       return result;

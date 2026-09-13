@@ -6,7 +6,7 @@ export const MOOD_TYPES: Record<string, string[]> = {
   romantic: ['restaurant', 'cafe', 'park', 'art_gallery', 'spa'],
   fun: ['movie_theater', 'bowling_alley', 'amusement_park', 'bar', 'aquarium'],
   calm: ['park', 'cafe', 'library', 'art_gallery', 'garden'],
-  active: ['park', 'fitness_center', 'stadium', 'gym', 'ski_resort'],
+  active: ['park', 'gym', 'stadium', 'ski_resort'],
 };
 
 export const CATEGORY_TYPES: Record<string, string[]> = {
@@ -85,7 +85,6 @@ export interface PlacesSearchInput {
   mood?: string | null;
   category?: string | null;
   budget?: string | null;
-  openNow?: boolean | null;
   count?: number;
 }
 
@@ -162,9 +161,6 @@ export async function searchPlaces(input: PlacesSearchInput): Promise<{ places: 
     regionCode: 'BY',
     priceLevels: BUDGET_PRICE_LEVELS[input.budget ?? 'any'],
   };
-  if (input.openNow === true) {
-    body.openNow = true;
-  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PLACES_TIMEOUT_MS);
@@ -191,7 +187,14 @@ export async function searchPlaces(input: PlacesSearchInput): Promise<{ places: 
   }
 
   if (!res.ok) {
-    throw new PlacesError('http', `Google Places: HTTP ${res.status}`);
+    let detail = `HTTP ${res.status}`;
+    try {
+      const errBody = (await res.json()) as { error?: { message?: string } } | null;
+      if (errBody?.error?.message) detail = `${errBody.error.message} (HTTP ${res.status})`;
+    } catch {
+      /* keep fallback message */
+    }
+    throw new PlacesError('http', `Google Places: ${detail}`);
   }
 
   const data = (await res.json()) as {

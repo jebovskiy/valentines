@@ -87,7 +87,6 @@ export async function datesRoutes(app: FastifyInstance) {
       mood: params.mood ?? null,
       category: params.category ?? null,
       budget: params.budget ?? 'any',
-      openNow: params.open_now ?? null,
       count: params.count ?? 10,
     };
 

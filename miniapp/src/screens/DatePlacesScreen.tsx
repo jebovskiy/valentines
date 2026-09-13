@@ -83,7 +83,6 @@ export function DatePlacesScreen() {
   const [mood, setMood] = useState<DateMood | null>('romantic');
   const [category, setCategory] = useState<DateCategory | null>('food');
   const [budget, setBudget] = useState<DateBudget>('any');
-  const [openNow, setOpenNow] = useState(true);
   const [localIdx, setLocalIdx] = useState(0);
   const [leaving, setLeaving] = useState<DateChoice | null>(null);
   const [locating, setLocating] = useState(false);
@@ -160,7 +159,7 @@ export function DatePlacesScreen() {
       mood,
       category,
       budget,
-      open_now: openNow ? true : null,
+      open_now: null,
     });
     setGenerating(false);
     if (!session) {
@@ -297,18 +296,6 @@ export function DatePlacesScreen() {
                   {b.label}
                 </button>
               ))}
-            </div>
-          </div>
-
-          <div style={styles.section}>
-            <div style={styles.toggleRow}>
-              <span style={styles.toggleLabel}>Только открыто сейчас</span>
-              <label style={styles.switch}>
-                <input type="checkbox" checked={openNow} onChange={() => setOpenNow((v) => !v)} style={{ display: 'none' }} />
-                <span style={{ ...styles.switchTrack, background: openNow ? 'var(--primary)' : 'var(--stone)' }}>
-                  <span style={{ ...styles.switchThumb, transform: openNow ? 'translateX(18px)' : 'translateX(2px)' }} />
-                </span>
-              </label>
             </div>
           </div>
 
@@ -597,42 +584,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     border: 'none',
     cursor: 'pointer',
-  },
-  toggleRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '12px 14px',
-    background: 'var(--surface-card)',
-    borderRadius: 16,
-  },
-  toggleLabel: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: 'var(--ink)',
-  },
-  switch: {
-    cursor: 'pointer',
-    display: 'flex',
-  },
-  switchTrack: {
-    width: 40,
-    height: 24,
-    borderRadius: 999,
-    display: 'block',
-    position: 'relative',
-    transition: 'background 150ms ease',
-  },
-  switchThumb: {
-    position: 'absolute',
-    top: 2,
-    left: 0,
-    width: 20,
-    height: 20,
-    borderRadius: '50%',
-    background: '#fff',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-    transition: 'transform 150ms ease',
   },
   progressRow: {
     display: 'flex',
