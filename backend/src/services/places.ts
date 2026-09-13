@@ -159,7 +159,6 @@ export async function searchPlaces(input: PlacesSearchInput): Promise<{ places: 
     },
     languageCode: 'ru',
     regionCode: 'BY',
-    priceLevels: BUDGET_PRICE_LEVELS[input.budget ?? 'any'],
   };
 
   const controller = new AbortController();
@@ -214,6 +213,7 @@ export async function searchPlaces(input: PlacesSearchInput): Promise<{ places: 
     }[];
   };
 
+  const budget = input.budget ?? 'any';
   const places: Place[] = (data.places ?? [])
     .filter((p) => p.displayName?.text && p.location?.latitude != null && p.location?.longitude != null)
     .map((p) => ({
@@ -232,6 +232,16 @@ export async function searchPlaces(input: PlacesSearchInput): Promise<{ places: 
       googleMapsUri: p.googleMapsUri ?? null,
       photoName: p.photos?.[0]?.name ?? null,
     }));
+
+  // searchNearby (REST) cannot restrict by price level server-side, so put
+  // budget-matching places first and pad the rest if we have too few.
+  const budgetLevels = new Set(BUDGET_PRICE_LEVELS[budget] ?? []);
+  if (budget !== 'any') {
+    const matched: Place[] = [];
+    const other: Place[] = [];
+    for (const p of places) (p.priceLevel && budgetLevels.has(p.priceLevel) ? matched : other).push(p);
+    return { places: [...matched, ...other], searched: { lat: input.lat, lng: input.lng, radiusM: input.radiusM } };
+  }
 
   return { places, searched: { lat: input.lat, lng: input.lng, radiusM: input.radiusM } };
 }
