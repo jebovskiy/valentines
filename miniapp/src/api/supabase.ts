@@ -62,3 +62,48 @@ export function subscribeToValentines(
 export function unsubscribeFromValentines(channel: RealtimeChannel): void {
   getSupabase().removeChannel(channel);
 }
+
+export function subscribeToDateSessions(
+  pairId: string,
+  onChange: () => void,
+): RealtimeChannel {
+  const channel = getSupabase()
+    .channel(`dates:${pairId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'date_sessions',
+        filter: `pair_id=eq.${pairId}`,
+      },
+      () => onChange()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'date_sessions',
+        filter: `pair_id=eq.${pairId}`,
+      },
+      () => onChange()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'date_sessions',
+        filter: `pair_id=eq.${pairId}`,
+      },
+      () => onChange()
+    )
+    .subscribe();
+
+  return channel;
+}
+
+export function unsubscribeFromDateSessions(channel: RealtimeChannel): void {
+  getSupabase().removeChannel(channel);
+}

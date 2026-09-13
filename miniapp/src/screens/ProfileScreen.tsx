@@ -161,6 +161,9 @@ export function ProfileScreen() {
       <button onClick={() => navigate('/pairing')} style={styles.linkButton}>
         Настройка виджета
       </button>
+      <button onClick={() => navigate('/settings')} style={styles.linkButton}>
+        Интеграции и настройки
+      </button>
     </div>
   );
 }

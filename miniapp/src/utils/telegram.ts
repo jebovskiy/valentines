@@ -35,6 +35,7 @@ export interface TelegramWebApp {
   ready: () => void;
   expand: () => void;
   close: () => void;
+  requestLocation?: (callback?: (location: { latitude: number; longitude: number } | null) => void) => void;
   addToHomeScreen: () => void;
   onEvent: (eventType: string, callback: () => void) => void;
   offEvent: (eventType: string, callback: () => void) => void;
@@ -156,6 +157,64 @@ export function getTelegramUser(): TelegramUser | null {
 /** Telegram-provided profile photo from initData — loads reliably in the WebView. */
 export function getTelegramSelfPhotoUrl(): string | null {
   return webApp?.initDataUnsafe?.user?.photo_url || null;
+}
+
+export interface GeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
+/**
+ * Request the user's geolocation. Tries the Telegram Mini App
+ * `requestLocation` API first (if the client supports it), falls back to
+ * the browser Geolocation API. Never throws.
+ */
+export function requestGeolocation(): Promise<GeoPoint | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (point: GeoPoint | null) => {
+      if (!settled) {
+        settled = true;
+        resolve(point);
+      }
+    };
+
+    const tryBrowser = () => {
+      if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => done({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+          () => done(null),
+          { timeout: 10000, maximumAge: 600000 },
+        );
+      } else {
+        done(null);
+      }
+    };
+
+    if (typeof webApp?.requestLocation === 'function') {
+      let telegramHandled = false;
+      try {
+        webApp.requestLocation((location) => {
+          if (!telegramHandled) {
+            telegramHandled = true;
+            done(location ?? null);
+          }
+        });
+      } catch {
+        telegramHandled = true;
+      }
+      // Telegram may be present but never invoke the callback (older
+      // clients / desktop). Give it one window, then try the browser API.
+      setTimeout(() => {
+        if (!telegramHandled) {
+          telegramHandled = true;
+          tryBrowser();
+        }
+      }, 1200);
+    } else {
+      tryBrowser();
+    }
+  });
 }
 
 export function setMainButton(params: { text?: string; onClick?: () => void; isVisible?: boolean; color?: string }): void {

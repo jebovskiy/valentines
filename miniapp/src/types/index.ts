@@ -265,4 +265,75 @@ export interface PoiskkinoCandidate {
   type: string | null;
 }
 
+// --- «Куда пойти» (date spot picker) ------------------------------------------
+
+export interface Place {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  distanceM: number | null;
+  priceLevel: string | null;
+  priceLabel: string | null;
+  rating: number | null;
+  ratingCount: number | null;
+  primaryType: string | null;
+  typeLabel: string | null;
+  googleMapsUri: string | null;
+  photoName: string | null;
+}
+
+export type DateMood = 'romantic' | 'fun' | 'calm' | 'active';
+export type DateCategory = 'food' | 'entertainment' | 'nature' | 'culture';
+export type DateBudget = 'cheap' | 'mid' | 'high' | 'any';
+
+export interface DateParams {
+  lat: number;
+  lng: number;
+  radius_m: number | null;
+  mood: DateMood | null;
+  category: DateCategory | null;
+  budget: DateBudget;
+  open_now: boolean | null;
+}
+
+export type DateChoice = 'like' | 'dislike';
+
+export interface DateVote {
+  session_id: string;
+  user_id: number;
+  place_index: number;
+  choice: DateChoice;
+  created_at: string;
+}
+
+export interface DateMatch {
+  matched: boolean;
+  index?: number;
+  place?: Place | null;
+}
+
+export interface DateSession {
+  id: string;
+  pair_id: string;
+  initiator_id: number;
+  params: DateParams;
+  places: Place[];
+  status: 'active' | 'done';
+  match: DateMatch | null;
+  created_at: string;
+  updated_at: string;
+  votes: DateVote[];
+}
+
+export interface Integration {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  connected: boolean;
+  capabilities: string[];
+}
+
 export type PoiskkinoPart = Pick<PoiskkinoCandidate, 'kp_id' | 'name' | 'alternative_name' | 'year' | 'poster_url' | 'rating_imdb' | 'type'>;

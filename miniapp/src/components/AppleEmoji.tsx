@@ -9,6 +9,7 @@ const EMOJI_CODEPOINTS: Record<string, string> = {
   '📝': '1f4dd',
   '🎬': '1f3ac',
   '👥': '1f465',
+  '📍': '1f4cd',
 };
 
 export function AppleEmoji({

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration } from '../types';
 import { api } from '../api/client';
-import { subscribeToValentines, unsubscribeFromValentines } from '../api/supabase';
+import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions } from '../api/supabase';
 
 export const PARTNER_NAME_OVERRIDE_KEY = 'vn_partner_name_override';
 
@@ -91,6 +91,18 @@ interface ValentinesState {
   tasteProfile: TasteProfile | null;
   fetchTasteProfile: () => Promise<void>;
   saveTasteProfile: (aspectWeights: Record<string, number>) => Promise<boolean>;
+  dateSession: DateSession | null;
+  dateSessionLoading: boolean;
+  dateRealtimeChannel: ReturnType<typeof subscribeToDateSessions> | null;
+  integrations: Integration[];
+  fetchDateSession: () => Promise<void>;
+  createDateSession: (params: DateParams) => Promise<DateSession | null>;
+  voteDate: (sessionId: string, placeIndex: number, choice: DateChoice) => Promise<DateSession | null>;
+  finishDateSession: (sessionId: string) => Promise<void>;
+  clearDateSession: () => void;
+  setupDateRealtime: (pairId: string) => void;
+  cleanupDateRealtime: () => void;
+  fetchIntegrations: () => Promise<void>;
 }
 
 function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
@@ -136,6 +148,10 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   movieSearchResults: [],
   movieSearchLoading: false,
   tasteProfile: null,
+  dateSession: null,
+  dateSessionLoading: false,
+  dateRealtimeChannel: null,
+  integrations: [],
 
   fetchPair: async () => {
     set({ isLoading: true, error: null });
@@ -537,5 +553,71 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     if (result.error || !result.data) { set({ error: result.error }); return false; }
     set({ tasteProfile: result.data });
     return true;
+  },
+
+  fetchDateSession: async () => {
+    const { pair } = get();
+    if (!pair) return;
+    const result = await api.getActiveDateSession();
+    if (result.error || !result.data) return;
+    set({ dateSession: result.data.session });
+  },
+
+  createDateSession: async (params) => {
+    set({ dateSessionLoading: true, error: null });
+    const result = await api.createDateSession(params);
+    if (result.error || !result.data) {
+      set({ dateSessionLoading: false, error: result.error });
+      return null;
+    }
+    set({ dateSession: result.data.session, dateSessionLoading: false });
+    return result.data.session;
+  },
+
+  voteDate: async (sessionId, placeIndex, choice) => {
+    const result = await api.voteDate(sessionId, placeIndex, choice);
+    if (result.error || !result.data) {
+      set({ error: result.error });
+      return null;
+    }
+    set({ dateSession: result.data.session });
+    return result.data.session;
+  },
+
+  finishDateSession: async (sessionId) => {
+    const result = await api.finishDateSession(sessionId);
+    if (result.error) set({ error: result.error });
+    const { dateSession } = get();
+    if (dateSession?.id === sessionId) {
+      set({ dateSession: { ...dateSession, status: 'done' } });
+    }
+  },
+
+  clearDateSession: () => set({ dateSession: null }),
+
+  setupDateRealtime: (pairId) => {
+    const { dateRealtimeChannel } = get();
+    if (dateRealtimeChannel) {
+      unsubscribeFromDateSessions(dateRealtimeChannel);
+    }
+
+    const channel = subscribeToDateSessions(pairId, () => {
+      void get().fetchDateSession();
+    });
+    set({ dateRealtimeChannel: channel });
+  },
+
+  cleanupDateRealtime: () => {
+    const { dateRealtimeChannel } = get();
+    if (dateRealtimeChannel) {
+      unsubscribeFromDateSessions(dateRealtimeChannel);
+      set({ dateRealtimeChannel: null });
+    }
+  },
+
+  fetchIntegrations: async () => {
+    const result = await api.getIntegrations();
+    if (result.error || !result.data) return;
+    set({ integrations: result.data.integrations });
   },
 }));

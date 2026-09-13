@@ -14,6 +14,8 @@ import { PairingScreen } from './screens/PairingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { CompanionRedirect } from './screens/CompanionRedirect';
 import { DeepValentineScreen } from './screens/DeepValentineScreen';
+import { DatePlacesScreen } from './screens/DatePlacesScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 import './styles/global.css';
 
 function App() {
@@ -78,6 +80,8 @@ function App() {
           <Route path="notes" element={<NotesScreen />} />
           <Route path="movies" element={<MoviesScreen />} />
           <Route path="movies/taste" element={<TasteProfileScreen />} />
+          <Route path="date" element={<DatePlacesScreen />} />
+          <Route path="settings" element={<SettingsScreen />} />
         </Route>
         <Route path="/c/:token" element={<CompanionRedirect />} />
         <Route path="/v/:id" element={<DeepValentineScreen />} />

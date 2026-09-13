@@ -167,3 +167,13 @@ textarea:focus-visible {
 .animate-slide-up { animation: slideUp 0.4s ease; }
 .animate-pulse { animation: pulse 2.6s ease-in-out infinite; }
 .animate-avatar-press { animation: avatarPress 100ms ease; }
+.animate-fly-right { animation: flyRight 0.22s ease forwards; }
+.animate-fly-left { animation: flyLeft 0.22s ease forwards; }
+
+@keyframes flyRight {
+  to { transform: translateX(140%) rotate(12deg); opacity: 0; }
+}
+
+@keyframes flyLeft {
+  to { transform: translateX(-140%) rotate(-12deg); opacity: 0; }
+}

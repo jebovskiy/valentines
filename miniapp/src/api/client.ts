@@ -22,6 +22,11 @@ import type {
   PoiskkinoCandidate,
   PoiskkinoPart,
   TasteProfile,
+  DateParams,
+  DateSession,
+  DateChoice,
+  Place,
+  Integration,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -195,4 +200,37 @@ export const api = {
     }),
   getMovieAspects: (id: string) =>
     fetchWithAuth<{ aspect_scores: Record<string, number> | null; taste_match: number | null }>(`/api/movies/${id}/aspects`),
+
+  // «Куда пойти» — date spot picker
+  searchPlaces: (params: {
+    lat: number;
+    lng: number;
+    radius_m?: number | null;
+    mood?: string | null;
+    category?: string | null;
+    budget?: string | null;
+    open_now?: boolean | null;
+    count?: number;
+  }) =>
+    fetchWithAuth<{ places: Place[] }>('/api/places/search', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    }),
+  placePhotoUrl: (photoName: string) => `${API_URL}/api/places/photo?name=${encodeURIComponent(photoName)}`,
+  getActiveDateSession: () => fetchWithAuth<{ session: DateSession | null }>('/api/dates/active'),
+  createDateSession: (params: DateParams) =>
+    fetchWithAuth<{ session: DateSession }>('/api/dates', {
+      method: 'POST',
+      body: JSON.stringify({ params }),
+    }),
+  voteDate: (sessionId: string, placeIndex: number, choice: DateChoice) =>
+    fetchWithAuth<{ session: DateSession }>(`/api/dates/${sessionId}/vote`, {
+      method: 'POST',
+      body: JSON.stringify({ place_index: placeIndex, choice }),
+    }),
+  finishDateSession: (sessionId: string) =>
+    fetchWithAuth<{ ok: boolean }>(`/api/dates/${sessionId}/done`, { method: 'POST' }),
+
+  // Integrations
+  getIntegrations: () => fetchWithAuth<{ integrations: Integration[] }>('/api/integrations'),
 };

@@ -101,6 +101,7 @@ export function NavSheet() {
   const notesRef = useRef<HTMLButtonElement>(null);
   const moviesRef = useRef<HTMLButtonElement>(null);
   const streakRef = useRef<HTMLButtonElement>(null);
+  const dateRef = useRef<HTMLButtonElement>(null);
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -338,6 +339,15 @@ export function NavSheet() {
       title: 'Стрик',
       sub: `${streakDays} ${daysWord(streakDays)} подряд`,
     },
+    {
+      key: 'date',
+      ref: dateRef,
+      path: '/date',
+      emoji: '📍',
+      iconBg: 'linear-gradient(180deg, #ffe0e6, #ffb8c6)',
+      title: 'Куда пойти',
+      sub: 'Подобрать место вдвоём',
+    },
   ];
 
   const onStreak = location.pathname === '/streak';
@@ -428,7 +438,7 @@ export function NavSheet() {
               </button>
             ))}
             <div style={{ height: 1, background: 'var(--hairline)', margin: '4px 18px 6px' }} />
-            <button onClick={() => goTo('/profile')} style={{ ...rowBase, ...rowAnim(3) }} title="Профиль">
+            <button onClick={() => goTo('/profile')} style={{ ...rowBase, ...rowAnim(4) }} title="Профиль">
               <span
                 style={{
                   width: 40,
