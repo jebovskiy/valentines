@@ -11,7 +11,7 @@ export const MOOD_TYPES: Record<string, string[]> = {
 
 export const CATEGORY_TYPES: Record<string, string[]> = {
   food: ['restaurant', 'cafe', 'bakery', 'meal_takeaway'],
-  entertainment: ['movie_theater', 'bowling_alley', 'amusement_park', 'aquarium', 'arcade', 'bar'],
+  entertainment: ['movie_theater', 'bowling_alley', 'amusement_park', 'aquarium', 'night_club', 'bar'],
   nature: ['park', 'garden', 'beach', 'campground', 'tourist_attraction'],
   culture: ['museum', 'art_gallery', 'performing_arts_theater', 'library', 'tourist_attraction'],
 };
