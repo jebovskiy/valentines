@@ -188,8 +188,25 @@ export async function searchPlaces(input: PlacesSearchInput): Promise<{ places: 
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try {
-      const errBody = (await res.json()) as { error?: { message?: string } } | null;
-      if (errBody?.error?.message) detail = `${errBody.error.message} (HTTP ${res.status})`;
+      const errBody = (await res.json()) as {
+        error?: {
+          message?: string;
+          status?: string;
+          details?: Array<{
+            '@type'?: string;
+            fieldViolations?: Array<{ field: string; description: string }>;
+          }>;
+        };
+      } | null;
+      const e = errBody?.error;
+      if (e) {
+        const violations = (e.details ?? [])
+          .flatMap((d) => d.fieldViolations ?? [])
+          .map((v) => `${v.field}: ${v.description}`);
+        const base = e.message ?? '';
+        detail = `${base}${violations.length > 0 ? ` | ${violations.join(' | ')}` : ''}`.trim() || `HTTP ${res.status}`;
+        detail += ` (${e.status ?? 'ERROR'}, HTTP ${res.status})`;
+      }
     } catch {
       /* keep fallback message */
     }
