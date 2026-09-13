@@ -247,6 +247,7 @@ export interface MovieListItem extends Movie {
   added_by_name: string | null;
   aspect_scores: Record<string, number> | null;
   taste_match: number | null;
+  partner_taste_match: number | null;
 }
 
 export interface TasteProfile {

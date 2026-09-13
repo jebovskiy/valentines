@@ -224,6 +224,12 @@ function MovieCard({
         </div>
       )}
 
+      {movie.partner_taste_match != null && (
+        <div style={styles.partnerBadge}>
+          💙 Партнёру: <strong>{movie.partner_taste_match}%</strong>
+        </div>
+      )}
+
       {mine && (
         <div style={styles.reviewBadge}>
           ✅ Ваш отзыв
@@ -321,6 +327,12 @@ function DetailOverlay({ movie, onClose }: { movie: MovieListItem; onClose: () =
         {movie.taste_match != null && (
           <div style={styles.tasteBadgeFull}>
             🎯 Ваше совпадение: <strong>{movie.taste_match}%</strong>
+          </div>
+        )}
+
+        {movie.partner_taste_match != null && (
+          <div style={styles.partnerBadgeFull}>
+            💙 Партнёру понравится на <strong>{movie.partner_taste_match}%</strong>
           </div>
         )}
 
@@ -605,6 +617,14 @@ const styles: Record<string, CSSProperties> = {
   tasteBadgeFull: {
     textAlign: 'center', padding: '10px', borderRadius: 14, background: '#e6ecff',
     color: '#2b4bd6', fontSize: 15, fontWeight: 600,
+  },
+  partnerBadge: {
+    padding: '6px 12px', borderRadius: 999, background: '#ffe6ef', color: '#c2185b',
+    fontSize: 13, fontWeight: 600, alignSelf: 'flex-start',
+  },
+  partnerBadgeFull: {
+    textAlign: 'center', padding: '10px', borderRadius: 14, background: '#ffe6ef',
+    color: '#c2185b', fontSize: 15, fontWeight: 600,
   },
   aspectGrid: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   aspectChip: {

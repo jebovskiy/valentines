@@ -137,6 +137,16 @@ async function ensureMovieAspectScores(movieId: string, app: FastifyInstance): P
   }
 }
 
+const aspectBackfillLock = new Set<string>();
+
+function backfillAspectScores(movies: { id: string; aspect_scores: unknown }[], app: FastifyInstance): void {
+  for (const movie of movies) {
+    if (movie.aspect_scores || aspectBackfillLock.has(movie.id)) continue;
+    aspectBackfillLock.add(movie.id);
+    void ensureMovieAspectScores(movie.id, app);
+  }
+}
+
 export async function moviesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
@@ -147,12 +157,17 @@ export async function moviesRoutes(app: FastifyInstance) {
     const movies = await getMovies(pair.id);
     if (movies.length === 0) return { movies: [] };
 
-    const [allReviews, allWatches, tasteProfile] = await Promise.all([
+    backfillAspectScores(movies, app);
+
+    const partnerTelegramId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
+    const [allReviews, allWatches, tasteProfile, partnerProfile] = await Promise.all([
       getMovieReviewsBatch(movies.map((m) => m.id)),
       getMovieWatchesBatch(movies.map((m) => m.id)),
       getTasteProfile(request.telegramUser!.id),
+      partnerTelegramId ? getTasteProfile(partnerTelegramId) : Promise.resolve(null),
     ]);
     const weights = tasteProfile ? normalizeWeights(tasteProfile.aspect_weights) : DEFAULT_ASPECT_WEIGHTS;
+    const partnerWeights = partnerProfile ? normalizeWeights(partnerProfile.aspect_weights) : null;
 
     const reviewsByMovie = new Map<string, MovieReview[]>();
     for (const r of allReviews) {
@@ -174,6 +189,8 @@ export async function moviesRoutes(app: FastifyInstance) {
       added_by_name:
         movie.added_by === pair.telegram_user_a ? pair.user_a_name : pair.user_b_name || 'Партнер',
       taste_match: movie.aspect_scores ? computeCompatibility(weights, movie.aspect_scores) : null,
+      partner_taste_match:
+        movie.aspect_scores && partnerWeights ? computeCompatibility(partnerWeights, movie.aspect_scores) : null,
     }));
     return { movies: items };
   });
@@ -199,11 +216,18 @@ export async function moviesRoutes(app: FastifyInstance) {
     const movie = await getMovieById(id);
     if (!movie || movie.pair_id !== pair.id) return reply.code(404).send({ error: 'Movie not found' });
 
-    const profile = await getTasteProfile(request.telegramUser!.id);
+    const partnerTelegramId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
+    const [profile, partnerProfile] = await Promise.all([
+      getTasteProfile(request.telegramUser!.id),
+      partnerTelegramId ? getTasteProfile(partnerTelegramId) : Promise.resolve(null),
+    ]);
     const weights = profile ? normalizeWeights(profile.aspect_weights) : DEFAULT_ASPECT_WEIGHTS;
+    const partnerWeights = partnerProfile ? normalizeWeights(partnerProfile.aspect_weights) : null;
     return {
       aspect_scores: movie.aspect_scores,
       taste_match: movie.aspect_scores ? computeCompatibility(weights, movie.aspect_scores) : null,
+      partner_taste_match:
+        movie.aspect_scores && partnerWeights ? computeCompatibility(partnerWeights, movie.aspect_scores) : null,
     };
   });
 
