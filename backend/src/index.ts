@@ -13,7 +13,7 @@ import { notesRoutes } from './routes/notes';
 import { remindersRoutes } from './routes/reminders';
 import { eventsRoutes } from './routes/events';
 import { moviesRoutes } from './routes/movies';
-import { placesRoutes } from './routes/places';
+import { placesRoutes, placesPhotoRoutes } from './routes/places';
 import { datesRoutes } from './routes/dates';
 import { integrationsRoutes } from './routes/integrations';
 import { ensureStorageBucket } from './utils/storage';
@@ -42,6 +42,7 @@ async function start() {
   await app.register(eventsRoutes, { prefix: '/api/events' });
   await app.register(moviesRoutes, { prefix: '/api/movies' });
   await app.register(placesRoutes, { prefix: '/api/places' });
+  await app.register(placesPhotoRoutes, { prefix: '/api/places' });
   await app.register(datesRoutes, { prefix: '/api/dates' });
   await app.register(integrationsRoutes, { prefix: '/api/integrations' });
 

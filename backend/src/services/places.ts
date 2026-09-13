@@ -273,24 +273,52 @@ export async function searchPlaces(input: PlacesSearchInput): Promise<{ places: 
   return { places, searched: { lat: input.lat, lng: input.lng, radiusM: input.radiusM } };
 }
 
+const PHOTO_TTL_MS = 24 * 60 * 60 * 1000;
+const PHOTO_CACHE_MAX = 200;
+
+const photoCache = new Map<string, { buffer: Buffer; contentType: string | null; expiresAt: number }>();
+const photoInflight = new Map<string, Promise<{ buffer: Buffer; contentType: string | null } | null>>();
+
 export async function fetchPlacePhoto(photoName: string): Promise<{ buffer: Buffer; contentType: string | null } | null> {
   if (!config.GOOGLE_MAPS_API_KEY) return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PLACES_TIMEOUT_MS);
-  try {
-    const url = `https://places.googleapis.com/v1/${encodeURIComponent(photoName)}/media?maxWidthPx=800&maxHeightPx=800`;
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { 'X-Goog-Api-Key': config.GOOGLE_MAPS_API_KEY },
-    });
-    if (!res.ok) return null;
-    const buffer = Buffer.from(await res.arrayBuffer());
-    return { buffer, contentType: res.headers.get('content-type') };
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
+  const apiKey = config.GOOGLE_MAPS_API_KEY;
+
+  const cached = photoCache.get(photoName);
+  if (cached && Date.now() < cached.expiresAt) {
+    return { buffer: cached.buffer, contentType: cached.contentType };
   }
+
+  const pending = photoInflight.get(photoName);
+  if (pending) return pending;
+
+  const promise = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), PLACES_TIMEOUT_MS);
+    try {
+      const url = `https://places.googleapis.com/v1/${encodeURIComponent(photoName)}/media?maxWidthPx=800`;
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'X-Goog-Api-Key': apiKey },
+      });
+      if (!res.ok) return null;
+      const buffer = Buffer.from(await res.arrayBuffer());
+      const contentType = res.headers.get('content-type');
+      photoCache.set(photoName, { buffer, contentType, expiresAt: Date.now() + PHOTO_TTL_MS });
+      if (photoCache.size > PHOTO_CACHE_MAX) {
+        const oldest = photoCache.keys().next().value;
+        if (oldest) photoCache.delete(oldest);
+      }
+      return { buffer, contentType };
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+      photoInflight.delete(photoName);
+    }
+  })();
+
+  photoInflight.set(photoName, promise);
+  return promise;
 }
 
 export class PlacesError extends Error {

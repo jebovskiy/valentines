@@ -44,8 +44,13 @@ export async function placesRoutes(app: FastifyInstance) {
       return reply.code(500).send({ error: 'Places search failed', code: 'internal' });
     }
   });
+}
 
-  app.get('/photo', { preHandler: requireTelegramAuth }, async (request, reply) => {
+// Public route (no Telegram auth): <img src> can't send the Authorization
+// header, so place photos are served like avatars and protected by the
+// global rate limiter + the in-memory cache in fetchPlacePhoto.
+export async function placesPhotoRoutes(app: FastifyInstance) {
+  app.get('/photo', async (request, reply) => {
     const { name } = request.query as { name?: string };
     if (!name || !name.startsWith('places/')) {
       return reply.code(400).send({ error: 'Invalid photo name' });
