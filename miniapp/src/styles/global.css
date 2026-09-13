@@ -152,6 +152,18 @@ textarea:focus-visible {
   to { transform: rotate(360deg); }
 }
 
+@keyframes spotlightPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.06); opacity: 0.72; }
+}
+
+@keyframes avatarPress {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
 .animate-fade-in { animation: fadeIn 0.3s ease; }
 .animate-slide-up { animation: slideUp 0.4s ease; }
 .animate-pulse { animation: pulse 2.6s ease-in-out infinite; }
+.animate-avatar-press { animation: avatarPress 100ms ease; }

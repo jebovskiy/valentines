@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { useEffect } from 'react';
 import { hideMainButton, setBackButton, applyTheme } from '../utils/telegram';
+import { NavSheet } from './NavSheet';
 
 export function Layout() {
   useEffect(() => {
@@ -9,5 +10,10 @@ export function Layout() {
     setBackButton(false);
   }, []);
 
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      <NavSheet />
+    </>
+  );
 }

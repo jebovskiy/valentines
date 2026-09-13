@@ -172,12 +172,38 @@ export function hideMainButton(): void {
   webApp?.MainButton?.hide();
 }
 
+interface BackButtonEntry {
+  visible: boolean;
+  onClick?: () => void;
+}
+
+let baseBackButton: BackButtonEntry = { visible: false };
+const overlayBackButtons: BackButtonEntry[] = [];
+
 export function setBackButton(visible: boolean, onClick?: () => void): void {
+  baseBackButton = { visible, onClick };
+  applyBackButton();
+}
+
+/** Навешивает свой обработчик поверх текущего, не ломая базовый (для оверлеев типа bottom-sheet). */
+export function pushBackButton(onClick: () => void): void {
+  overlayBackButtons.push({ visible: true, onClick });
+  applyBackButton();
+}
+
+/** Снимает временный обработчик и возвращает базовый (установленный экраном). */
+export function popBackButton(): void {
+  overlayBackButtons.pop();
+  applyBackButton();
+}
+
+function applyBackButton(): void {
   if (!webApp?.BackButton) return;
+  const entry = overlayBackButtons.length ? overlayBackButtons[overlayBackButtons.length - 1] : baseBackButton;
   webApp.BackButton.offClick();
-  if (visible) {
+  if (entry.visible) {
     webApp.BackButton.show();
-    if (onClick) webApp.BackButton.onClick(onClick);
+    if (entry.onClick) webApp.BackButton.onClick(entry.onClick);
   } else {
     webApp.BackButton.hide();
   }

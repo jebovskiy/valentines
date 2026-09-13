@@ -6,7 +6,6 @@ import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
 import { AppleEmoji } from '../components/AppleEmoji';
 import { GreetingOverlay, GreetingMode, GreetingScene } from '../components/GreetingOverlay';
 import { getAnimation } from '../types';
-import { api } from '../api/client';
 import { formatFeedTime } from '../utils/date';
 import { isGreetingsEnabled } from '../utils/greeting';
 
@@ -313,45 +312,7 @@ export function ListScreen() {
         <div style={styles.feedHeaderRow}>
           <div />
           <h1 style={styles.feedTitle}>Валентинки</h1>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button
-              onClick={() => navigate('/notes')}
-              style={styles.widgetBtn}
-              title="Заметки и напоминания"
-            >
-              <AppleEmoji emoji="📝" size={16} />
-            </button>
-            <button
-              onClick={() => navigate('/movies')}
-              style={styles.widgetBtn}
-              title="Фильмы"
-            >
-              <AppleEmoji emoji="🎬" size={16} />
-            </button>
-            <button
-              onClick={() => navigate('/streak')}
-              style={styles.widgetBtn}
-              title="Стрик"
-            >
-              <AppleEmoji emoji="🔥" size={16} />
-            </button>
-            <button
-              onClick={() => navigate('/profile')}
-              style={styles.widgetBtn}
-              title="Профиль"
-            >
-              {profile ? (
-                <img
-                  src={api.selfAvatarUrl(profile.id)}
-                  alt=""
-                  style={styles.avatarImg}
-                  onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-                />
-              ) : (
-                <AppleEmoji emoji="👤" size={16} />
-              )}
-            </button>
-          </div>
+          <div />
         </div>
         <div style={styles.feedSub}>Вы и {partner} · {days} {formatDays(days)} вместе</div>
       </header>
