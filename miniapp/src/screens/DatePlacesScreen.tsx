@@ -7,6 +7,7 @@ import {
   DateCategory,
   DateBudget,
   DateChoice,
+  Place,
 } from '../types';
 import { setMainButton, setBackButton, hapticFeedback, requestGeolocation, webApp } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
@@ -57,6 +58,30 @@ function formatDistance(m: number | null): string {
 function openExternal(url: string): void {
   if (webApp?.openLink) webApp.openLink(url);
   else window.open(url, '_blank');
+}
+
+function PlaceImage({ place, style, emojiStyle }: { place: Place; style: React.CSSProperties; emojiStyle?: React.CSSProperties }) {
+  const [idx, setIdx] = useState(0);
+  const names = (place.photoNames && place.photoNames.length > 0 ? place.photoNames : place.photoName ? [place.photoName] : [])
+    .filter((n) => !!n);
+  const current = names[idx];
+
+  if (!current) {
+    return (
+      <div style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={emojiStyle ?? styles.cardImageEmoji}>{getEmoji(place.typeLabel)}</span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={api.placePhotoUrl(current)}
+      alt=""
+      draggable={false}
+      style={style}
+      onError={() => setIdx((i) => i + 1)}
+    />
+  );
 }
 
 type Phase = 'setup' | 'swipe' | 'result';
@@ -317,18 +342,7 @@ export function DatePlacesScreen() {
           </div>
 
           <div key={currentPlace.id} className={`animate-slide-up ${leaving ? (leaving === 'like' ? 'animate-fly-right' : 'animate-fly-left') : ''}`} style={styles.card}>
-            {currentPlace.photoName ? (
-              <img
-                src={api.placePhotoUrl(currentPlace.photoName)}
-                alt=""
-                style={styles.cardImage}
-                draggable={false}
-                onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-              />
-            ) : null}
-            <div style={{ ...styles.cardImage, display: currentPlace.photoName ? 'none' : 'flex' }}>
-              <span style={styles.cardImageEmoji}>{(getEmoji(currentPlace.typeLabel))}</span>
-            </div>
+            <PlaceImage place={currentPlace} style={styles.cardImage} />
 
             <div style={styles.cardBody}>
               <div style={styles.cardTitleRow}>
@@ -343,6 +357,10 @@ export function DatePlacesScreen() {
                 {currentPlace.distanceM != null && <span style={styles.tag}>{formatDistance(currentPlace.distanceM)}</span>}
               </div>
               <div style={styles.cardAddress}>{currentPlace.address || 'Адрес уточняется'}</div>
+
+              <button onClick={openPlace} style={styles.cardMapBtn}>
+                🔗 Открыть в Google Maps
+              </button>
 
               {partnerVotes.some((v) => v.place_index === localIdx && v.choice === 'like') && (
                 <div style={styles.partnerLike}>💗 Партнёру нравится</div>
@@ -382,14 +400,7 @@ export function DatePlacesScreen() {
               <div style={styles.resultTitle}>Совпадение!</div>
               <div style={styles.resultSub}>Обоим понравилось — договоритесь о свидании здесь:</div>
 
-              {matchPlace.photoName && (
-                <img
-                  src={api.placePhotoUrl(matchPlace.photoName)}
-                  alt=""
-                  style={styles.resultImage}
-                  onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
-                />
-              )}
+              <PlaceImage place={matchPlace} style={styles.resultImage} emojiStyle={styles.resultImageEmoji} />
               <div style={styles.resultPlaceName}>{matchPlace.name}</div>
               <div style={styles.resultPlaceMeta}>
                 {matchPlace.typeLabel}
@@ -664,6 +675,17 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--ash)',
     lineHeight: '17px',
   },
+  cardMapBtn: {
+    padding: '10px',
+    borderRadius: 12,
+    border: '1px solid var(--hairline)',
+    background: 'var(--secondary-bg)',
+    color: 'var(--primary)',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    marginTop: 2,
+  },
   partnerLike: {
     fontSize: 13,
     fontWeight: 700,
@@ -757,6 +779,17 @@ const styles: Record<string, React.CSSProperties> = {
     objectFit: 'cover',
     borderRadius: 16,
     marginTop: 4,
+  },
+  resultImageEmoji: {
+    width: '100%',
+    height: 160,
+    borderRadius: 16,
+    marginTop: 4,
+    background: 'linear-gradient(180deg, #ffe3c2, #ffcf9a)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 48,
   },
   resultPlaceName: {
     fontSize: 20,

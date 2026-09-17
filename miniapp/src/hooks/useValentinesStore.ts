@@ -560,7 +560,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     if (!pair) return;
     const result = await api.getActiveDateSession();
     if (result.error || !result.data) return;
-    set({ dateSession: result.data.session });
+    if (result.data.session) {
+      set({ dateSession: result.data.session });
+    }
   },
 
   createDateSession: async (params) => {

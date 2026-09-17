@@ -40,6 +40,39 @@ export async function getActiveDateSession(pairId: string): Promise<DateSessionR
   return { ...data, votes: await getDateSessionVotes(data.id) } as DateSessionRow;
 }
 
+export async function getLatestDateSession(pairId: string): Promise<DateSessionRow | null> {
+  const { data, error } = await supabase
+    .from('date_sessions')
+    .select(SESSION_SELECT)
+    .eq('pair_id', pairId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  return { ...data, votes: await getDateSessionVotes(data.id) } as DateSessionRow;
+}
+
+export async function getRecentSessionPlaces(pairId: string, limit = 3): Promise<{ id: string }[]> {
+  const { data, error } = await supabase
+    .from('date_sessions')
+    .select('places')
+    .eq('pair_id', pairId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  const ids: { id: string }[] = [];
+  for (const row of data ?? []) {
+    const places = (row as { places?: unknown }).places as Array<{ id?: string }> | undefined;
+    for (const p of places ?? []) {
+      if (p?.id) ids.push({ id: p.id });
+    }
+  }
+  return ids;
+}
+
 export async function deleteActiveDateSessions(pairId: string): Promise<void> {
   const { error } = await supabase
     .from('date_sessions')

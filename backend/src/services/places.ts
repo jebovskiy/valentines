@@ -103,6 +103,7 @@ export interface Place {
   typeLabel: string | null;
   googleMapsUri: string | null;
   photoName: string | null;
+  photoNames: string[];
 }
 
 const FIELD_MASK = [
@@ -258,6 +259,7 @@ export async function searchPlaces(input: PlacesSearchInput): Promise<{ places: 
       typeLabel: typeLabel(p.types, p.primaryType ?? null),
       googleMapsUri: p.googleMapsUri ?? null,
       photoName: p.photos?.[0]?.name ?? null,
+      photoNames: (p.photos ?? []).map((ph) => ph.name).filter(Boolean) as string[],
     }));
 
   // searchNearby (REST) cannot restrict by price level server-side, so put

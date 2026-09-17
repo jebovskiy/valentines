@@ -283,6 +283,7 @@ export interface Place {
   typeLabel: string | null;
   googleMapsUri: string | null;
   photoName: string | null;
+  photoNames: string[];
 }
 
 export type DateMood = 'romantic' | 'fun' | 'calm' | 'active';

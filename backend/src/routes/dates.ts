@@ -4,7 +4,7 @@ import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth'
 import { getPairByUser } from '../services/database';
 import { searchPlaces, PlacesError, type Place, type PlacesSearchInput } from '../services/places';
 import {
-  getActiveDateSession,
+  getLatestDateSession,
   getDateSessionById,
   deleteActiveDateSessions,
   createDateSessionRow,
@@ -12,6 +12,7 @@ import {
   touchDateSession,
   finishDateSession,
   getDateSessionVotes,
+  getRecentSessionPlaces,
   type DateSessionRow,
 } from '../services/dates';
 
@@ -35,10 +36,21 @@ const voteSchema = z.object({
 
 /**
  * Pick a short, varied set of places for the date: prefer different
- * categories and higher ratings.
+ * categories and higher ratings. Skipped places from recent sessions and
+ * duplicated Google listings (same name+address).
  */
-function pickTopPlaces(candidates: Place[], count = 3): Place[] {
-  const scored = [...candidates].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (a.distanceM ?? 0) - (b.distanceM ?? 0));
+function pickTopPlaces(candidates: Place[], count = 3, excludeIds: Set<string> = new Set()): Place[] {
+  const unique = new Map<string, Place>();
+  for (const p of candidates) {
+    if (excludeIds.has(p.id)) continue;
+    const key = `${p.name}|${p.address}`;
+    const dup = [...unique.values()].some((u) => `${u.name}|${u.address}` === key);
+    if (!unique.has(p.id) && !dup) unique.set(p.id, p);
+  }
+
+  const scored = [...unique.values()].sort(
+    (a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (a.distanceM ?? Number.MAX_SAFE_INTEGER) - (b.distanceM ?? Number.MAX_SAFE_INTEGER),
+  );
   const chosen: Place[] = [];
   const usedTypes = new Set<string>();
 
@@ -68,7 +80,7 @@ export async function datesRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
-    const session = await getActiveDateSession(pair.id);
+    const session = await getLatestDateSession(pair.id);
     return { session };
   });
 
@@ -109,7 +121,18 @@ export async function datesRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'Не нашли подходящих мест — попробуйте расширить фильтры', code: 'empty' });
     }
 
-    const places = pickTopPlaces(searchResult.places, 3);
+    const recent = await getRecentSessionPlaces(pair.id, 3);
+    const excludeIds = new Set(recent.map((r) => r.id));
+    let places = pickTopPlaces(searchResult.places, 3, excludeIds);
+    if (places.length < 3) {
+      const extra = pickTopPlaces(searchResult.places, 3, new Set()).filter(
+        (p) => !places.some((c) => c.id === p.id),
+      );
+      places = [...places, ...extra].slice(0, 3);
+    }
+    if (places.length === 0) {
+      return reply.code(404).send({ error: 'Не нашли подходящих мест — попробуйте расширить фильтры', code: 'empty' });
+    }
 
     await deleteActiveDateSessions(pair.id);
     const session = await createDateSessionRow(pair.id, request.telegramUser!.id, params as Record<string, unknown>, places);
@@ -134,20 +157,27 @@ export async function datesRoutes(app: FastifyInstance) {
     await upsertDateVote(id, request.telegramUser!.id, parsed.data.place_index, parsed.data.choice);
 
     const votes = await getDateSessionVotes(id);
-    const pairMemberIds = new Set([pair.telegram_user_a, pair.telegram_user_b]);
-    const votedUserIds = new Set(votes.map((v) => v.user_id));
-    const allMembersVoted = [...pairMemberIds].every((mid) => votedUserIds.has(mid));
-    const allIndexesVoted = [0, 1, 2].every((i) => votes.some((v) => v.place_index === i));
+    const memberIds = [pair.telegram_user_a, pair.telegram_user_b];
+    const votesByUser = new Map<number, Map<number, 'like' | 'dislike'>>();
+    for (const v of votes) {
+      if (!votesByUser.has(v.user_id)) votesByUser.set(v.user_id, new Map());
+      votesByUser.get(v.user_id)!.set(v.place_index, v.choice);
+    }
 
-    if (allMembersVoted && allIndexesVoted) {
+    const bothVotedAll = memberIds.every((mid) => {
+      const mine = votesByUser.get(mid);
+      return !!mine && mine.has(0) && mine.has(1) && mine.has(2);
+    });
+
+    if (bothVotedAll) {
       const likesByUser = new Map<number, Set<number>>();
-      for (const v of votes) {
-        if (v.choice !== 'like') continue;
-        const set = likesByUser.get(v.user_id) ?? new Set<number>();
-        set.add(v.place_index);
-        likesByUser.set(v.user_id, set);
+      for (const [uid, mine] of votesByUser) {
+        const likes = new Set<number>();
+        for (const [idx, choice] of mine) {
+          if (choice === 'like') likes.add(idx);
+        }
+        likesByUser.set(uid, likes);
       }
-      const memberIds = [...pairMemberIds];
       const first = likesByUser.get(memberIds[0]) ?? new Set<number>();
       const second = likesByUser.get(memberIds[1]) ?? new Set<number>();
       const mutual = [...first].filter((i) => second.has(i));
