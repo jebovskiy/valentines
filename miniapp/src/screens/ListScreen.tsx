@@ -887,6 +887,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '1px',
     flex: 1,
     minWidth: 0,
+    overflow: 'hidden',
   },
   greetingBtnTitle: {
     fontWeight: '800',
@@ -894,11 +895,15 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: '20px',
     letterSpacing: '-0.3px',
     whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   greetingBtnSub: {
     fontSize: '11px',
     lineHeight: '14px',
     whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   filterBar: {
     display: 'flex',
