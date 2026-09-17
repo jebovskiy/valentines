@@ -140,14 +140,21 @@ export function DatePlacesScreen() {
     }
     if (s.places && s.places.length >= 3) {
       setPhase('swipe');
-      const mine = s.votes?.filter((v) => v.user_id === currentUser?.id) ?? [];
-      setLocalIdx(Math.min(mine.length, 2));
     }
   }, [dateSession, currentUser]);
 
+  useEffect(() => {
+    if (leaving) return;
+    const s = dateSession;
+    if (!s || !s.places || s.places.length < 3) return;
+    const voted = new Set((s.votes ?? []).filter((v) => v.user_id === currentUser?.id).map((v) => v.place_index));
+    const target = [0, 1, 2].find((i) => !voted.has(i)) ?? 2;
+    setLocalIdx(target);
+  }, [dateSession, currentUser, leaving]);
+
   const myVotes = dateSession?.votes?.filter((v) => v.user_id === currentUser?.id) ?? [];
   const partnerVotes = dateSession?.votes?.filter((v) => v.user_id !== currentUser?.id) ?? [];
-  const currentPlace = dateSession?.places?.[localIdx] ?? null;
+  const currentPlace = dateSession?.places?.[Math.min(localIdx, 2)] ?? null;
   const waitingForPartner = phase === 'swipe' && myVotes.length >= 3 && dateSession?.status === 'active';
   const matched = dateSession?.match?.matched === true;
   const matchPlace = dateSession?.match?.place ?? null;
@@ -203,7 +210,7 @@ export function DatePlacesScreen() {
     await voteDate(s.id, localIdx, choice);
     window.setTimeout(() => {
       setLeaving(null);
-      setLocalIdx((i) => i + 1);
+      setLocalIdx((i) => Math.min(i + 1, 2));
     }, 220);
   };
 
