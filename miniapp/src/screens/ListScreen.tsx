@@ -387,11 +387,12 @@ export function ListScreen() {
       </div>
 
       {filtered.length > 0 ? (
-        <div style={styles.feedColumns}>
-          {filtered.map((valentine) => (
+        <div className="grid">
+          {filtered.map((valentine, i) => (
             <ValentineCard
               key={valentine.id}
               valentine={valentine}
+              variant={i % 2 === 0 ? 'w' : 'p'}
               onPress={() => {
                 hapticFeedback('impact', 'light');
                 if (!valentine.seen_at) markSeen(valentine.id);
@@ -485,7 +486,15 @@ function formatDays(days: number): string {
   return 'дней';
 }
 
-function ValentineCard({ valentine, onPress }: { valentine: any; onPress: () => void }) {
+function ValentineCard({
+  valentine,
+  variant,
+  onPress,
+}: {
+  valentine: any;
+  variant: 'w' | 'p';
+  onPress: () => void;
+}) {
   const anim = getAnimation(valentine.animation_type);
   const senderLabel = valentine.is_own ? 'Вы' : valentine.sender_name;
   const unread = !valentine.is_own && !valentine.seen_at;
@@ -494,7 +503,7 @@ function ValentineCard({ valentine, onPress }: { valentine: any; onPress: () => 
 
   return (
     <div
-      className={unread ? 'b-card w unread' : 'b-card w'}
+      className={unread ? `b-card ${variant} unread` : `b-card ${variant}`}
       onClick={onPress}
       role="button"
       tabIndex={0}
@@ -878,16 +887,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--primary)',
     color: 'var(--on-primary)',
     boxShadow: 'var(--shadow-fab)',
-  },
-  feedColumns: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: '12px',
-    padding: '14px 0',
-    overflowY: 'auto',
-    flex: 1,
-    minHeight: 0,
   },
   feedFab: {
     position: 'fixed',
