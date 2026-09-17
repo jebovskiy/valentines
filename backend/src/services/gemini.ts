@@ -175,13 +175,14 @@ interface GeminiResponse {
 
 async function callGemini(
   prompt: string,
-  schema: Record<string, unknown>
+  schema: Record<string, unknown>,
+  timeoutMs: number = GEMINI_TIMEOUT_MS
 ): Promise<{ body: GeminiResponse; error: FallbackReason | null }> {
   if (!config.GEMINI_API_KEY) {
     return { body: {}, error: { kind: 'no_config' } };
   }
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${config.GEMINI_MODEL}:generateContent`,
@@ -439,4 +440,183 @@ function worstAspectsForPair(a: MovieReviewInput, b: MovieReviewInput): { who: s
     }
   }
   return worst;
+}
+
+// --- AI-generated game rounds --------------------------------------------------
+
+export interface AiGameRoundsInput {
+  gameId: 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS';
+  mood: string | null;
+  names: { me: string; partner: string };
+}
+
+export interface AiGameRound {
+  text: string;
+  options: string[];
+}
+
+export interface AiGameConfig {
+  count: number; // target number of rounds
+  min: number; // minimum accepted before falling back to static banks
+}
+
+const AI_ROUNDS_SCHEMA = {
+  type: 'object',
+  properties: {
+    rounds: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          text: { type: 'string' },
+          options: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['text', 'options'],
+      },
+    },
+  },
+  required: ['rounds'],
+} as const;
+
+const AI_GAME_CONFIGS: Record<AiGameRoundsInput['gameId'], AiGameConfig> = {
+  KNOW_ME: { count: 12, min: 8 },
+  CHOOSE_ONE: { count: 15, min: 10 },
+  ASSOCIATIONS: { count: 8, min: 6 },
+  COMPLIMENTS: { count: 6, min: 4 },
+  SPEED_FACTS: { count: 8, min: 6 },
+};
+
+const AI_GAME_TIMEOUT_MS = 12_000;
+
+function gameRoundsPrompt(input: AiGameRoundsInput): string {
+  const { gameId, mood, names } = input;
+  const moodHint = mood ? ` Настроение вечера — «${mood}».` : '';
+  const meName = names.me?.trim() || 'первый партнёр';
+  const partnerName = names.partner?.trim() || 'второй партнёр';
+  const personal = `Пара: «${meName}» и «${partnerName}». Вопросы адресуй обоим сразу (можно использовать «ты»), но формулируй нейтрально — без родовых окончаний — чтобы подходило каждому партнёру.`;
+
+  switch (gameId) {
+    case 'KNOW_ME':
+      return `Ты создаёшь карточки для игры для пар «Насколько ты меня знаешь?».${moodHint}
+Задача: сгенерировать ${AI_GAME_CONFIGS.KNOW_ME.count} раундов в строгом порядке:
+- первые 11 раундов — вопросы с 4 вариантами ответа, каждый вариант начинается с эмодзи и короткий (например «💬 Открытый диалог», «🎁 Подарки»). Вопросы могут давать короткий список вариантов или быть открытыми с вариантами.
+- последний раунд (${AI_GAME_CONFIGS.KNOW_ME.count}-й) — открытый вопрос без вариантов: options должен быть пустым списком [].
+
+Темы вопросов: вкусы и предпочтения, язык любви, привычки, мечты и планы на будущее, отношение к ссорам и сюрпризам, тёплые вопросы о партнёре (что его заводит, что бесит, какой поступок не забывается).
+${personal}
+Все тексты на русском, тёплые и живые, без канцелярита.`;
+    case 'CHOOSE_ONE':
+      return `Ты создаёшь карточки для игры для пар «Выбери одно».${moodHint}
+Задача: сгенерировать ${AI_GAME_CONFIGS.CHOOSE_ONE.count} раундов в строгом порядке:
+- первые 12 раундов — бинарные дуэли «или — или» ровно с 2 вариантами (например «☕ Кофе» / «🫖 Чай», «🏠 Дом» / «🏙️ Город»).
+- последние 3 раунда — сюрпризы ровно с 4 вариантами (неожиданный выбор: куда пойти, что подарить, какой отпуск и т.п.).
+
+Каждый вариант начинается с подходящего эмодзи и короткий. Вопросы лёгкие и весёлые, подходят для вечера вдвоём.
+${personal}
+Все тексты на русском.`;
+    case 'ASSOCIATIONS':
+      return `Ты создаёшь карточки для игры для пар «Ассоциации».${moodHint}
+Задача: сгенерировать ${AI_GAME_CONFIGS.ASSOCIATIONS.count} раундов.
+Каждый раунд — одно короткое слово или тема (1-3 слова, БЕЗ вопросительного знака, БЕЗ эмодзи), на которое оба партнёра напишут свою ассоциацию. options должен быть пустым списком [].
+Темы подбери под настроение вечера, но делай их запоминающимися и личными: «Море», «Первый поцелуй», «Наше утро», «Романтика», «Дом» и т.п. Не повторяй одинаковые слова.
+${personal}
+Все тексты на русском.`;
+    case 'COMPLIMENTS':
+      return `Ты создаёшь карточки для игры «Комплименты» для пар.${moodHint}
+Задача: сгенерировать ${AI_GAME_CONFIGS.COMPLIMENTS.count} вопросов-комплиментов, на которые каждый партнёр напишет партнёру тёплые слова. options должен быть пустым списком [].
+Вопросы начинаются с «Скажи...», «Расскажи...» и вызывают искренние комплименты: «За что ты меня любишь?», «Что во мне тебе нравится больше всего?», «Мой поступок, который ты не забудешь?». Учитывай настроение вечера.
+${personal}
+Все тексты на русском, добрые и нежные.`;
+    case 'SPEED_FACTS':
+      return `Ты создаёшь карточки для игры «Это мы?» для пар.${moodHint}
+Задача: сгенерировать ${AI_GAME_CONFIGS.SPEED_FACTS.count} утверждений о паре (НЕ вопросов — именно утверждений, например «Мы бы выбрали одинаковый фильм на вечер»). У каждого утверждения options строго равно: ["✅ Да", "❌ Нет"].
+Утверждения должны быть такими, чтобы было интересно узнать, совпало ли мнение: про вкусы, привычки, будущее, юмор, чувства. Учитывай настроение вечера.
+${personal}
+Все тексты на русском, позитивные.`;
+    default:
+      return '';
+  }
+}
+
+function sanitizeAiRounds(raw: unknown, gameId: AiGameRoundsInput['gameId'], config: AiGameConfig): AiGameRound[] | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const roundsRaw = (raw as Record<string, unknown>).rounds;
+  if (!Array.isArray(roundsRaw) || roundsRaw.length === 0) return null;
+
+  const rounds: AiGameRound[] = [];
+  for (const item of roundsRaw) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    if (typeof o.text !== 'string') continue;
+    const text = o.text.trim().replace(/\s+/g, ' ').slice(0, 300);
+    if (!text) continue;
+    let options: string[] = [];
+    if (gameId === 'SPEED_FACTS') {
+      options = ['✅ Да', '❌ Нет'];
+    } else if (Array.isArray(o.options)) {
+      options = o.options
+        .filter((x): x is string => typeof x === 'string')
+        .map((x) => x.trim().replace(/\s+/g, ' ').slice(0, 120))
+        .filter((x) => x.length > 0);
+      options = [...new Set(options)].slice(0, 4);
+    }
+    rounds.push({ text, options });
+  }
+
+  if (rounds.length < config.min) return null;
+
+  const sliced = rounds.slice(0, config.count);
+
+  if (gameId === 'KNOW_ME') {
+    // ensure the last round is a free-text final question
+    const last = sliced[sliced.length - 1];
+    if (last) last.options = [];
+  }
+  if (gameId === 'ASSOCIATIONS' || gameId === 'COMPLIMENTS') {
+    for (const r of sliced) r.options = [];
+  }
+  if (gameId === 'SPEED_FACTS') {
+    for (const r of sliced) r.options = ['✅ Да', '❌ Нет'];
+  }
+  return sliced;
+}
+
+export async function generateAiGameRounds(input: AiGameRoundsInput): Promise<AiGameRound[] | null> {
+  const config = AI_GAME_CONFIGS[input.gameId];
+  if (!config) return null;
+
+  const prompt = gameRoundsPrompt(input);
+  const { body, error } = await callGemini(prompt, AI_ROUNDS_SCHEMA, AI_GAME_TIMEOUT_MS);
+  if (error) {
+    console.warn(
+      `[gemini] game rounds fallback for ${input.gameId}: ${error.kind === 'http'
+        ? `HTTP ${error.status}`
+        : error.kind === 'timeout'
+          ? 'timeout'
+          : error.kind === 'no_config'
+            ? 'no key'
+            : (error as { message: string }).message}`
+    );
+    return null;
+  }
+  const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    console.warn(`[gemini] game rounds empty response for ${input.gameId}`);
+    return null;
+  }
+  const cleaned = text.trim().replace(/^```json\s*/, '').replace(/```$/, '').trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    console.error(`[gemini] game rounds invalid JSON for ${input.gameId}:`, (err as Error).message);
+    return null;
+  }
+  const rounds = sanitizeAiRounds(parsed, input.gameId, config);
+  if (!rounds) {
+    console.warn(`[gemini] game rounds unsatisfying payload for ${input.gameId}`);
+    return null;
+  }
+  console.log(`[gemini] game rounds generated via Gemini for ${input.gameId} (${rounds.length})`);
+  return rounds;
 }

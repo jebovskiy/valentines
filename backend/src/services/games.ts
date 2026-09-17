@@ -1,7 +1,13 @@
 ﻿import { supabase } from '../utils/supabase';
+import { generateAiGameRounds, type AiGameRound } from './gemini';
 
-export type GameId = 'KNOW_ME' | 'CHOOSE_ONE';
+export type GameId = 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS';
 export type Mood = 'нежное' | 'веселое' | 'погорячее' | 'поговорить' | 'спокойное';
+
+export interface PairNames {
+  me: string;
+  partner: string;
+}
 
 export interface GameAnswer {
   session_id: string;
@@ -145,7 +151,13 @@ export async function getGameAnswers(sessionId: string): Promise<GameAnswer[]> {
 }
 
 // Card banks
-const KNOW_ME_WARMUP = [
+
+interface RawRound {
+  text: string;
+  options: string[];
+}
+
+const KNOW_ME_WARMUP: RawRound[] = [
   { text: 'Какой фильм ты бы посмотрел на нашем свидании?', options: ['🎬 Боевик', '😊 Комедия', '💔 Драма', '👻 Ужасы'] },
   { text: 'Какую музыку ты любишь слушать вместе?', options: ['🎶 Поп', '🎸 Рок', '🎹 Классика', '🥁 Электроника'] },
   { text: 'Какой твой идеальный выходной?', options: ['🏠 Домашний уют', '🚶 Прогулка на природе', '🏙️ Городские развлечения', '📚 Чтение книг'] },
@@ -158,20 +170,20 @@ const KNOW_ME_WARMUP = [
   { text: 'Как ты относишься к планированию будущего?', options: ['📅 Люблю планировать', '🌪️ Живу моментом', '🤔 Иногда планирую', '🚫 Не планирую'] },
 ];
 
-const KNOW_ME_PERSONAL = [
+const KNOW_ME_PERSONAL: RawRound[] = [
   { text: 'Что тебя больше всего заводит во мне?', options: ['😄 Улыбка', '👀 Взгляд', '🗣️ Голос', '💪 Сила'] },
   { text: 'Какой мой поступок ты никогда не забудешь?', options: ['💖 Поддержка в трудную минуту', '🎉 Неожиданный сюрприз', '🤲 Жертва ради меня', '😊 Простая забота'] },
   { text: 'Что я делаю, что тебя бесит, но ты терпишь?', options: ['⏰ Опоздания', '📱 Постоянно в телефоне', '🍴 Беспечность в еде', '🗣️ Слишком много говорить'] },
   { text: 'Какой мой талант ты хотел бы развить вместе?', options: ['🎨 Рисование', '🎵 Музыка', '💻 Программирование', '🏃 Спорт'] },
   { text: 'Если бы мы могли жить где угодно, где бы ты выбрал?', options: ['🏡 Загородный дом', '🌃 Шумный город', '🌊 Морское побережье', '🏔️ Горные вершины'] },
-{ text: 'Что бы ты изменил в наших отношениях?', options: ['💬 Больше откровенности', '🕒 Больше времени вместе', '😌 Меньше споров', '🤗 Больше нежности'] },
+  { text: 'Что бы ты изменил в наших отношениях?', options: ['💬 Больше откровенности', '🕒 Больше времени вместе', '😌 Меньше споров', '🤗 Больше нежности'] },
   { text: 'Какую нашу общую мечту ты хочешь осуществить первой?', options: ['🌍 Путешествие вокруг света', '🏠 Собственный дом', '👨‍👩‍👧‍👦 Большая семья', '💰 Финансовая независимость'] },
   { text: 'Как ты видишь наше будущее через 5 лет?', options: ['👨‍👩‍👧‍👦 С детьми', '🌍 Постоянные путешествия', '🏢 Карьерный рост', '🏡 Уютный дом'] },
 ];
 
-const KNOW_ME_FINAL_TEXT = { text: 'Какой наш следующий момент ты бы хотел создать вместе?', options: [] }; // special case: free text
+const KNOW_ME_FINAL_TEXT: RawRound = { text: 'Какой наш следующий момент ты бы хотел создать вместе?', options: [] };
 
-const CHOOSE_ONE_PAIRS = [
+const CHOOSE_ONE_PAIRS: RawRound[] = [
   { text: 'Кофе или чай утром?', options: ['☕ Кофе', '🫖 Чай'] },
   { text: 'Фильм дома или в кинотеатре?', options: ['🏠 Дом', '🎬 Кинотеатр'] },
   { text: 'Планировать отпуск или импровизировать?', options: ['📅 Планировать', '🎲 Импровизировать'] },
@@ -186,93 +198,212 @@ const CHOOSE_ONE_PAIRS = [
   { text: 'Подарок ручной работы или купленный?', options: ['🎨 Ручной работы', '🛒 Купленный'] },
 ];
 
-const CHOOSE_ONE_SURPRISE = [
+const CHOOSE_ONE_SURPRISE: RawRound[] = [
   { text: 'Где бы ты хотел провести вечер: дома, в парке, в кафе или в кино?', options: ['🏠 Дом', '🌳 Парк', '☕ Кафе', '🎬 Кино'] },
   { text: 'Какой подарок ты бы предпочел: книга, украшение, совместный курс или сертификат на массаж?', options: ['📖 Книга', '💎 Украшение', '🎓 Курс', '💆 Массаж'] },
   { text: 'Какой тип отпуска тебе ближе: пляж, горы, город или круиз?', options: ['🏖️ Пляж', '🏔️ Горы', '🏙️ Город', '⛵ Круиз'] },
 ];
 
-/**
- * Generate rounds for a game based on mood.
- * For MVP, we simply pick a fixed number of rounds from each category.
- * Mood influences the selection slightly: for KNOW_ME, more personal rounds when mood is romantic or talkative.
- */
-function generateKnowMeRounds(mood: Mood | null): any[] {
-  const warmupCount = 6;
-  const personalCount = 3;
-  const rounds: any[] = [];
+const ASSOCIATIONS_WORDS: Record<Mood, string[]> = {
+  нежное: ['Обнимашки', 'Закат', 'Утро', 'Плед', 'Кот', 'Поцелуй', 'Свечи', 'Счастье'],
+  веселое: ['Пикник', 'Танцы', 'Смех', 'Караоке', 'Друзья', 'Игры', 'Мороженое', 'Лето'],
+  погорячее: ['Шёпот', 'Сердце', 'Танец в темноте', 'Шёлк', 'Огонь', 'Магнит', 'Жара', 'Полночь'],
+  поговорить: ['Разговор', 'Глаза', 'Правда', 'Звёзды', 'Молчание', 'Дружба', 'Душа', 'Время'],
+  спокойное: ['Чай', 'Дождь', 'Книга', 'Одеяло', 'Луна', 'Лес', 'Музыка', 'Сон'],
+};
 
-  // Shuffle helper
-  const shuffle = (array: any[]) => {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-  };
+const COMPLIMENTS_BANK: Record<Mood, string[]> = {
+  нежное: [
+    'Скажи, за что ты меня любишь?',
+    'Расскажи, что во мне тебе нравится больше всего?',
+    'Какой мой поступок ты запомнил навсегда?',
+    'Какая моя черта для тебя самая дорогая?',
+    'Что делает наши моменты вместе особенными?',
+    'Каким ты меня видишь со стороны?',
+  ],
+  веселое: [
+    'Расскажи, какая моя привычка тебя смешит?',
+    'Что я делаю, чтобы ты улыбался?',
+    'Какой наш самый смешной момент ты вспоминаешь?',
+    'За что ты меня ценишь даже в плохие дни?',
+    'Какой мой талант тебя удивляет?',
+    'Что бы ты назвал самым лучшим во мне?',
+  ],
+  погорячее: [
+    'Расскажи, что во мне тебя заводит?',
+    'Какой мой взгляд ты запомнил?',
+    'Когда я кажусь тебе самым притягательным?',
+    'Что я делаю, что ты не можешь забыть?',
+    'Что бы ты прошептал мне на ухо?',
+    'Какая часть меня для тебя самая притягательная?',
+  ],
+  поговорить: [
+    'Что ты ценишь в наших разговорах?',
+    'Каким ты видишь меня искренним?',
+    'Что меня по-настоящему красит?',
+    'За что ты мне благодарен?',
+    'Какую мою мысль ты любишь больше всего?',
+    'В чём я для тебя самый близкий человек?',
+  ],
+  спокойное: [
+    'Что тебе нравится в наших тихих вечерах?',
+    'Чем я успокаиваю тебя?',
+    'Что ты любишь во мне, когда мы просто рядом?',
+    'Какая моя привычка тебя умиляет?',
+    'Что для тебя значит мой голос?',
+    'За что ты меня обнимаешь?',
+  ],
+};
 
-  // Warmup: always take 6 random from warmup bank
-  const warmupShuffled = shuffle([...KNOW_ME_WARMUP]);
-  rounds.push(...warmupShuffled.slice(0, warmupCount).map(r => ({ ...r, category: 'warmup', type: 'choice' })));
+const SPEED_FACTS_BANK: Record<Mood, string[]> = {
+  нежное: [
+    'Мы пропускаем мелкие ссоры мимо ушей',
+    'Мы планируем общее будущее',
+    'Мы каждый день говорим друг другу приятное',
+    'Мы умеем мириться за один вечер',
+    'Наша любовь становится крепче с каждым месяцем',
+    'Мы делимся всем, что чувствуем',
+    'Мы вместе встречаем рассвет',
+    'Мы знаем, что мы — навсегда',
+  ],
+  веселое: [
+    'Мы выбрали бы одинаковый фильм на вечер',
+    'Мы одинаково шутим',
+    'Мы бы выиграли в «Крокодила»',
+    'Мы бы вместе спели в караоке',
+    'Мы готовим лучше любого ресторана',
+    'Мы ни разу не скучали вместе',
+    'Мы знаем, кто из нас громче смеётся',
+    'Мы умеем веселиться даже в дождь',
+  ],
+  погорячее: [
+    'Мы не можем усидеть рядом друг с другом',
+    'Наш вечер заканчивается страстью',
+    'Мы целуемся с закрытыми глазами',
+    'Первый взгляд утром — самый тёплый',
+    'Мы знаем, как соблазнить друг друга',
+    'Наша химия сильнее обид',
+    'Мы любим держаться за руки под столом',
+    'Мы не боимся мечтать о ночи вдвоём',
+  ],
+  поговорить: [
+    'Мы говорим на одном языке',
+    'Мы умеем слушать друг друга',
+    'Мы обсуждаем всё, что важно',
+    'Мы не боимся тишины вместе',
+    'Мы знаем, о чём думаем друг о друге',
+    'Мы делимся секретами без страха',
+    'Мы всегда приходим к общему мнению',
+    'Наши разговоры — лучшее время суток',
+  ],
+  спокойное: [
+    'Мы любим одинаковый кофе',
+    'Мы читаем одни и те же книги',
+    'Мы смотрим сериалы, не торопясь',
+    'Мы любим тихие вечера',
+    'Мы засыпаем в одно время',
+    'Мы слушаем одну и ту же музыку',
+    'Мы гуляем неспешно',
+    'Мы отдыхаем лучше всего вместе',
+  ],
+};
 
-  // Personal: adjust count based on mood
-  let personalToTake = personalCount;
-  if (mood === 'нежное' || mood === 'поговорить' || mood === 'погорячее') {
-    personalToTake = Math.min(personalCount + 2, KNOW_ME_PERSONAL.length); // take a couple more if romantic/talkative
+function shuffle<T>(array: T[]): T[] {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
   }
-  const personalShuffled = shuffle([...KNOW_ME_PERSONAL]);
-  rounds.push(...personalShuffled.slice(0, personalToTake).map(r => ({ ...r, category: 'personal', type: 'choice' })));
-
-  // Final text round (always one)
-  rounds.push({ ...KNOW_ME_FINAL_TEXT, category: 'final', type: 'text' });
-
-  // Shuffle the whole deck? We'll keep order: warmup, personal, final.
-  return rounds;
+  return copy;
 }
 
-function generateChooseOneRounds(mood: Mood | null): any[] {
-  const binaryCount = 12;
-  const surpriseCount = 3;
-  const rounds: any[] = [];
-
-  const shuffle = (array: any[]) => {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
+/**
+ * Fallback static bank of raw rounds for a game. Used when AI generation
+ * fails or is disabled. Decorate afterwards with decorateRounds().
+ */
+function buildStaticRounds(gameId: GameId, mood: Mood | null): RawRound[] {
+  switch (gameId) {
+    case 'KNOW_ME': {
+      const rounds: RawRound[] = [];
+      rounds.push(...shuffle(KNOW_ME_WARMUP).slice(0, 6));
+      const personalToTake = mood === 'нежное' || mood === 'поговорить' || mood === 'погорячее'
+        ? Math.min(5, KNOW_ME_PERSONAL.length)
+        : 3;
+      rounds.push(...shuffle(KNOW_ME_PERSONAL).slice(0, personalToTake));
+      rounds.push(KNOW_ME_FINAL_TEXT);
+      return rounds;
     }
-    return array;
-  };
+    case 'CHOOSE_ONE': {
+      const rounds: RawRound[] = [];
+      rounds.push(...shuffle(CHOOSE_ONE_PAIRS).slice(0, 12));
+      const surpriseToTake = mood === 'веселое' ? 4 : 3;
+      rounds.push(...shuffle(CHOOSE_ONE_SURPRISE).slice(0, Math.min(surpriseToTake, CHOOSE_ONE_SURPRISE.length)));
+      return rounds;
+    }
+    case 'ASSOCIATIONS': {
+      const words = ASSOCIATIONS_WORDS[mood ?? 'нежное'];
+      return shuffle(words).map((text) => ({ text, options: [] }));
+    }
+    case 'COMPLIMENTS': {
+      const prompts = COMPLIMENTS_BANK[mood ?? 'нежное'];
+      return shuffle(prompts).map((text) => ({ text, options: [] }));
+    }
+    case 'SPEED_FACTS': {
+      const facts = SPEED_FACTS_BANK[mood ?? 'нежное'];
+      return shuffle(facts).map((text) => ({ text, options: ['✅ Да', '❌ Нет'] }));
+    }
+    default:
+      return [];
+  }
+}
 
-  // Binary choice rounds
-  const pairsShuffled = shuffle([...CHOOSE_ONE_PAIRS]);
-  rounds.push(...pairsShuffled.slice(0, binaryCount).map(r => ({ ...r, category: 'binary', type: 'choice' })));
-
-  // Surprise rounds (4 options)
-  const surpriseToTake = mood === 'веселое' ? surpriseCount + 1 : surpriseCount; // a bit more surprise if playful
-  const surpriseShuffled = shuffle([...CHOOSE_ONE_SURPRISE]);
-  rounds.push(...surpriseShuffled.slice(0, Math.min(surpriseToTake, CHOOSE_ONE_SURPRISE.length)).map(r => ({ ...r, category: 'surprise', type: 'choice' })));
-
-  return rounds;
+/**
+ * Attach client-facing metadata (type/category) to raw rounds produced by
+ * either the AI generator or the static banks, so the miniapp can render
+ * labels and the final card correctly.
+ */
+function decorateRounds(gameId: GameId, raw: RawRound[]): any[] {
+  return raw.map((r, i) => {
+    switch (gameId) {
+      case 'KNOW_ME': {
+        const isLast = i === raw.length - 1;
+        return {
+          ...r,
+          type: isLast ? 'text' : 'choice',
+          category: isLast ? 'final' : i < 6 ? 'warmup' : 'personal',
+          options: isLast ? [] : r.options,
+        };
+      }
+      case 'CHOOSE_ONE':
+        return { ...r, type: 'choice', category: r.options.length >= 3 ? 'surprise' : 'binary' };
+      case 'ASSOCIATIONS':
+        return { ...r, type: 'text', category: 'association', options: [] };
+      case 'COMPLIMENTS':
+        return { ...r, type: 'text', category: 'compliment', options: [] };
+      case 'SPEED_FACTS':
+        return { ...r, type: 'choice', category: 'fact', options: ['✅ Да', '❌ Нет'] };
+      default:
+        return { ...r, type: 'choice' };
+    }
+  });
 }
 
 export async function createGameSession(
   pairId: string,
   initiatorId: number,
   gameId: GameId,
-  mood: Mood | null
+  mood: Mood | null,
+  names?: PairNames
 ): Promise<GameSessionRow> {
-  let rounds: any[];
-  switch (gameId) {
-    case 'KNOW_ME':
-      rounds = generateKnowMeRounds(mood);
-      break;
-    case 'CHOOSE_ONE':
-      rounds = generateChooseOneRounds(mood);
-      break;
-    default:
-      throw new Error(`Unknown game ID: ${gameId}`);
+  let raw: RawRound[] | null = null;
+  if (names) {
+    raw = await generateAiGameRounds({ gameId, mood, names });
+  }
+  if (!raw) {
+    raw = buildStaticRounds(gameId, mood);
   }
 
+  const rounds = decorateRounds(gameId, raw);
   const session = await createGameSessionRow(pairId, initiatorId, gameId, mood, rounds);
   return session;
 }

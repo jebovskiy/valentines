@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
-import { GameMood, GameRound } from '../types';
+import { GameId, GameMood, GameRound } from '../types';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
 
@@ -21,13 +21,54 @@ const MOOD_LABEL: Record<GameMood, string> = {
   'спокойное': 'спокойный вечер',
 };
 
-function reactionFor(round: GameRound, mine: string, partner: string): string {
-  if (round.type === 'text') return '';
-  if (mine === partner) {
-    if (round.category === 'surprise') return '🔥 Одинаковый выбор из четырёх — это судьба!';
-    return '❤️ Вы выбрали одинаково — вы на одной волне!';
+const GAME_TITLES: Record<GameId, string> = {
+  KNOW_ME: 'Насколько ты меня знаешь?',
+  CHOOSE_ONE: 'Выбери одно',
+  ASSOCIATIONS: 'Ассоциации',
+  COMPLIMENTS: 'Комплименты',
+  SPEED_FACTS: 'Это мы?',
+};
+
+function normalizeAnswer(s: string): string {
+  return s.toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function categoryLabel(gameId: GameId, round: GameRound): string {
+  switch (gameId) {
+    case 'KNOW_ME':
+      return round.category === 'final' ? 'Финальный вопрос' : 'Вопрос';
+    case 'CHOOSE_ONE':
+      return round.category === 'surprise' ? 'Сюрприз' : 'Выбери одно';
+    case 'ASSOCIATIONS':
+      return 'Ассоциация';
+    case 'COMPLIMENTS':
+      return 'Комплимент';
+    case 'SPEED_FACTS':
+      return 'Это мы?';
+    default:
+      return '';
   }
-  return '😏 Ответы разные — кажется, есть что обсудить.';
+}
+
+function reactionFor(gameId: GameId, round: GameRound, mine: string, partner: string): string {
+  if (round.type === 'choice') {
+    if (mine === partner) {
+      if (round.category === 'surprise') return '🔥 Одинаковый выбор из четырёх — это судьба!';
+      return '❤️ Вы выбрали одинаково — вы на одной волне!';
+    }
+    return '😏 Ответы разные — кажется, есть что обсудить.';
+  }
+  if (gameId === 'KNOW_ME') return '';
+  const same = normalizeAnswer(mine) === normalizeAnswer(partner);
+  if (gameId === 'ASSOCIATIONS') {
+    return same
+      ? '🎯 Одинаковые ассоциации — вы на одной волне!'
+      : '😏 Ассоциации разные — зато есть о чём поговорить.';
+  }
+  if (gameId === 'COMPLIMENTS') return '💐 Какие тёплые слова!';
+  return same
+    ? '❤️ Вы написали почти одно и то же — настоящая связь!'
+    : '😏 Ответы разные — кажется, есть что обсудить.';
 }
 
 function isChoiceRound(round: GameRound): boolean {
@@ -380,14 +421,12 @@ export function GamePlayScreen() {
     );
   }
 
-  const choicesCount = rounds.filter(isChoiceRound).length;
-
   return (
     <div style={styles.container}>
       <div style={styles.topBar}>
         <BackButton />
         <span style={styles.title}>
-          {gameSession.game_id === 'KNOW_ME' ? 'Насколько ты меня знаешь?' : 'Выбери одно'}
+          {GAME_TITLES[gameSession.game_id]}
         </span>
         {gameSession.mood && <span style={styles.moodBadge}>{MOOD_EMOJI[gameSession.mood]}</span>}
       </div>
@@ -399,7 +438,6 @@ export function GamePlayScreen() {
           partByIndex={partByIndex}
           gameId={gameSession.game_id}
           mood={gameSession.mood}
-          choicesCount={choicesCount}
           onFinish={finish}
         />
       ) : (
@@ -422,9 +460,7 @@ export function GamePlayScreen() {
           {showAnswer && round && (
             <div className="animate-slide-up" style={styles.card}>
               <div style={styles.cardCategory}>
-                {gameSession.game_id === 'KNOW_ME'
-                  ? round.category === 'final' ? 'Финальный вопрос' : 'Вопрос'
-                  : round.category === 'surprise' ? 'Сюрприз' : 'Выбери одно'}
+                {categoryLabel(gameSession.game_id, round)}
               </div>
               <div style={styles.cardQuestion}>{round.text}</div>
 
@@ -496,8 +532,8 @@ export function GamePlayScreen() {
                   </div>
                 </div>
               )}
-              {reactionFor(round, mine, partners) && (
-                <div style={styles.reaction}>{reactionFor(round, mine, partners)}</div>
+              {reactionFor(gameSession.game_id, round, mine, partners) && (
+                <div style={styles.reaction}>{reactionFor(gameSession.game_id, round, mine, partners)}</div>
               )}
               <button onClick={nextReveal} style={styles.primaryBtn}>Дальше</button>
             </div>
@@ -514,30 +550,60 @@ function FinalCard({
   partByIndex,
   gameId,
   mood,
-  choicesCount,
   onFinish,
 }: {
   rounds: GameRound[];
   myByIndex: Map<number, string>;
   partByIndex: Map<number, string>;
-  gameId: string;
+  gameId: GameId;
   mood: GameMood | null;
-  choicesCount: number;
   onFinish: () => void;
 }) {
-  let matched = 0;
+  let matchedChoice = 0;
+  let choiceCount = 0;
+  let matchedText = 0;
+  let textCount = 0;
   for (let i = 0; i < rounds.length; i++) {
-    if (!isChoiceRound(rounds[i])) continue;
     const mine = myByIndex.get(i);
     const partners = partByIndex.get(i);
-    if (mine && mine === partners) matched++;
+    if (mine === undefined || partners === undefined) continue;
+    if (isChoiceRound(rounds[i])) {
+      choiceCount++;
+      if (mine === partners) matchedChoice++;
+    } else if (rounds[i].type === 'text') {
+      textCount++;
+      if (normalizeAnswer(mine) === normalizeAnswer(partners)) matchedText++;
+    }
   }
 
-  const pct = choicesCount > 0 ? matched / choicesCount : 0;
   let emoji = '💘';
   let title = 'Идеальная пара';
   let sub = '';
-  if (gameId === 'KNOW_ME') {
+  let countValue: string | null = null;
+  let countCaption = 'ответов совпали';
+  let listTitle: string | null = null;
+
+  if (gameId === 'COMPLIMENTS') {
+    emoji = '💐';
+    title = 'Комплименты получены';
+    sub = 'Никакого счёта — только искренние слова друг другу. Перечитывайте их, когда грустно.';
+    listTitle = 'Комплименты';
+  } else if (gameId === 'ASSOCIATIONS') {
+    const pct = textCount > 0 ? matchedText / textCount : 0;
+    if (pct >= 0.5) {
+      emoji = '🎯';
+      title = 'Вы мыслите в унисон!';
+      sub = 'Больше половины ассоциаций совпали — вы настроены на одну волну.';
+    } else {
+      emoji = '🌌';
+      title = 'Вы очень разные — и это здорово';
+      sub = 'Ассоциации разошлись, зато сколько нового вы узнали друг о друге!';
+    }
+    countValue = `${matchedText} из ${textCount}`;
+    countCaption = 'ассоциаций совпали';
+    listTitle = 'Ваши ассоциации';
+  } else if (gameId === 'KNOW_ME') {
+    const pct = choiceCount > 0 ? matchedChoice / choiceCount : 0;
     if (pct >= 0.8) {
       emoji = '💘';
       title = 'Вы читаете мысли друг друга';
@@ -551,47 +617,79 @@ function FinalCard({
       title = 'Вам есть что открыть друг о друге';
       sub = 'Разные ответы — это не плохо, это повод для новых разговоров.';
     }
+    countValue = `${matchedChoice} из ${choiceCount}`;
+    listTitle = 'Ваш следующий момент';
   } else {
-    if (pct >= 0.75) {
-      emoji = '🎯';
-      title = 'Вы на одной волне!';
-      sub = 'Совпали почти во всём — ваши вкусы очень близки.';
-    } else if (pct >= 0.4) {
-      emoji = '💫';
-      title = 'Хорошая синхронность';
-      sub = 'Набираете обороты — главное, что вам вместе весело.';
+    const pct = choiceCount > 0 ? matchedChoice / choiceCount : 0;
+    if (gameId === 'SPEED_FACTS') {
+      if (pct >= 0.75) {
+        emoji = '⚡';
+        title = 'Вы правда на одной волне!';
+        sub = 'Совпали почти во всех «Да/Нет» — вы отлично чувствуете друг друга.';
+      } else if (pct >= 0.5) {
+        emoji = '❤️';
+        title = 'Хорошая синхронность';
+        sub = 'Больше половины ответов совпали — вы хорошо понимаете друг друга.';
+      } else {
+        emoji = '😏';
+        title = 'Есть что обсудить';
+        sub = 'Мнения о вас разошлись — отличный повод поговорить вечером.';
+      }
     } else {
-      emoji = '😏';
-      title = 'Ого-ого';
-      sub = 'Меньше половины — похоже, вам есть что обсудить вечером.';
+      if (pct >= 0.75) {
+        emoji = '🎯';
+        title = 'Вы на одной волне!';
+        sub = 'Совпали почти во всём — ваши вкусы очень близки.';
+      } else if (pct >= 0.4) {
+        emoji = '💫';
+        title = 'Хорошая синхронность';
+        sub = 'Набираете обороты — главное, что вам вместе весело.';
+      } else {
+        emoji = '😏';
+        title = 'Ого-ого';
+        sub = 'Меньше половины — похоже, вам есть что обсудить вечером.';
+      }
     }
+    countValue = `${matchedChoice} из ${choiceCount}`;
   }
 
-  const finalTextRounds = rounds.filter((r, i) => r.type === 'text' && myByIndex.get(i) !== undefined && partByIndex.get(i) !== undefined);
+  const showList =
+    gameId === 'KNOW_ME' || gameId === 'ASSOCIATIONS' || gameId === 'COMPLIMENTS';
 
   return (
     <div className="animate-slide-up" style={styles.finalCard}>
       <div style={styles.finalEmoji}>{emoji}</div>
       <div style={styles.finalTitle}>{title}</div>
       <div style={styles.finalSub}>{sub}</div>
-      <div style={styles.finalCount}>{matched} из {choicesCount}</div>
-      <div style={styles.finalSub}>ответов совпали</div>
+      {countValue !== null && (
+        <>
+          <div style={styles.finalCount}>{countValue}</div>
+          <div style={styles.finalSub}>{countCaption}</div>
+        </>
+      )}
       {mood && (
         <div style={styles.finalSub}>
           {MOOD_EMOJI[mood]} Ваш {MOOD_LABEL[mood]} прошёл.
         </div>
       )}
 
-      {gameId === 'KNOW_ME' && finalTextRounds.length > 0 && (
+      {showList && (
         <div style={styles.finalAnswers}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--mute)' }}>Ваш следующий момент</div>
+          {listTitle && (
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--mute)' }}>{listTitle}</div>
+          )}
           {rounds.map((r, i) => {
-            if (r.type !== 'text') return null;
+            if (gameId === 'KNOW_ME' && r.type !== 'text') return null;
             const mine = myByIndex.get(i);
             const partners = partByIndex.get(i);
             if (mine === undefined || partners === undefined) return null;
             return (
               <div key={i} style={styles.finalAnswerBlock}>
+                {gameId !== 'KNOW_ME' && (
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', marginBottom: 4 }}>
+                    {r.text}
+                  </div>
+                )}
                 <div><strong>Вы:</strong> «{mine}»</div>
                 <div><strong>Партнёр:</strong> «{partners}»</div>
               </div>

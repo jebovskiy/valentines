@@ -13,6 +13,14 @@ const MOODS: { value: GameMood; label: string; emoji: string; desc: string }[] =
   { value: 'спокойное', label: 'Спокойное', emoji: '🌙', desc: 'Мягкие и уютные' },
 ];
 
+const GAME_TITLES: Record<GameId, string> = {
+  KNOW_ME: 'Насколько ты меня знаешь?',
+  CHOOSE_ONE: 'Выбери одно',
+  ASSOCIATIONS: 'Ассоциации',
+  COMPLIMENTS: 'Комплименты',
+  SPEED_FACTS: 'Это мы?',
+};
+
 const GAMES: { id: GameId; emoji: string; title: string; sub: string; bg: string }[] = [
   {
     id: 'KNOW_ME',
@@ -27,6 +35,27 @@ const GAMES: { id: GameId; emoji: string; title: string; sub: string; bg: string
     title: 'Выбери одно',
     sub: '15 быстрых дуэлей: «или — или». Оба выбирают — узнаёте, совпали ли',
     bg: 'linear-gradient(180deg, #dbe8ff, #b9cdfa)',
+  },
+  {
+    id: 'ASSOCIATIONS',
+    emoji: '🎭',
+    title: 'Ассоциации',
+    sub: 'Слово — и каждый пишет свою ассоциацию. Совпадения скажут многое',
+    bg: 'linear-gradient(180deg, #dcf5e5, #aee6c6)',
+  },
+  {
+    id: 'COMPLIMENTS',
+    emoji: '💐',
+    title: 'Комплименты',
+    sub: 'Тёплые вопросы-комплименты друг другу — без счёта, только приятно',
+    bg: 'linear-gradient(180deg, #fff3e0, #ffd9a8)',
+  },
+  {
+    id: 'SPEED_FACTS',
+    emoji: '⚡',
+    title: 'Это мы?',
+    sub: '8 утверждений о паре — отвечаете «да» или «нет» и узнаёте, совпало ли',
+    bg: 'linear-gradient(180deg, #e9e6ff, #c9c2f5)',
   },
 ];
 
@@ -243,7 +272,7 @@ export function GamesScreen() {
           <span style={styles.continueEmoji}>▶️</span>
           <span style={{ flex: 1, minWidth: 0 }}>
             <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
-              {gameSession?.game_id === 'KNOW_ME' ? 'Насколько ты меня знаешь?' : 'Выбери одно'}
+              {gameSession ? GAME_TITLES[gameSession.game_id] : ''}
             </span>
             <span style={{ display: 'block', fontSize: 12, color: 'var(--ash)', marginTop: 1 }}>
               Сессия активна — продолжить игру

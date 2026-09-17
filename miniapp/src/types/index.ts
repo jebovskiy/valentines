@@ -340,7 +340,7 @@ export interface Integration {
 
 export type PoiskkinoPart = Pick<PoiskkinoCandidate, 'kp_id' | 'name' | 'alternative_name' | 'year' | 'poster_url' | 'rating_imdb' | 'type'>;// --- Games ----------------------------------------------------------------------
 
-export type GameId = 'KNOW_ME' | 'CHOOSE_ONE';
+export type GameId = 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS';
 export type GameMood = 'нежное' | 'веселое' | 'погорячее' | 'поговорить' | 'спокойное';
 
 export interface GameAnswer {

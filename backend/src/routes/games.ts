@@ -15,7 +15,7 @@ import {
 } from '../services/games';
 
 const createSessionSchema = z.object({
-  game_id: z.enum(['KNOW_ME', 'CHOOSE_ONE']),
+  game_id: z.enum(['KNOW_ME', 'CHOOSE_ONE', 'ASSOCIATIONS', 'COMPLIMENTS', 'SPEED_FACTS']),
   mood: z.enum(['нежное', 'веселое', 'погорячее', 'поговорить', 'спокойное']).nullable().optional(),
 });
 
@@ -47,9 +47,14 @@ export async function gamesRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
-const { game_id, mood } = parsed.data;
+    const { game_id, mood } = parsed.data;
     await deleteActiveGameSessions(pair.id);
-    const session = await createGameSession(pair.id, request.telegramUser!.id, game_id, mood ?? null);
+    const initiatorIsA = pair.telegram_user_a === request.telegramUser!.id;
+    const names = {
+      me: initiatorIsA ? pair.user_a_name ?? 'Ты' : pair.user_b_name ?? 'Ты',
+      partner: initiatorIsA ? pair.user_b_name ?? 'Партнёр' : pair.user_a_name ?? 'Партнёр',
+    };
+    const session = await createGameSession(pair.id, request.telegramUser!.id, game_id, mood ?? null, names);
     return reply.code(201).send({ session });
   });
 
@@ -63,7 +68,7 @@ const { game_id, mood } = parsed.data;
 
     const session = await getGameSessionById(id);
     if (!session) return reply.code(404).send({ error: 'Session not found' });
-if (session.pair_id !== pair.id) return reply.code(403).send({ error: 'Not your pair session' });
+    if (session.pair_id !== pair.id) return reply.code(403).send({ error: 'Not your pair session' });
     if (session.status === 'done') {
       return reply.code(409).send({ error: 'Session already finished' });
     }
