@@ -504,6 +504,7 @@ function ValentineCard({
   return (
     <div
       className={unread ? `b-card ${variant} unread` : `b-card ${variant}`}
+      style={{ background: animationGradient(valentine.animation_type) }}
       onClick={onPress}
       role="button"
       tabIndex={0}
@@ -518,6 +519,23 @@ function ValentineCard({
       </div>
     </div>
   );
+}
+
+function animationGradient(type: string): string {
+  switch (type) {
+    case 'sparkle':
+      return 'var(--grad-sparkle)';
+    case 'moon':
+      return 'var(--grad-moon)';
+    case 'flame':
+      return 'var(--grad-flame)';
+    case 'bloom_petals':
+      return 'var(--grad-bloom)';
+    case 'golden_halo':
+      return 'var(--grad-golden)';
+    default:
+      return 'var(--grad-heart)';
+  }
 }
 
 function CreatePairForm({
