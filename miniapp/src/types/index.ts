@@ -338,4 +338,35 @@ export interface Integration {
   capabilities: string[];
 }
 
-export type PoiskkinoPart = Pick<PoiskkinoCandidate, 'kp_id' | 'name' | 'alternative_name' | 'year' | 'poster_url' | 'rating_imdb' | 'type'>;
+export type PoiskkinoPart = Pick<PoiskkinoCandidate, 'kp_id' | 'name' | 'alternative_name' | 'year' | 'poster_url' | 'rating_imdb' | 'type'>;// --- Games ----------------------------------------------------------------------
+
+export type GameId = 'KNOW_ME' | 'CHOOSE_ONE';
+export type GameMood = 'нежное' | 'веселое' | 'погорячее' | 'поговорить' | 'спокойное';
+
+export interface GameAnswer {
+  session_id: string;
+  user_id: number;
+  round_index: number;
+  answer: string;
+  created_at: string;
+}
+
+export interface GameRound {
+  type: 'choice' | 'text';
+  text: string;
+  options: string[]; // for choice rounds; empty for text rounds
+  category?: string; // e.g., 'warmup', 'personal', 'final', 'binary', 'surprise'
+}
+
+export interface GameSession {
+  id: string;
+  pair_id: string;
+  initiator_id: number;
+  game_id: GameId;
+  mood: GameMood | null;
+  rounds: GameRound[];
+  status: 'active' | 'done';
+  created_at: string;
+  updated_at: string;
+  answers?: GameAnswer[];
+}

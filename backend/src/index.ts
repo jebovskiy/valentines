@@ -1,4 +1,4 @@
-import fastify from 'fastify';
+﻿import fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
@@ -16,6 +16,7 @@ import { moviesRoutes } from './routes/movies';
 import { placesRoutes, placesPhotoRoutes } from './routes/places';
 import { datesRoutes } from './routes/dates';
 import { integrationsRoutes } from './routes/integrations';
+import { gamesRoutes } from './routes/games';
 import { ensureStorageBucket } from './utils/storage';
 import { startNotificationScheduler } from './services/notificationScheduler';
 import { startUpdateBroadcast } from './services/updateBroadcaster';
@@ -42,8 +43,10 @@ async function start() {
   await app.register(eventsRoutes, { prefix: '/api/events' });
   await app.register(moviesRoutes, { prefix: '/api/movies' });
   await app.register(placesRoutes, { prefix: '/api/places' });
-  await app.register(placesPhotoRoutes, { prefix: '/api/places' });
+  
   await app.register(datesRoutes, { prefix: '/api/dates' });
+  
+  await app.register(gamesRoutes, { prefix: '/api/games' });
   await app.register(integrationsRoutes, { prefix: '/api/integrations' });
 
   // Background notification delivery that doesn't depend on Supabase cron
@@ -61,3 +64,5 @@ async function start() {
 }
 
 start();
+
+

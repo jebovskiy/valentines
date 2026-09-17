@@ -27,6 +27,9 @@ import type {
   DateChoice,
   Place,
   Integration,
+  GameId,
+  GameMood,
+  GameSession,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -230,6 +233,20 @@ export const api = {
     }),
   finishDateSession: (sessionId: string) =>
     fetchWithAuth<{ ok: boolean }>(`/api/dates/${sessionId}/done`, { method: 'POST' }),
+
+  getActiveGameSession: () => fetchWithAuth<{ session: GameSession | null }>('/api/games/active'),
+  createGameSession: (gameId: GameId, mood: GameMood | null) =>
+    fetchWithAuth<{ session: GameSession }>('/api/games', {
+      method: 'POST',
+      body: JSON.stringify({ game_id: gameId, mood: mood ?? null }),
+    }),
+  answerGame: (sessionId: string, roundIndex: number, answer: string) =>
+    fetchWithAuth<{ session: GameSession }>(`/api/games/${sessionId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ round_index: roundIndex, answer }),
+    }),
+  finishGameSession: (sessionId: string) =>
+    fetchWithAuth<{ ok: boolean }>(`/api/games/${sessionId}/done`, { method: 'POST' }),
 
   // Integrations
   getIntegrations: () => fetchWithAuth<{ integrations: Integration[] }>('/api/integrations'),

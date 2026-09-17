@@ -1,7 +1,7 @@
-import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration } from '../types';
+﻿import { create } from 'zustand';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood } from '../types';
 import { api } from '../api/client';
-import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions } from '../api/supabase';
+import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions, subscribeToGameSessions, unsubscribeFromGameSessions } from '../api/supabase';
 
 export const PARTNER_NAME_OVERRIDE_KEY = 'vn_partner_name_override';
 
@@ -34,6 +34,10 @@ interface ValentinesState {
   realtimeChannel: ReturnType<typeof subscribeToValentines> | null;
 
   fetchPair: () => Promise<void>;
+  gameSession: GameSession | null;
+  gameSessionLoading: boolean;
+  gameRealtimeChannel: ReturnType<typeof subscribeToGameSessions> | null;
+
   checkPair: () => Promise<Pair | null>;
   createInvite: () => Promise<string | null>;
   joinInvite: (code: string) => Promise<boolean>;
@@ -102,6 +106,13 @@ interface ValentinesState {
   clearDateSession: () => void;
   setupDateRealtime: (pairId: string) => void;
   cleanupDateRealtime: () => void;
+  fetchGameSession: () => Promise<void>;
+  createGameSession: (gameId: GameId, mood: GameMood | null) => Promise<GameSession | null>;
+  answerGame: (roundIndex: number, answer: string) => Promise<GameSession | null>;
+  finishGameSession: (sessionId: string) => Promise<void>;
+  clearGameSession: () => void;
+  setupGameRealtime: (pairId: string) => void;
+  cleanupGameRealtime: () => void;
   fetchIntegrations: () => Promise<void>;
 }
 
@@ -109,18 +120,18 @@ function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId:
   const isOwn = valentine.sender_telegram_id === currentUserId;
   return {
     ...valentine,
-    sender_name: isOwn ? 'Вы' : partnerName(pair, currentUserId),
+    sender_name: isOwn ? 'Р’С‹' : partnerName(pair, currentUserId),
     is_own: isOwn,
   };
 }
 
 export function partnerName(pair: Pair | null, currentUserId: number | null): string {
-  if (!pair || !currentUserId) return 'Партнер';
+  if (!pair || !currentUserId) return 'РџР°СЂС‚РЅРµСЂ';
   const override = getPartnerOverride(pair.id);
   if (override && override.trim()) return override.trim();
-  if (pair.telegram_user_a === currentUserId) return pair.user_b_name || 'Партнер';
-  if (pair.telegram_user_b === currentUserId) return pair.user_a_name || 'Партнер';
-  return 'Партнер';
+  if (pair.telegram_user_a === currentUserId) return pair.user_b_name || 'РџР°СЂС‚РЅРµСЂ';
+  if (pair.telegram_user_b === currentUserId) return pair.user_a_name || 'РџР°СЂС‚РЅРµСЂ';
+  return 'РџР°СЂС‚РЅРµСЂ';
 }
 
 export function daysTogether(pair: Pair | null): number {
@@ -151,6 +162,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   dateSession: null,
   dateSessionLoading: false,
   dateRealtimeChannel: null,
+  gameSession: null,
+  gameSessionLoading: false,
+  gameRealtimeChannel: null,
   integrations: [],
 
   fetchPair: async () => {
@@ -357,7 +371,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     if (result.error || !result.data) return;
     const enriched = result.data.greetings.map((g) => ({
       ...g,
-      sender_name: g.sender_telegram_id === currentUser.id ? 'Вы' : partnerName(pair, currentUser.id),
+      sender_name: g.sender_telegram_id === currentUser.id ? 'Р’С‹' : partnerName(pair, currentUser.id),
       is_own: g.sender_telegram_id === currentUser.id,
     }));
     set({ greetings: enriched });
@@ -373,7 +387,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     const greeting = result.data!.greeting;
     const enriched: Greeting = {
       ...greeting,
-      sender_name: currentUser ? 'Вы' : 'Вы',
+      sender_name: currentUser ? 'Р’С‹' : 'Р’С‹',
       is_own: true,
     };
     set((state) => ({ greetings: [enriched, ...state.greetings] }));
@@ -622,4 +636,69 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     if (result.error || !result.data) return;
     set({ integrations: result.data.integrations });
   },
+
+  fetchGameSession: async () => {
+    const { pair } = get();
+    if (!pair) return;
+    const result = await api.getActiveGameSession();
+    if (result.error || !result.data) return;
+    if (result.data.session) {
+      set({ gameSession: result.data.session });
+    }
+  },
+
+  createGameSession: async (gameId, mood) => {
+    set({ gameSessionLoading: true, error: null });
+    const result = await api.createGameSession(gameId, mood);
+    if (result.error || !result.data) {
+      set({ gameSessionLoading: false, error: result.error });
+      return null;
+    }
+    set({ gameSession: result.data.session, gameSessionLoading: false });
+    return result.data.session;
+  },
+
+  answerGame: async (roundIndex, answer) => {
+    const { gameSession } = get();
+    if (!gameSession) return null;
+    const result = await api.answerGame(gameSession.id, roundIndex, answer);
+    if (result.error || !result.data) {
+      set({ error: result.error });
+      return null;
+    }
+    set({ gameSession: result.data.session });
+    return result.data.session;
+  },
+
+  finishGameSession: async (sessionId) => {
+    const result = await api.finishGameSession(sessionId);
+    if (result.error) set({ error: result.error });
+    const { gameSession } = get();
+    if (gameSession?.id === sessionId) {
+      set({ gameSession: { ...gameSession, status: 'done' } });
+    }
+  },
+
+  clearGameSession: () => set({ gameSession: null }),
+
+  setupGameRealtime: (pairId) => {
+    const { gameRealtimeChannel } = get();
+    if (gameRealtimeChannel) {
+      unsubscribeFromGameSessions(gameRealtimeChannel);
+    }
+
+    const channel = subscribeToGameSessions(pairId, () => {
+      void get().fetchGameSession();
+    });
+    set({ gameRealtimeChannel: channel });
+  },
+
+  cleanupGameRealtime: () => {
+    const { gameRealtimeChannel } = get();
+    if (gameRealtimeChannel) {
+      unsubscribeFromGameSessions(gameRealtimeChannel);
+      set({ gameRealtimeChannel: null });
+    }
+  },
 }));
+

@@ -102,6 +102,7 @@ export function NavSheet() {
   const moviesRef = useRef<HTMLButtonElement>(null);
   const streakRef = useRef<HTMLButtonElement>(null);
   const dateRef = useRef<HTMLButtonElement>(null);
+  const gamesRef = useRef<HTMLButtonElement>(null);
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -347,6 +348,15 @@ export function NavSheet() {
       iconBg: 'linear-gradient(180deg, #ffe0e6, #ffb8c6)',
       title: 'Куда пойти',
       sub: 'Подобрать место вдвоём',
+    },
+    {
+      key: 'games',
+      ref: gamesRef,
+      path: '/games',
+      emoji: '🎲',
+      iconBg: 'linear-gradient(180deg, #e6e3ff, #cfc9f6)',
+      title: 'Игры',
+      sub: 'Вопросы и выбор за двоих',
     },
   ];
 

@@ -106,4 +106,47 @@ export function subscribeToDateSessions(
 
 export function unsubscribeFromDateSessions(channel: RealtimeChannel): void {
   getSupabase().removeChannel(channel);
+}export function subscribeToGameSessions(
+  pairId: string,
+  onChange: () => void,
+): RealtimeChannel {
+  const channel = getSupabase()
+    .channel(`games:${pairId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'game_sessions',
+        filter: `pair_id=eq.${pairId}`,
+      },
+      () => onChange()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'game_sessions',
+        filter: `pair_id=eq.${pairId}`,
+      },
+      () => onChange()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'game_sessions',
+        filter: `pair_id=eq.${pairId}`,
+      },
+      () => onChange()
+    )
+    .subscribe();
+
+  return channel;
+}
+
+export function unsubscribeFromGameSessions(channel: RealtimeChannel): void {
+  getSupabase().removeChannel(channel);
 }
