@@ -522,7 +522,7 @@ function ValentineCard({ valentine, isTall, onPress }: { valentine: any; isTall:
       style={{ ...styles.feedItem, minHeight: tall ? 220 : 118, background: gradient }}
     >
       <div style={styles.feedEmoji}>
-        <AppleEmoji emoji={anim.emoji} size={tall ? 44 : 30} />
+        <AppleEmoji emoji={anim.emoji} size={tall ? 76 : 52} />
       </div>
       {hasPhoto ? (
         <div style={{ ...styles.feedPhoto, height: tall ? 96 : 64 }}>
@@ -964,19 +964,24 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '20px',
     border: '1px solid var(--hairline-soft)',
     position: 'relative',
+    overflow: 'hidden',
     gap: '10px',
   },
   feedEmoji: {
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: '8px',
+    right: '10px',
+    opacity: 0.35,
+    transform: 'rotate(12deg)',
+    pointerEvents: 'none',
   },
   feedMessage: {
     fontFamily: 'var(--font-body)',
     fontSize: '15px',
     lineHeight: 1.4,
     color: 'var(--ink)',
-    background: 'var(--canvas)',
     borderRadius: '16px',
-    padding: '10px 14px',
+    padding: '4px 56px 4px 0',
     width: '100%',
     boxSizing: 'border-box',
     display: '-webkit-box',
@@ -989,7 +994,6 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     borderRadius: '16px',
     overflow: 'hidden',
-    background: 'var(--canvas)',
   },
   feedPhotoImg: {
     width: '100%',
@@ -1024,35 +1028,32 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 'auto',
   },
   overlayPill: {
-    background: 'var(--canvas)',
     color: 'var(--ink)',
     fontSize: '12px',
     fontWeight: '500',
     lineHeight: 1.4,
     letterSpacing: '0.01em',
-    padding: '6px 12px',
+    padding: '4px 10px',
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
   },
   overlayPillAccent: {
-    background: 'var(--canvas)',
-    color: 'var(--primary)',
+    color: 'var(--primary-dark)',
     fontSize: '12px',
     fontWeight: '700',
     lineHeight: 1.4,
     letterSpacing: '0.01em',
-    padding: '6px 12px',
+    padding: '4px 10px',
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
   },
   overlayPillMuted: {
-    background: 'var(--canvas)',
     color: 'var(--mute)',
     fontSize: '12px',
     fontWeight: '600',
     lineHeight: 1.4,
     letterSpacing: '0.01em',
-    padding: '6px 12px',
+    padding: '4px 10px',
     borderRadius: '9999px',
     fontFamily: 'var(--font-body)',
   },
