@@ -498,7 +498,7 @@ function ValentineCard({
   const anim = getAnimation(valentine.animation_type);
   const senderLabel = valentine.is_own ? 'Вы' : valentine.sender_name;
   const unread = !valentine.is_own && !valentine.seen_at;
-  const readMark = valentine.is_own ? (valentine.seen_at ? '✓' : '…') : unread ? 'новое' : '';
+  const readMark = valentine.seen_at ? '✓' : valentine.is_own ? '…' : 'новое';
   const text = valentine.message || anim.label;
 
   return (
