@@ -181,9 +181,6 @@ textarea:focus-visible {
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  grid-auto-flow: dense;
-  align-items: start;
-  justify-content: center;
   gap: 12px;
   padding: 14px 0;
   overflow-y: auto;
@@ -197,16 +194,18 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
   padding: 16px;
+  aspect-ratio: 1;
   border: none;
   border-radius: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   cursor: pointer;
   transition: transform 0.12s ease;
 }
-.b-card.w { grid-column: span 2; width: 100%; }
-.b-card.p { grid-column: span 1; padding: 12px 12px; }
+.b-card.w { width: 100%; }
+.b-card.p { padding: 12px; }
 .b-card:active { transform: scale(0.985); }
 .b-card.unread { border-left: 3px solid var(--primary); }
 .b-emo {
