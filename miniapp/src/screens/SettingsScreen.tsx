@@ -41,7 +41,7 @@ export function SettingsScreen() {
   }, [integrations]);
 
   const toggle = (integration: Integration) => {
-    const next = !enabled[integration.id];
+    const next = !(enabled[integration.id] ?? isEnabled(integration.id));
     setEnabled(integration.id, next);
     setEnabledState((prev) => ({ ...prev, [integration.id]: next }));
   };
@@ -92,14 +92,13 @@ export function SettingsScreen() {
               >
                 {integration.connected ? 'Подключено' : 'Не подключено'}
               </span>
-              <label style={styles.switch}>
+              <div
+                style={styles.switch}
+                role="switch"
+                aria-checked={!!enabled[integration.id]}
+                onClick={() => toggle(integration)}
+              >
                 <span style={styles.switchLabel}>{enabled[integration.id] ? 'Вкл' : 'Выкл'}</span>
-                <input
-                  type="checkbox"
-                  checked={enabled[integration.id] ?? true}
-                  onChange={() => toggle(integration)}
-                  style={{ display: 'none' }}
-                />
                 <span
                   style={{
                     ...styles.switchTrack,
@@ -113,7 +112,7 @@ export function SettingsScreen() {
                     }}
                   />
                 </span>
-              </label>
+              </div>
             </div>
 
             {!integration.connected && (
