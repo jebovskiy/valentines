@@ -642,9 +642,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     if (!pair) return;
     const result = await api.getActiveGameSession();
     if (result.error || !result.data) return;
-    if (result.data.session) {
-      set({ gameSession: result.data.session });
-    }
+    set({ gameSession: result.data.session });
   },
 
   createGameSession: async (gameId, mood) => {

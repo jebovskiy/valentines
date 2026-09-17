@@ -18,7 +18,7 @@ const GAMES: { id: GameId; emoji: string; title: string; sub: string; bg: string
     id: 'KNOW_ME',
     emoji: '💡',
     title: 'Насколько ты меня знаешь?',
-    sub: '10 вопросов о ваших вкусах и мечтах — ответы открываются вместе',
+    sub: 'Вопросы о ваших вкусах и мечтах — ответы открываются вместе',
     bg: 'linear-gradient(180deg, #ffe0e6, #ffb8c6)',
   },
   {
@@ -187,6 +187,7 @@ export function GamesScreen() {
   const [selectedGame, setSelectedGame] = useState<GameId>('KNOW_ME');
   const [mood, setMood] = useState<GameMood>('нежное');
   const [starting, setStarting] = useState(false);
+  const [screenError, setScreenError] = useState<string | null>(null);
 
   useEffect(() => {
     void fetchGameSession();
@@ -207,10 +208,13 @@ export function GamesScreen() {
     if (starting) return;
     hapticFeedback('impact', 'light');
     setStarting(true);
+    setScreenError(null);
     const session = await createGameSession(selectedGame, mood);
     setStarting(false);
     if (session) {
       navigate('/games/play');
+    } else {
+      setScreenError(useValentinesStore.getState().error || 'Не удалось начать игру. Попробуйте ещё раз.');
     }
   };
 
@@ -224,6 +228,12 @@ export function GamesScreen() {
       <div style={styles.subtitle}>
         Игры для двоих в реальном времени: оба отвечаете, ответы раскрываются одновременно.
       </div>
+
+      {screenError && (
+        <div style={{ background: 'var(--surface-card)', border: '1px solid var(--hairline)', borderRadius: 14, padding: '12px 14px', fontSize: 13, lineHeight: '18px', color: 'var(--primary)', marginBottom: 14 }}>
+          {screenError}
+        </div>
+      )}
 
       {hasActive && (
         <button style={styles.continueCard} onClick={() => {

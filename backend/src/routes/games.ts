@@ -21,7 +21,7 @@ const createSessionSchema = z.object({
 
 const answerSchema = z.object({
   round_index: z.number().int().min(0),
-  answer: z.string(),
+  answer: z.string().trim().min(1).max(500),
 });
 
 async function withAnswers(session: GameSessionRow): Promise<GameSessionRow> {
@@ -63,9 +63,15 @@ const { game_id, mood } = parsed.data;
 
     const session = await getGameSessionById(id);
     if (!session) return reply.code(404).send({ error: 'Session not found' });
-    if (session.pair_id !== pair.id) return reply.code(403).send({ error: 'Not your pair session' });
+if (session.pair_id !== pair.id) return reply.code(403).send({ error: 'Not your pair session' });
     if (session.status === 'done') {
       return reply.code(409).send({ error: 'Session already finished' });
+    }
+
+    const rounds = session.rounds as unknown[];
+    const maxIndex = rounds.length - 1;
+    if (parsed.data.round_index < 0 || parsed.data.round_index > maxIndex) {
+      return reply.code(400).send({ error: 'Invalid round index' });
     }
 
     await upsertGameAnswer(id, request.telegramUser!.id, parsed.data.round_index, parsed.data.answer);
