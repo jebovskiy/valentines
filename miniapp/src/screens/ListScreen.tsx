@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName, daysTogether } from '../hooks/useValentinesStore';
 import { setMainButton, hapticFeedback, webApp } from '../utils/telegram';
 import { HeartOpenAnimation } from '../components/HeartOpenAnimation';
-import { AppleEmoji } from '../components/AppleEmoji';
 import { GreetingOverlay, GreetingMode, GreetingScene } from '../components/GreetingOverlay';
 import { getAnimation } from '../types';
 import { formatFeedTime } from '../utils/date';
@@ -389,38 +388,17 @@ export function ListScreen() {
 
       {filtered.length > 0 ? (
         <div style={styles.feedColumns}>
-          <div style={styles.feedColumn}>
-            {filtered
-              .filter((_, i) => i % 2 === 0)
-              .map((valentine, colIndex) => (
-                <ValentineCard
-                  key={valentine.id}
-                  valentine={valentine}
-                  isTall={colIndex % 2 === 0}
-                  onPress={() => {
-                    hapticFeedback('impact', 'light');
-                    if (!valentine.seen_at) markSeen(valentine.id);
-                    navigate(`/valentine/${valentine.id}`);
-                  }}
-                />
-              ))}
-          </div>
-          <div style={styles.feedColumn}>
-            {filtered
-              .filter((_, i) => i % 2 === 1)
-              .map((valentine, colIndex) => (
-                <ValentineCard
-                  key={valentine.id}
-                  valentine={valentine}
-                  isTall={colIndex % 2 === 0}
-                  onPress={() => {
-                    hapticFeedback('impact', 'light');
-                    if (!valentine.seen_at) markSeen(valentine.id);
-                    navigate(`/valentine/${valentine.id}`);
-                  }}
-                />
-              ))}
-          </div>
+          {filtered.map((valentine) => (
+            <ValentineCard
+              key={valentine.id}
+              valentine={valentine}
+              onPress={() => {
+                hapticFeedback('impact', 'light');
+                if (!valentine.seen_at) markSeen(valentine.id);
+                navigate(`/valentine/${valentine.id}`);
+              }}
+            />
+          ))}
         </div>
       ) : feed.length > 0 ? (
         <div style={styles.emptyContainer}>
@@ -507,64 +485,30 @@ function formatDays(days: number): string {
   return 'дней';
 }
 
-function ValentineCard({ valentine, isTall, onPress }: { valentine: any; isTall: boolean; onPress: () => void }) {
+function ValentineCard({ valentine, onPress }: { valentine: any; onPress: () => void }) {
   const anim = getAnimation(valentine.animation_type);
   const senderLabel = valentine.is_own ? 'Вы' : valentine.sender_name;
-  const isUnread = !valentine.is_own && !valentine.seen_at;
-  const gradient = animationGradient(valentine.animation_type);
-  const tall = isTall;
-  const hasPhoto = !!valentine.photo_url;
+  const unread = !valentine.is_own && !valentine.seen_at;
+  const readMark = valentine.is_own ? (valentine.seen_at ? '✓' : '…') : unread ? 'новое' : '';
+  const text = valentine.message || anim.label;
 
   return (
-    <Link
-      to={`/valentine/${valentine.id}`}
+    <div
+      className={unread ? 'b-card w unread' : 'b-card w'}
       onClick={onPress}
-      style={{ ...styles.feedItem, minHeight: tall ? 220 : 118, background: gradient }}
+      role="button"
+      tabIndex={0}
     >
-      <div style={styles.feedEmoji}>
-        <AppleEmoji emoji={anim.emoji} size={tall ? 44 : 30} />
+      <div className="b-emo">{anim.emoji}</div>
+      <div className="b-txt">{text}</div>
+      <div className="b-meta">
+        <span className="b-pill">
+          {senderLabel} · {formatFeedTime(valentine.sent_at)}
+        </span>
+        {readMark ? <span className="b-read">{readMark}</span> : null}
       </div>
-      {hasPhoto ? (
-        <div style={{ ...styles.feedPhoto, height: tall ? 96 : 64 }}>
-          <img src={valentine.photo_url} alt="Фото" style={styles.feedPhotoImg} loading="lazy" />
-          <span style={styles.feedPhotoLabel}>📷 фото</span>
-        </div>
-      ) : (
-        valentine.message && (
-          <div style={{ ...styles.feedMessage, WebkitLineClamp: tall ? 3 : 1 }}>
-            {valentine.message}
-          </div>
-        )
-      )}
-      <div style={styles.feedMetaRow}>
-        <span style={styles.overlayPill}>{senderLabel}</span>
-        <span style={styles.overlayPill}>{formatFeedTime(valentine.sent_at)}</span>
-        {isUnread && <span style={styles.overlayPillAccent}>новое</span>}
-        {valentine.is_own && (
-          <span style={valentine.seen_at ? styles.overlayPillMuted : styles.overlayPillAccent}>
-            {valentine.seen_at ? '✓ прочитано' : 'не прочитано'}
-          </span>
-        )}
-      </div>
-    </Link>
+    </div>
   );
-}
-
-function animationGradient(type: string): string {
-  switch (type) {
-    case 'sparkle':
-      return 'var(--grad-sparkle)';
-    case 'moon':
-      return 'var(--grad-moon)';
-    case 'flame':
-      return 'var(--grad-flame)';
-    case 'bloom_petals':
-      return 'var(--grad-bloom)';
-    case 'golden_halo':
-      return 'var(--grad-golden)';
-    default:
-      return 'var(--grad-heart)';
-  }
 }
 
 function CreatePairForm({
@@ -937,124 +881,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   feedColumns: {
     display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: '12px',
     padding: '14px 0',
     overflowY: 'auto',
     flex: 1,
     minHeight: 0,
-  },
-  feedColumn: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: '12px',
-    flex: 1,
-    minWidth: 0,
-  },
-  feedItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: '16px',
-    textDecoration: 'none',
-    color: 'inherit',
-    borderRadius: '20px',
-    border: '1px solid var(--hairline-soft)',
-    position: 'relative',
-    gap: '10px',
-  },
-  feedEmoji: {
-    alignSelf: 'flex-start',
-  },
-  feedMessage: {
-    fontFamily: 'var(--font-body)',
-    fontSize: '15px',
-    lineHeight: 1.4,
-    color: 'var(--ink)',
-    background: 'var(--canvas)',
-    borderRadius: '16px',
-    padding: '10px 14px',
-    width: '100%',
-    boxSizing: 'border-box',
-    display: '-webkit-box',
-    WebkitBoxOrient: 'vertical',
-    overflow: 'hidden',
-    wordBreak: 'break-word',
-  },
-  feedPhoto: {
-    position: 'relative',
-    width: '100%',
-    borderRadius: '16px',
-    overflow: 'hidden',
-    background: 'var(--canvas)',
-  },
-  feedPhotoImg: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    display: 'block',
-    filter: 'blur(14px) brightness(0.92)',
-    transform: 'scale(1.12)',
-    WebkitFilter: 'blur(14px) brightness(0.92)',
-  },
-  feedPhotoLabel: {
-    position: 'absolute',
-    top: '8px',
-    left: '8px',
-    background: 'rgba(255,255,255,0.85)',
-    color: 'var(--ink)',
-    fontSize: '10px',
-    fontWeight: '700',
-    lineHeight: 1.3,
-    letterSpacing: '0.01em',
-    padding: '5px 10px',
-    borderRadius: '9999px',
-    fontFamily: 'var(--font-body)',
-  },
-  feedMetaRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    width: '100%',
-    gap: '8px',
-    flexWrap: 'wrap',
-    marginTop: 'auto',
-  },
-  overlayPill: {
-    background: 'var(--canvas)',
-    color: 'var(--ink)',
-    fontSize: '12px',
-    fontWeight: '500',
-    lineHeight: 1.4,
-    letterSpacing: '0.01em',
-    padding: '6px 12px',
-    borderRadius: '9999px',
-    fontFamily: 'var(--font-body)',
-  },
-  overlayPillAccent: {
-    background: 'var(--canvas)',
-    color: 'var(--primary)',
-    fontSize: '12px',
-    fontWeight: '700',
-    lineHeight: 1.4,
-    letterSpacing: '0.01em',
-    padding: '6px 12px',
-    borderRadius: '9999px',
-    fontFamily: 'var(--font-body)',
-  },
-  overlayPillMuted: {
-    background: 'var(--canvas)',
-    color: 'var(--mute)',
-    fontSize: '12px',
-    fontWeight: '600',
-    lineHeight: 1.4,
-    letterSpacing: '0.01em',
-    padding: '6px 12px',
-    borderRadius: '9999px',
-    fontFamily: 'var(--font-body)',
   },
   feedFab: {
     position: 'fixed',

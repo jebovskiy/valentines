@@ -177,3 +177,53 @@ textarea:focus-visible {
 @keyframes flyLeft {
   to { transform: translateX(-140%) rotate(-12deg); opacity: 0; }
 }
+
+.b-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--hairline-soft);
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.b-card.w { width: 100%; }
+.b-card:active { transform: scale(0.985); }
+.b-card.unread { border-color: var(--primary); border-left: 3px solid var(--primary); }
+.b-emo { font-size: 32px; line-height: 1; }
+.b-txt {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+  word-break: break-word;
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.b-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+.b-pill {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mute);
+  background: var(--surface-card);
+  padding: 4px 10px;
+  border-radius: 9999px;
+}
+.b-read {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.b-card.unread .b-read { color: var(--primary); }
