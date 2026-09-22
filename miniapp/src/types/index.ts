@@ -94,6 +94,22 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+export interface MenuGenerationIssue {
+  code: string;
+  message: string;
+  minCost?: number;
+  budget?: number;
+}
+
+/** Structured 4xx response from the backend for the menu planner. */
+export interface ApiIssue {
+  error?: string;
+  code: string;
+  message?: string;
+  minCost?: number;
+  budget?: number;
+}
+
 export const TEST_TELEGRAM_ID = 461666389;
 
 export interface SendValentineRequest {
@@ -370,3 +386,123 @@ export interface GameSession {
   updated_at: string;
   answers?: GameAnswer[];
 }
+
+// --- Меню и список покупок ---------------------------------------------------
+
+export type MenuAllergenId = 'milk' | 'egg' | 'peanut' | 'tree_nut' | 'fish' | 'seafood' | 'soy' | 'gluten';
+export type MenuStoreId = 'euroopt' | 'hippo' | 'green' | 'korona';
+export type MenuUnit = 'g' | 'ml' | 'pcs';
+
+export interface MenuAllergenInfo {
+  id: MenuAllergenId;
+  title: string;
+  emoji: string;
+  hint?: string;
+}
+
+export interface MenuStoreInfo {
+  id: MenuStoreId;
+  name: string;
+  emoji: string;
+  description: string;
+  priceCatalog: 'mock' | 'live';
+}
+
+export interface MenuNutrition {
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+
+export interface MenuRecipeChoice {
+  recipe: {
+    id: string;
+    name: string;
+    category: string;
+    timeMin: number | null;
+    photoUrl?: string;
+    sourceUrl?: string;
+    dataKind: string;
+    sourceLabel: string;
+    steps?: string[];
+  };
+  servings: number;
+  scale: number;
+  cost: number;
+  costPerServing: number;
+  priceMissing: { ingredientId: string; name: string }[];
+  nutrition: { perRecipe: MenuNutrition; perServing: MenuNutrition } | null;
+  nutritionMissing: boolean;
+  allergens: MenuAllergenId[];
+  allergenUnknown: string[];
+}
+
+export interface MenuShoppingListItem {
+  ingredientId: string;
+  name: string;
+  requiredQuantity: number;
+  requiredUnit: MenuUnit;
+  packageQuantity: number;
+  packageUnit: MenuUnit;
+  purchaseQuantity: number;
+  price: number;
+  unitPrice: number;
+  subtotal: number;
+  currency: 'BYN';
+  storeId: MenuStoreId;
+  isMock: boolean;
+  source: string;
+  updatedAt: string;
+  missing: boolean;
+  stale: boolean;
+}
+
+export interface MenuShoppingList {
+  storeId: MenuStoreId;
+  items: MenuShoppingListItem[];
+  total: number;
+  missingItemsCount: number;
+  staleItemsCount: number;
+  currency: 'BYN';
+}
+
+export interface MenuServings {
+  adults: number;
+  children: number;
+  adultCoefficient: number;
+  childCoefficient: number;
+  effectiveServings: number;
+}
+
+export interface MenuRequest {
+  storeId: MenuStoreId;
+  adults: number;
+  children: number;
+  budget: number;
+  currency: 'BYN';
+  allergens: MenuAllergenId[];
+}
+
+export interface MenuResult {
+  id: string;
+  store: MenuStoreInfo;
+  request: MenuRequest;
+  servings: MenuServings;
+  recipes: MenuRecipeChoice[];
+  recipesCost: number;
+  totalCost: number;
+  shoppingList: MenuShoppingList;
+  budget: number;
+  remainingBudget: number;
+  overspend: number;
+  warnings: string[];
+  priceSourceLabel: string;
+  generatedAt: string;
+}
+
+export const MENU_UNIT_LABEL: Record<MenuUnit, string> = {
+  g: 'г',
+  ml: 'мл',
+  pcs: 'шт',
+};

@@ -17,6 +17,7 @@ import { placesRoutes, placesPhotoRoutes } from './routes/places';
 import { datesRoutes } from './routes/dates';
 import { integrationsRoutes } from './routes/integrations';
 import { gamesRoutes } from './routes/games';
+import { menuRoutes } from './routes/menu';
 import { ensureStorageBucket } from './utils/storage';
 import { startNotificationScheduler } from './services/notificationScheduler';
 import { startUpdateBroadcast } from './services/updateBroadcaster';
@@ -46,8 +47,9 @@ async function start() {
   
   await app.register(datesRoutes, { prefix: '/api/dates' });
   
-  await app.register(gamesRoutes, { prefix: '/api/games' });
+await app.register(gamesRoutes, { prefix: '/api/games' });
   await app.register(integrationsRoutes, { prefix: '/api/integrations' });
+  await app.register(menuRoutes, { prefix: '/api/menu' });
 
   // Background notification delivery that doesn't depend on Supabase cron
   // settings: sends Telegram + companion pushes for due reminders and events.

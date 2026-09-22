@@ -103,6 +103,7 @@ export function NavSheet() {
   const streakRef = useRef<HTMLButtonElement>(null);
   const dateRef = useRef<HTMLButtonElement>(null);
   const gamesRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -358,6 +359,15 @@ export function NavSheet() {
       title: 'Игры',
       sub: 'Вопросы и выбор за двоих',
     },
+    {
+      key: 'menu',
+      ref: menuRef,
+      path: '/menu',
+      emoji: '🛒',
+      iconBg: 'linear-gradient(180deg, #dcf5e5, #aee6c6)',
+      title: 'Меню и закупки',
+      sub: 'Рецепты и список покупок',
+    },
   ];
 
   const onStreak = location.pathname === '/streak';
@@ -448,7 +458,7 @@ export function NavSheet() {
               </button>
             ))}
             <div style={{ height: 1, background: 'var(--hairline)', margin: '4px 18px 6px' }} />
-            <button onClick={() => goTo('/profile')} style={{ ...rowBase, ...rowAnim(4) }} title="Профиль">
+            <button onClick={() => goTo('/profile')} style={{ ...rowBase, ...rowAnim(5) }} title="Профиль">
               <span
                 style={{
                   width: 40,

@@ -18,6 +18,9 @@ import { DatePlacesScreen } from './screens/DatePlacesScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { GamesScreen } from './screens/GamesScreen';
 import { GamePlayScreen } from './screens/GamePlayScreen';
+import { MenuWizardScreen } from './screens/MenuWizardScreen';
+import { MenuResultScreen } from './screens/MenuResultScreen';
+import { ShoppingListScreen } from './screens/ShoppingListScreen';
 import './styles/global.css';
 
 function App() {
@@ -85,6 +88,9 @@ function App() {
           <Route path="date" element={<DatePlacesScreen />} />
           <Route path="games" element={<GamesScreen />} />
           <Route path="games/play" element={<GamePlayScreen />} />
+          <Route path="menu" element={<MenuWizardScreen />} />
+          <Route path="menu/result" element={<MenuResultScreen />} />
+          <Route path="menu/shopping" element={<ShoppingListScreen />} />
           <Route path="settings" element={<SettingsScreen />} />
         </Route>
         <Route path="/c/:token" element={<CompanionRedirect />} />

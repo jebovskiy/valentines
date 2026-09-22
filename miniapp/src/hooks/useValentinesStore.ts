@@ -1,5 +1,5 @@
 ﻿import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuGenerationIssue } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions, subscribeToGameSessions, unsubscribeFromGameSessions } from '../api/supabase';
 
@@ -114,6 +114,14 @@ interface ValentinesState {
   setupGameRealtime: (pairId: string) => void;
   cleanupGameRealtime: () => void;
   fetchIntegrations: () => Promise<void>;
+  menuStores: MenuStoreInfo[];
+  menuAllergens: MenuAllergenInfo[];
+  menuResult: MenuResult | null;
+  menuLoading: boolean;
+  fetchMenuStoresAndAllergens: () => Promise<void>;
+  generateMenuPlan: (request: MenuRequest) => Promise<MenuResult | MenuGenerationIssue | null>;
+  pickMenuRecipes: (id: string, recipeIds: string[]) => Promise<MenuResult | null>;
+  clearMenu: () => void;
 }
 
 function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
@@ -698,5 +706,57 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       set({ gameRealtimeChannel: null });
     }
   },
+
+  menuStores: [],
+  menuAllergens: [],
+  menuResult: null,
+  menuLoading: false,
+
+  fetchMenuStoresAndAllergens: async () => {
+    const [storesRes, allergensRes] = await Promise.all([api.getMenuStores(), api.getAllergens()]);
+    if (!storesRes.error && storesRes.data) {
+      set({ menuStores: storesRes.data.stores });
+    }
+    if (!allergensRes.error && allergensRes.data) {
+      set({ menuAllergens: allergensRes.data.allergens });
+    }
+  },
+
+  generateMenuPlan: async (request) => {
+    set({ menuLoading: true, error: null });
+    const result = await api.generateMenu(request);
+    if (result.error || !result.data) {
+      set({ menuLoading: false, error: result.error });
+      if (result.issue) {
+        return {
+          code: result.issue.code,
+          message: result.issue.message ?? result.issue.error ?? result.error ?? 'Не удалось подобрать меню',
+          ...(result.issue.minCost !== undefined ? { minCost: result.issue.minCost } : {}),
+          ...(result.issue.budget !== undefined ? { budget: result.issue.budget } : {}),
+        } as MenuGenerationIssue;
+      }
+      return null;
+    }
+    const data = result.data;
+    if ('menu' in data && data.menu) {
+      set({ menuResult: data.menu, menuLoading: false });
+      return data.menu;
+    }
+    set({ menuLoading: false });
+    return null;
+  },
+
+  pickMenuRecipes: async (id, recipeIds) => {
+    set({ menuLoading: true, error: null });
+    const result = await api.pickMenuRecipes(id, recipeIds);
+    if (result.error || !result.data) {
+      set({ menuLoading: false, error: result.error });
+      return null;
+    }
+    set({ menuResult: result.data.menu, menuLoading: false });
+    return result.data.menu;
+  },
+
+  clearMenu: () => set({ menuResult: null, error: null }),
 }));
 

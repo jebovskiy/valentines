@@ -7,7 +7,6 @@ import type {
   PairingInitResult,
   CompletePairingResult,
   UserProfile,
-  ApiResponse,
   Greeting,
   GreetingType,
   Note,
@@ -30,11 +29,19 @@ import type {
   GameId,
   GameMood,
   GameSession,
+  MenuStoreInfo,
+  MenuAllergenInfo,
+  MenuRequest,
+  MenuResult,
+  MenuServings,
+  MenuShoppingList,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+type ApiResponseEx<T> = import('../types').ApiResponse<T> & { issue?: import('../types').ApiIssue };
+
+async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponseEx<T>> {
   const initData = getInitData();
   const headers = new Headers(options.headers);
   if (initData) {
@@ -60,7 +67,11 @@ async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Pr
     }
 
     if (!response.ok) {
-      return { error: (data.error as string) || `HTTP ${response.status}` };
+      const issue =
+        data && typeof data === 'object' && 'code' in data
+          ? (data as unknown as import('../types').ApiIssue)
+          : undefined;
+      return { error: (data.error as string) || `HTTP ${response.status}`, ...(issue ? { issue } : {}) };
     }
 
     return { data: data as T };
@@ -247,6 +258,37 @@ export const api = {
     }),
   finishGameSession: (sessionId: string) =>
     fetchWithAuth<{ ok: boolean }>(`/api/games/${sessionId}/done`, { method: 'POST' }),
+
+  // Меню и список покупок
+  getMenuStores: () =>
+    fetchWithAuth<{ stores: MenuStoreInfo[]; isMockPrices: boolean; priceSourceLabel: string }>('/api/menu/stores'),
+  getAllergens: () =>
+    fetchWithAuth<{ allergens: MenuAllergenInfo[]; legalDisclaimer: string }>('/api/menu/allergens'),
+  generateMenu: (request: MenuRequest) =>
+    fetchWithAuth<{ menu: MenuResult }>('/api/menu/generate', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }),
+  getMenu: (id: string) => fetchWithAuth<{ menu: MenuResult }>(`/api/menu/${id}`),
+  getShoppingList: (id: string) =>
+    fetchWithAuth<{
+      menuId: string;
+      store: MenuStoreInfo;
+      budget: number;
+      totalCost: number;
+      remainingBudget: number;
+      overspend: number;
+      priceSourceLabel: string;
+      servings: MenuServings;
+      recipes: { id: string; name: string; cost: number; servings: number }[];
+      shoppingList: MenuShoppingList;
+      warnings: string[];
+    }>(`/api/menu/${id}/shopping-list`),
+  pickMenuRecipes: (id: string, recipeIds: string[]) =>
+    fetchWithAuth<{ menu: MenuResult }>(`/api/menu/${id}/pick`, {
+      method: 'POST',
+      body: JSON.stringify({ recipe_ids: recipeIds }),
+    }),
 
   // Integrations
   getIntegrations: () => fetchWithAuth<{ integrations: Integration[] }>('/api/integrations'),
