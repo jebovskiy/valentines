@@ -38,7 +38,7 @@ export async function menuRoutes(app: FastifyInstance) {
     return {
       stores,
       isMockPrices: providers.prices.isMock,
-      priceSourceLabel: providers.prices.isMock ? 'Демо-цены (не реальные)' : providers.prices.kind,
+      priceSourceLabel: providers.prices.sourceLabel,
     };
   });
 

@@ -186,6 +186,10 @@ export function ShoppingListScreen() {
           <span>{menu.store.emoji} {menu.store.name}</span>
           <span style={styles.summaryValue}>{items.length} позиций</span>
         </div>
+        <div style={styles.summaryLine}>
+          <span style={{ color: 'var(--ash)' }}>{menu.priceSourceLabel}</span>
+          <span />
+        </div>
         {known.length > 0 && (
           <div style={styles.summaryLine}>
             <span>По чеку</span>

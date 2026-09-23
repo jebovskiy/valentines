@@ -195,9 +195,7 @@ export async function generateMenu(
     remainingBudget,
     overspend,
     warnings,
-    priceSourceLabel: providers.prices.isMock
-      ? 'Демо-цены (не реальные)'
-      : providers.prices.kind,
+    priceSourceLabel: providers.prices.sourceLabel,
     generatedAt: now.toISOString(),
   };
   return result;

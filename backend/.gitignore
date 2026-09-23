@@ -7,3 +7,4 @@ dist/
 coverage/
 .vercel
 .netlify
+menu-data/jobs.json

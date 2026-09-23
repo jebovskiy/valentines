@@ -54,17 +54,17 @@ export const INGREDIENTS: Ingredient[] = [
   { id: 'chicken_leg', name: 'Куриная голень', unit: 'g', allergens: [] },
   { id: 'beef', name: 'Говядина', unit: 'g', allergens: [] },
   { id: 'pork', name: 'Свинина', unit: 'g', allergens: [] },
-  { id: 'potatoes', name: 'Картофель', unit: 'g', allergens: [] },
-  { id: 'carrots', name: 'Морковь', unit: 'g', allergens: [] },
-  { id: 'onions', name: 'Лук репчатый', unit: 'g', allergens: [] },
+  { id: 'potatoes', name: 'Картофель', unit: 'g', gramsPerPcs: 150, allergens: [] },
+  { id: 'carrots', name: 'Морковь', unit: 'g', gramsPerPcs: 100, allergens: [] },
+  { id: 'onions', name: 'Лук репчатый', unit: 'g', gramsPerPcs: 100, allergens: [] },
   { id: 'garlic', name: 'Чеснок', unit: 'g', gramsPerPcs: 4, allergens: [] },
-  { id: 'tomato', name: 'Помидоры', unit: 'g', allergens: [] },
-  { id: 'cucumber', name: 'Огурцы', unit: 'g', allergens: [] },
-  { id: 'bell_pepper', name: 'Перец болгарский', unit: 'g', allergens: [] },
+  { id: 'tomato', name: 'Помидоры', unit: 'g', gramsPerPcs: 120, allergens: [] },
+  { id: 'cucumber', name: 'Огурцы', unit: 'g', gramsPerPcs: 130, allergens: [] },
+  { id: 'bell_pepper', name: 'Перец болгарский', unit: 'g', gramsPerPcs: 150, allergens: [] },
   { id: 'cabbage', name: 'Капуста белокочанная', unit: 'g', allergens: [] },
   { id: 'cauliflower', name: 'Цветная капуста', unit: 'g', allergens: [] },
   { id: 'spinach', name: 'Шпинат', unit: 'g', allergens: [] },
-  { id: 'mushroom', name: 'Шампиньоны', unit: 'g', allergens: [] },
+  { id: 'mushroom', name: 'Шампиньоны', unit: 'g', gramsPerPcs: 25, allergens: [] },
   { id: 'rice', name: 'Рис', unit: 'g', allergens: [] },
   { id: 'pasta', name: 'Макароны', unit: 'g', allergens: ['gluten'] },
   { id: 'buckwheat', name: 'Гречка', unit: 'g', allergens: [] },
@@ -93,7 +93,7 @@ export const INGREDIENTS: Ingredient[] = [
   { id: 'salmon', name: 'Лосось', unit: 'g', allergens: ['fish'] },
   { id: 'cod', name: 'Треска', unit: 'g', allergens: ['fish'] },
   { id: 'shrimps', name: 'Креветки', unit: 'g', allergens: ['seafood'] },
-  { id: 'lemon', name: 'Лимон', unit: 'g', allergens: [] },
+  { id: 'lemon', name: 'Лимон', unit: 'g', gramsPerPcs: 60, allergens: [] },
   { id: 'tomato_paste', name: 'Томатная паста', unit: 'g', allergens: [] },
   { id: 'herbs', name: 'Зелень (укроп/петрушка)', unit: 'g', allergens: [] },
   { id: 'honey', name: 'Мёд', unit: 'g', allergens: [] },
@@ -106,6 +106,62 @@ const INGREDIENT_NORMALIZED_INDEX = new Map(
   INGREDIENTS.map((i) => [normalizeName(i.name), i])
 );
 
+/**
+ * Curated aliases for imported recipe text whose word order or wording differs
+ * from the catalogue (e.g. «филе куриное» -> chicken_fillet, «гречка» ->
+ * buckwheat). Keys are normalized the same way as ingredient names.
+ */
+const INGREDIENT_NAME_ALIASES: ReadonlyArray<readonly [string, string]> = [
+  ['филе куриное', 'chicken_fillet'],
+  ['грудка куриная', 'chicken_fillet'],
+  ['куриная грудка', 'chicken_fillet'],
+  ['филе куриной грудки', 'chicken_fillet'],
+  ['голень куриная', 'chicken_leg'],
+  ['голени куриные', 'chicken_leg'],
+  ['бедро куриное', 'chicken_leg'],
+  ['бедра куриные', 'chicken_leg'],
+  ['куриные ножки', 'chicken_leg'],
+  ['окорочка куриные', 'chicken_leg'],
+  ['паста томатная', 'tomato_paste'],
+  ['томатное пюре', 'tomato_paste'],
+  ['пюре томатное', 'tomato_paste'],
+  ['макароны спагетти', 'pasta'],
+  ['спагетти', 'pasta'],
+  ['луковица', 'onions'],
+  ['лук крупный', 'onions'],
+  ['лук репчатый крупный', 'onions'],
+  ['картошка', 'potatoes'],
+  ['гречка', 'buckwheat'],
+  ['гречневая крупа', 'buckwheat'],
+  ['крупа гречневая', 'buckwheat'],
+  ['овсянка', 'oatmeal'],
+  ['овсяные хлопья', 'oatmeal'],
+  ['хлопья овсяные', 'oatmeal'],
+  ['сахарный песок', 'sugar'],
+  ['песок сахарный', 'sugar'],
+  ['перец черный молотый', 'pepper'],
+  ['перец чёрный молотый', 'pepper'],
+  ['черный перец', 'pepper'],
+  ['чёрный перец', 'pepper'],
+  ['перец молотый', 'pepper'],
+  ['перец болгарский', 'bell_pepper'],
+  ['болгарский перец', 'bell_pepper'],
+  ['помидор', 'tomato'],
+  ['томат', 'tomato'],
+  ['огурец', 'cucumber'],
+  ['яйцо', 'eggs'],
+  ['сливочное масло', 'butter'],
+  ['сыр плавленый', 'cheese'],
+  ['шампиньон', 'mushroom'],
+  ['гриб', 'mushroom'],
+  ['петрушка', 'herbs'],
+  ['укроп', 'herbs'],
+  ['филе трески', 'cod'],
+  ['лосось', 'salmon'],
+  ['форель', 'salmon'],
+  ['креветка', 'shrimps'],
+];
+
 export function getIngredient(id: string): Ingredient | undefined {
   return INGREDIENT_INDEX.get(id);
 }
@@ -113,7 +169,8 @@ export function getIngredient(id: string): Ingredient | undefined {
 /**
  * Catalogue lookup by name for ingested (imported) ingredient text:
  *   1. exact normalized-name match (e.g. «Молоко 3,2%» matches «молоко»);
- *   2. first whole-word prefix (e.g. «Яйца куриные» matches «яйца»).
+ *   2. curated alias (e.g. «филе куриное» — reversed word order);
+ *   3. first whole-word prefix (e.g. «Яйца куриные» matches «яйца»).
  * Deterministic (first catalogue entry wins). Heuristic for imports only.
  */
 export function getIngredientByName(name: string): Ingredient | undefined {
@@ -121,6 +178,12 @@ export function getIngredientByName(name: string): Ingredient | undefined {
   if (!n) return undefined;
   const exact = INGREDIENT_NORMALIZED_INDEX.get(n);
   if (exact) return exact;
+  for (const [alias, id] of INGREDIENT_NAME_ALIASES) {
+    if (alias === n) {
+      const ing = INGREDIENT_INDEX.get(id);
+      if (ing) return ing;
+    }
+  }
   return INGREDIENTS.find((i) => normalizeName(i.name).startsWith(`${n} `));
 }
 

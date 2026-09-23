@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   buildMockOffers,
   buildFixtureRecipes,
@@ -19,12 +21,21 @@ import type {
 /**
  * Provider abstractions. New data sources plug in here without touching the
  * business logic:
- *   - RecipeProvider: where recipes come from (fixture demo catalog today,
- *     live RussianFood.com ingestion later).
- *   - PriceProvider: per-store product offers (mock demo data today; real
- *     Belarusian retail catalogues later).
- *   - NutritionProvider: per-100g nutrition values (extensible reference DB).
+ *   - RecipeProvider: where recipes come from. Fixture demo catalog is the
+ *     fallback; the default is the real snapshot imported from
+ *     RussianFood.com (backend/menu-data/recipes.json, produced by the
+ *     ingestion script in backend/scripts/ingest-russianfood.ts).
+ *   - PriceProvider: per-store product offers. Mock demo data is the fallback;
+ *     the default is the curated snapshot of real retail catalogue prices
+ *     (backend/menu-data/prices.json, produced by
+ *     backend/scripts/crawl-prices.ts and/or maintained by a human curator).
+ *   - NutritionProvider: per-100g reference values computed from our curated
+ *     ingredient nutrition DB (reference tables, e.g. USDA style averages).
+ *     RussianFood.com recipe pages do not publish per-recipe kcal/BJXY, so
+ *     nutrition is always computed from the ingredient DB for real recipes too.
  */
+
+const MENU_DATA_DIR = path.join(__dirname, '..', '..', 'menu-data');
 
 export interface RecipeProvider {
   readonly kind: string;
@@ -35,6 +46,8 @@ export interface RecipeProvider {
 export interface PriceProvider {
   readonly kind: string;
   readonly isMock: boolean;
+  /** Human-readable provenance of the numbers, e.g. harness + date. */
+  readonly sourceLabel: string;
   getStores(): Promise<Store[]>;
   getOffers(storeId: StoreId): Promise<ProductOffer[]>;
 }
@@ -78,10 +91,122 @@ export class MockPriceProvider implements PriceProvider {
 }
 
 export class FixtureNutritionProvider implements NutritionProvider {
-  readonly sourceLabel = 'Справочная база (демо)';
+  readonly sourceLabel = 'Справочная база пищевой ценности';
 
   getPer100g(ingredientId: string, _ingredientName: string): Promise<NutritionPer100g | null> {
     return Promise.resolve(getIngredientNutrition(ingredientId));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Real-data snapshot providers (backend/menu-data/*.json)
+// ---------------------------------------------------------------------------
+
+/** On-disk format of backend/menu-data/recipes.json (RussianFood ingestion). */
+export interface RecipesSnapshotFile {
+  kind: 'russianfood_import';
+  fetchedAt: string;
+  source: string;
+  recipes: Recipe[];
+}
+
+/** On-disk format of backend/menu-data/prices.json (curated price snapshot). */
+export interface PricesSnapshotFile {
+  kind: 'snapshot';
+  updatedAt: string;
+  sourceName: string;
+  /** Optional human-readable note per store, e.g. catalogue page used. */
+  storeNotes?: Partial<Record<StoreId, string>>;
+  offers: ProductOffer[];
+}
+
+function readJsonFile<T>(filePath: string): T | null {
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf8')) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Real recipes imported from RussianFood.com (offline ingestion, see
+ * backend/scripts/ingest-russianfood.ts). Falls back to an empty catalogue
+ * when the snapshot is missing — the planner then reports 'no_recipes'.
+ */
+export class SnapshotRecipeProvider implements RecipeProvider {
+  readonly kind = 'russianfood_snapshot';
+  readonly sourceLabel = 'RussianFood.com';
+  private readonly recipes: Recipe[];
+  readonly snapshotMeta: { fetchedAt: string; source: string } | null;
+
+  constructor(filePath = path.join(MENU_DATA_DIR, 'recipes.json')) {
+    const parsed = readJsonFile<RecipesSnapshotFile>(filePath);
+    if (parsed && Array.isArray(parsed.recipes)) {
+      this.recipes = parsed.recipes;
+      this.snapshotMeta = { fetchedAt: parsed.fetchedAt, source: parsed.source };
+    } else {
+      this.recipes = [];
+      this.snapshotMeta = null;
+    }
+  }
+
+  /** true when a usable snapshot is present on disk. */
+  get isAvailable(): boolean {
+    return this.recipes.length > 0;
+  }
+
+  getAllRecipes(): Promise<Recipe[]> {
+    return Promise.resolve(this.recipes);
+  }
+
+  getRecipe(id: string): Promise<Recipe | null> {
+    return Promise.resolve(this.recipes.find((r) => r.id === id) ?? null);
+  }
+}
+
+/**
+ * Real price snapshot of the retail chains' public catalogues. The numbers are
+ * NOT scraped in the request path: they come from backend/menu-data/prices.json
+ * which a human curator maintains (with the crawler tool as a helper). Every
+ * offer carries isMock: false and its source; staleness is handled by the
+ * planner via PRICE_MAX_AGE_DAYS.
+ */
+export class CuratedPriceProvider implements PriceProvider {
+  readonly kind = 'snapshot';
+  readonly isMock = false;
+  private readonly offers: ProductOffer[];
+  readonly snapshotMeta: { updatedAt: string; sourceName: string; storeNotes: Partial<Record<StoreId, string>> };
+  readonly sourceLabel: string;
+
+  constructor(filePath = path.join(MENU_DATA_DIR, 'prices.json')) {
+    const parsed = readJsonFile<PricesSnapshotFile>(filePath);
+    if (parsed && Array.isArray(parsed.offers)) {
+      this.offers = parsed.offers;
+      this.snapshotMeta = {
+        updatedAt: parsed.updatedAt,
+        sourceName: parsed.sourceName,
+        storeNotes: parsed.storeNotes ?? {},
+      };
+      this.sourceLabel = `Реальные цены из каталогов сетей (${parsed.updatedAt})`;
+    } else {
+      this.offers = [];
+      this.snapshotMeta = { updatedAt: '', sourceName: 'snapshot missing', storeNotes: {} };
+      this.sourceLabel = 'Снапшот цен не найден';
+    }
+  }
+
+  get isAvailable(): boolean {
+    return this.offers.length > 0;
+  }
+
+  getStores(): Promise<Store[]> {
+    return Promise.resolve(
+      STORES.map((s) => (this.isAvailable ? { ...s, priceCatalog: 'live' } : s))
+    );
+  }
+
+  getOffers(storeId: StoreId): Promise<ProductOffer[]> {
+    return Promise.resolve(this.offers.filter((o) => o.storeId === storeId));
   }
 }
 
@@ -118,25 +243,34 @@ export class RussianFoodRecipeProvider implements RecipeProvider {
   private get userAgent(): string {
     return (
       this.options.userAgent ??
-      'ValentinesMenuBot/1.0 (+https://valentines-sigma-neon.vercel.app; dataset ingestion — polite crawler)'
+      'ValentinesMenuBot/1.0 (+https://valentines-sigma-neon.vercel.app; dataset ingestion: polite crawler)'
     );
+  }
+
+  /** Headers must be ASCII per HTTP spec; strip any non-ASCII chars. */
+  private get httpHeaders(): Record<string, string> {
+    return { 'User-Agent': this.userAgent.replace(/[^\x00-\x7F]/g, '') };
   }
 
   private get delayMs(): number {
     return this.options.politenessDelayMs ?? 1500;
   }
 
-  /** Fetches CP1251 encoded HTML and decodes it to a JS string. */
-  async fetchHtml(url: string): Promise<{ ok: boolean; html: string; status: number }> {
+  /**
+   * Fetches HTML and decodes it from a legacy charset (default windows-1251,
+   * the site's own encoding; the Wayback mirror serves the same raw bytes).
+   */
+  async fetchHtml(url: string, charset: string = 'windows-1251'): Promise<{ ok: boolean; html: string; status: number }> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20_000);
     try {
       const res = await fetch(url, {
-        headers: { 'User-Agent': this.userAgent },
+        headers: this.httpHeaders,
         signal: controller.signal,
+        redirect: 'follow',
       });
       const buf = new Uint8Array(await res.arrayBuffer());
-      const html = new TextDecoder('windows-1251').decode(buf);
+      const html = new TextDecoder(charset).decode(buf);
       return { ok: res.ok, html, status: res.status };
     } catch (error) {
       return { ok: false, html: '', status: 0 };
@@ -149,20 +283,52 @@ export class RussianFoodRecipeProvider implements RecipeProvider {
   async robotsAllow(htmlUrl: string): Promise<boolean> {
     try {
       const res = await fetch('https://www.russianfood.com/robots.txt', {
-        headers: { 'User-Agent': this.userAgent },
+        headers: this.httpHeaders,
       });
       const body = await res.text();
       const path = this.pathOf(htmlUrl);
-      const disallowLines = body
-        .split(/\r?\n/)
-        .filter((l) => /^Disallow:\s*(\/\S*)?/.test(l))
-        .map((l) => l.replace(/^Disallow:\s*/, '').trim())
-        .filter((p) => p.length > 0);
+      // Only the group that matches our user-agent (or the fallback `*`
+      // group) applies — never the rules of named third-party bots.
+      const disallowLines = this.sectionDirectives(body, 'Disallow');
       return disallowLines.every((p) => !path.startsWith(p));
     } catch {
       // If robots.txt can't be read, refuse to crawl rather than guess.
       return false;
     }
+  }
+
+  /** Directives of the robots.txt group that applies to our user agent. */
+  private sectionDirectives(body: string, directive: 'Disallow'): string[] {
+    const myUa = this.userAgent.toLowerCase();
+    const lines = body.split(/\r?\n/).map((l) => l.trim());
+    const sections: string[][] = [];
+    let current: string[] = [];
+    for (const line of lines) {
+      if (line.toLowerCase().startsWith('user-agent:')) {
+        if (current.length) sections.push(current);
+        current = [line];
+      } else if (line) {
+        current.push(line);
+      }
+    }
+    if (current.length) sections.push(current);
+
+    let chosen: string[] | null = null;
+    for (const section of sections) {
+      const agents = section
+        .filter((l) => l.toLowerCase().startsWith('user-agent:'))
+        .map((l) => l.slice('user-agent:'.length).trim().toLowerCase())
+        .filter(Boolean);
+      if (agents.includes(myUa) || agents.includes('*')) {
+        chosen = section;
+        break;
+      }
+    }
+    if (!chosen) return [];
+    return chosen
+      .filter((l) => l.toLowerCase().startsWith('disallow:'))
+      .map((l) => l.slice('disallow:'.length).trim())
+      .filter((p) => p.length > 0);
   }
 
   private pathOf(url: string): string {
@@ -204,7 +370,12 @@ export class RussianFoodRecipeProvider implements RecipeProvider {
     const name = escapeHtml(titleMatch[1]);
 
     const portionsMatch = /<i class="ico_portion"><\/i>\s*<\/div>\s*&nbsp;\s*<span class="hl"><b>\s*(\d+)\s*<\/b>/.exec(html);
-    const baseServings = portionsMatch ? parseInt(portionsMatch[1], 10) : 1;
+    const portionFallback = /<span class="portion">\s*[^<]*?(\d+)\s*порци/.exec(html);
+    const baseServings = portionsMatch
+      ? parseInt(portionsMatch[1], 10)
+      : portionFallback
+        ? parseInt(portionFallback[1], 10)
+        : 1;
 
     const timeMatch = /<i class="ico_time"><\/i>\s*<\/div>\s*&nbsp;\s*<span class="hl">\s*(.*?)\s*<\/span>/s.exec(html);
     let timeMin: number | null = null;
@@ -264,32 +435,50 @@ export class RussianFoodRecipeProvider implements RecipeProvider {
     const rawName = dash[1].trim();
     const rawQty = dash[2].trim();
 
-    const isKg = rawQty.includes('кг');
-    const isG = rawQty.includes('г') && !isKg;
-    const isL = rawQty.includes('л') && !rawQty.includes('мл');
-    const isMl = rawQty.includes('мл');
-    const isPcs = rawQty.includes('шт') || rawQty.includes('пку') || rawQty.includes('ку');
-
-    const num = /(\d+([.,]\d+)?)/.exec(rawQty);
-    if (!num) return null;
-    const qty = parseFloat(num[1].replace(',', '.'));
+    // Lead number; everything after it is a unit or kitchen-measure token.
+    const numRe = /^\s*(\d+([.,]\d+)?)/;
+    const numMatch = numRe.exec(rawQty);
+    if (!numMatch) return null;
+    const qty = parseFloat(numMatch[1].replace(',', '.'));
+    const rest = rawQty.slice(numMatch[0].length).trim().toLowerCase();
 
     const flat = rawName.toLowerCase();
     const known = getIngredientByName(flat);
+    const id = known?.id ?? `import:${flat}`;
+    const measureUnit = (): Unit => (known?.unit === 'ml' ? 'ml' : 'g');
 
-    if (isKg) return { ingredientId: known?.id ?? `import:${flat}`, qty: qty * 1000, unit: 'g' };
-    if (isG) return { ingredientId: known?.id ?? `import:${flat}`, qty, unit: 'g' };
-    if (isMl || isL) {
-      return {
-        ingredientId: known?.id ?? `import:${flat}`,
-        qty: isL ? qty * 1000 : qty,
-        unit: 'ml',
-      };
+    // NB: \b does not treat Cyrillic as letters, so units are matched with a
+    // Unicode letter lookahead instead of word boundaries.
+    if (/^(кг|килогр)(?!\p{L})/u.test(rest)) return { ingredientId: id, qty: qty * 1000, unit: 'g' };
+    if (/^(г|гр|грамм)(?!\p{L})/u.test(rest)) return { ingredientId: id, qty, unit: 'g' };
+    if (/^(мл|миллилитр)(?!\p{L})/u.test(rest)) return { ingredientId: id, qty, unit: 'ml' };
+    if (/^(л|литр)(?!\p{L})/u.test(rest)) return { ingredientId: id, qty: qty * 1000, unit: 'ml' };
+    if (/^(шт|пку|ку|штук)(?!\p{L})/u.test(rest)) return { ingredientId: id, qty, unit: 'pcs' };
+
+    if (/^ст\.?\s*лож|^столов/.test(rest)) {
+      return { ingredientId: id, qty: qty * 15, unit: measureUnit() };
     }
-    if (isPcs) return { ingredientId: known?.id ?? `import:${flat}`, qty, unit: 'pcs' };
-    if (/^[0-9.,]+\s*$/.test(rawQty)) {
-      const unit: Unit = known?.unit ?? 'g';
-      return { ingredientId: known?.id ?? `import:${flat}`, qty, unit };
+    if (/^ч\.?\s*лож|^чайн/.test(rest)) {
+      return { ingredientId: id, qty: qty * 5, unit: measureUnit() };
+    }
+    if (/^стакан|^кружк/.test(rest)) {
+      return { ingredientId: id, qty: qty * (measureUnit() === 'ml' ? 200 : 160), unit: measureUnit() };
+    }
+    if (/^зубчик/.test(rest)) {
+      return { ingredientId: id, qty: qty * (known?.gramsPerPcs ?? 4), unit: 'g' };
+    }
+    if (/^горст/.test(rest)) {
+      return { ingredientId: id, qty: qty * 30, unit: measureUnit() };
+    }
+
+    if (rest === '') {
+      return { ingredientId: id, qty, unit: known?.unit ?? 'g' };
+    }
+    // «1 яйцо», «2 помидора» — word after the number is the product itself.
+    if (known && /^[а-яёa-z]/.test(rest) && !/^(по вкусу|щепот)/.test(rest)) {
+      const unit: Unit =
+        known.unit === 'pcs' || known.gramsPerPcs ? 'pcs' : (known.unit ?? 'g');
+      return { ingredientId: id, qty, unit };
     }
     return null;
   }
@@ -328,10 +517,24 @@ export interface MenuProviders {
   nutrition: NutritionProvider;
 }
 
+// Lazily-initialised singletons: snapshots are read from disk once.
+let cachedPrices: CuratedPriceProvider | null = null;
+let cachedRecipes: SnapshotRecipeProvider | null = null;
+
+function priceProvider(): PriceProvider {
+  if (!cachedPrices) cachedPrices = new CuratedPriceProvider();
+  return cachedPrices.isAvailable ? cachedPrices : new MockPriceProvider();
+}
+
+function recipeProvider(): RecipeProvider {
+  if (!cachedRecipes) cachedRecipes = new SnapshotRecipeProvider();
+  return cachedRecipes.isAvailable ? cachedRecipes : new FixtureRecipeProvider();
+}
+
 export function defaultProviders(): MenuProviders {
   return {
-    recipes: new FixtureRecipeProvider(),
-    prices: new MockPriceProvider(),
+    recipes: recipeProvider(),
+    prices: priceProvider(),
     nutrition: new FixtureNutritionProvider(),
   };
 }
