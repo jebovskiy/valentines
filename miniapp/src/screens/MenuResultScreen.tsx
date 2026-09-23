@@ -16,11 +16,18 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 8,
     marginBottom: 12,
+    position: 'relative',
   },
   title: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
     fontSize: 20,
     fontWeight: 800,
     color: 'var(--ink)',
+    zIndex: 1,
+    pointerEvents: 'none',
   },
   summaryCard: {
     background: 'var(--surface-card)',
