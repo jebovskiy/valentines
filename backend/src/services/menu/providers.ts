@@ -35,7 +35,7 @@ import type {
  *     nutrition is always computed from the ingredient DB for real recipes too.
  */
 
-const MENU_DATA_DIR = path.join(__dirname, '..', '..', 'menu-data');
+const MENU_DATA_DIR = path.join(process.cwd(), 'menu-data');
 
 export interface RecipeProvider {
   readonly kind: string;
