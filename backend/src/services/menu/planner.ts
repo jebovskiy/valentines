@@ -13,6 +13,8 @@ import type {
 export interface GenerateMenuOptions {
   providers?: MenuProviders;
   now?: Date;
+  /** Shuffle candidate order so repeated generations rarely return the same menu. */
+  randomize?: boolean;
 }
 
 export interface PlannerCounters {
@@ -137,6 +139,12 @@ export async function generateMenu(
     if (b.score !== a.score) return b.score - a.score;
     return a.choice.recipe.id < b.choice.recipe.id ? -1 : 1;
   });
+  if (opts.randomize && usable.length > 1) {
+    for (let i = usable.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [usable[i], usable[j]] = [usable[j], usable[i]];
+    }
+  }
 
   if (usable.length === 0) {
     if (recipes.length === 0) {

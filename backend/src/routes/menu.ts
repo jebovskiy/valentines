@@ -54,7 +54,7 @@ export async function menuRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
-    const result = await generateMenu(parsed.data, providersOptions());
+    const result = await generateMenu(parsed.data, { providers: defaultProviders(), randomize: true });
     if ('code' in result) {
       if (result.code === 'invalid_store') return reply.code(400).send({ error: result.message, code: result.code });
       if (result.code === 'budget_too_low') {
