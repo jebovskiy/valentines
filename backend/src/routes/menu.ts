@@ -5,7 +5,7 @@ import { getPairByUser } from '../services/database';
 import { ALLERGENS } from '../services/menu/allergens';
 import { defaultProviders } from '../services/menu/providers';
 import { generateMenu, rebuildMenuForSelection, type GenerateMenuOptions } from '../services/menu/planner';
-import { createStoredMenu, getStoredMenuForPair, updateStoredMenuResult } from '../services/menu/persistence';
+import { createStoredMenu, getLatestStoredMenuForPair, getStoredMenuForPair, updateStoredMenuResult } from '../services/menu/persistence';
 
 const storeIdEnum = ['euroopt', 'hippo', 'green', 'korona'] as const;
 const allergenEnum = ['milk', 'egg', 'peanut', 'tree_nut', 'fish', 'seafood', 'soy', 'gluten'] as const;
@@ -19,6 +19,8 @@ const menuRequestSchema = z
     budget: z.number().min(0.01).max(100000),
     currency: z.literal('BYN'),
     allergens: z.array(z.enum(allergenEnum)).max(8).default([]),
+    customAllergens: z.array(z.string().min(1).max(60)).max(20).default([]),
+    disliked: z.array(z.string().min(1).max(60)).max(20).default([]),
     cookware: z.array(z.enum(cookwareEnum)).max(5).default([]),
   })
   .refine((d) => d.adults + d.children >= 1, {
@@ -49,6 +51,13 @@ export async function menuRoutes(app: FastifyInstance) {
     legalDisclaimer: 'Подбор исключает рецепты с указанными ингредиентами на основе курируемого каталога; данные не заменяют консультацию врача.',
   }));
 
+  app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+    const stored = await getLatestStoredMenuForPair(pair.id);
+    return { menu: stored?.result ?? null, createdAt: stored?.created_at ?? null };
+  });
+
   app.post('/generate', { preHandler: requireTelegramAuth }, async (request, reply) => {
     const parsed = menuRequestSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid menu params' });
@@ -63,6 +72,18 @@ export async function menuRoutes(app: FastifyInstance) {
         return reply
           .code(422)
           .send({ error: result.message, code: result.code, minCost: result.minCost, budget: result.budget });
+      }
+      if (result.code === 'menu_incomplete') {
+        return reply
+          .code(422)
+          .send({
+            error: result.message,
+            code: result.code,
+            filledSlots: result.filledSlots,
+            totalSlots: result.totalSlots,
+            reason: result.reason,
+            missingSlots: result.missingSlots,
+          });
       }
       return reply.code(422).send({ error: result.message, code: result.code });
     }

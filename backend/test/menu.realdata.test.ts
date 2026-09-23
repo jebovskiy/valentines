@@ -22,7 +22,7 @@ test('snapshot recipes have plausible data and 100% catalogue coverage', async (
       assert.ok(i.qty > 0, `${r.id}: nonpositive qty`);
     }
     assert.ok(r.name.length > 0, `${r.id}: empty name`);
-    assert.equal(r.dataKind, 'russianfood_import');
+    assert.ok(['russianfood_import', 'fixture'].includes(r.dataKind), `${r.id}: unexpected dataKind ${r.dataKind}`);
   }
 });
 

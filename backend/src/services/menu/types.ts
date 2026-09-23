@@ -12,6 +12,17 @@ export type StoreId = 'euroopt' | 'hippo' | 'green' | 'korona';
 
 export type Unit = 'g' | 'ml' | 'pcs';
 
+/** A slot in the week plan: breakfast / lunch / dinner. */
+export type MealId = 'breakfast' | 'lunch' | 'dinner';
+
+export const MEAL_IDS: MealId[] = ['breakfast', 'lunch', 'dinner'];
+
+export const MEAL_TITLES: Record<MealId, string> = {
+  breakfast: 'Завтрак',
+  lunch: 'Обед',
+  dinner: 'Ужин',
+};
+
 /** Kitchen equipment the user declares to have; recipes needing the rest are filtered out. */
 export type CookwareId = 'skillet' | 'pot' | 'oven' | 'slow_cooker' | 'microwave';
 
@@ -114,6 +125,15 @@ export interface MenuRequest {
   currency: 'BYN';
   allergens: AllergenId[];
   /**
+   * Free-text allergies typed by the user (e.g. «курица», «консервы»).
+   * A recipe is excluded when any of its ingredients' names contains the term.
+   */
+  customAllergens?: string[];
+  /**
+   * Products the user dislikes (free text, same matching as customAllergens).
+   */
+  disliked?: string[];
+  /**
    * Kitchen equipment the user has. Empty/undefined disables the cookware
    * filter (every recipe is allowed); otherwise recipes requiring equipment
    * outside this set are excluded.
@@ -191,15 +211,28 @@ export interface ShoppingList {
   currency: 'BYN';
 }
 
+export interface MenuMeal {
+  meal: MealId;
+  title: string;
+  recipe: RecipeChoice;
+}
+
+export interface MenuDay {
+  day: number;
+  meals: MenuMeal[];
+}
+
 export interface MenuResult {
   id: string;
   store: Store;
   request: MenuRequest;
   servings: ServingsBreakdown;
+  /** The week plan: 7 days × breakfast/lunch/dinner. Also mirrored in `recipes`. */
+  days: MenuDay[];
   recipes: RecipeChoice[];
   /** Sum of proportional recipe costs (informational). */
   recipesCost: number;
-  /** Real purchase total based on packages. */
+  /** Real purchase total based on packages — always ≤ budget. */
   totalCost: number;
   shoppingList: ShoppingList;
   budget: number;
@@ -215,7 +248,17 @@ export type MenuGenerationIssue =
   | { code: 'invalid_store'; message: string }
   | { code: 'no_recipes'; message: string }
   | { code: 'budget_too_low'; message: string; minCost: number; budget: number }
-  | { code: 'empty_catalog'; message: string };
+  | { code: 'empty_catalog'; message: string }
+  | {
+      code: 'menu_incomplete';
+      message: string;
+      /** How many of the wanted 21 slots could be filled. */
+      filledSlots: number;
+      totalSlots: number;
+      reason: 'budget' | 'recipes';
+      /** Names of the meals that could not be filled (e.g. «Завтрак · День 3»). */
+      missingSlots: string[];
+    };
 
 export interface CostedRecipe {
   choice: RecipeChoice;

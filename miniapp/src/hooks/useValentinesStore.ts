@@ -120,6 +120,7 @@ interface ValentinesState {
   menuLoading: boolean;
   fetchMenuStoresAndAllergens: () => Promise<void>;
   generateMenuPlan: (request: MenuRequest) => Promise<MenuResult | MenuGenerationIssue | null>;
+  fetchLatestMenu: () => Promise<MenuResult | null>;
   pickMenuRecipes: (id: string, recipeIds: string[]) => Promise<MenuResult | null>;
   clearMenu: () => void;
   menuDraft: MenuDraft;
@@ -133,6 +134,8 @@ export interface MenuDraft {
   children: number;
   budget: string;
   allergens: MenuAllergenId[];
+  customAllergens: string[];
+  disliked: string[];
   cookware: MenuCookwareId[];
 }
 
@@ -729,6 +732,8 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     children: 0,
     budget: '',
     allergens: [],
+    customAllergens: [],
+    disliked: [],
     cookware: [],
   },
 
@@ -753,6 +758,10 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
           message: result.issue.message ?? result.issue.error ?? result.error ?? 'Не удалось подобрать меню',
           ...(result.issue.minCost !== undefined ? { minCost: result.issue.minCost } : {}),
           ...(result.issue.budget !== undefined ? { budget: result.issue.budget } : {}),
+          ...(result.issue.filledSlots !== undefined ? { filledSlots: result.issue.filledSlots } : {}),
+          ...(result.issue.totalSlots !== undefined ? { totalSlots: result.issue.totalSlots } : {}),
+          ...(result.issue.reason !== undefined ? { reason: result.issue.reason } : {}),
+          ...(result.issue.missingSlots !== undefined ? { missingSlots: result.issue.missingSlots } : {}),
         } as MenuGenerationIssue;
       }
       return null;
@@ -764,6 +773,17 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     }
     set({ menuLoading: false });
     return null;
+  },
+
+  fetchLatestMenu: async () => {
+    set({ menuLoading: true, error: null });
+    const result = await api.getLatestMenu();
+    if (result.error || !result.data) {
+      set({ menuLoading: false, error: result.error });
+      return null;
+    }
+    set({ menuResult: result.data.menu, menuLoading: false });
+    return result.data.menu;
   },
 
   pickMenuRecipes: async (id, recipeIds) => {
@@ -783,7 +803,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
 
   resetMenuDraft: () =>
     set({
-      menuDraft: { storeId: null, adults: 2, children: 0, budget: '', allergens: [], cookware: [] },
+      menuDraft: { storeId: null, adults: 2, children: 0, budget: '', allergens: [], customAllergens: [], disliked: [], cookware: [] },
     }),
 }));
 

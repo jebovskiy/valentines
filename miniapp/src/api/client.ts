@@ -269,6 +269,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(request),
     }),
+  getLatestMenu: () => fetchWithAuth<{ menu: MenuResult | null; createdAt: string | null }>('/api/menu'),
   getMenu: (id: string) => fetchWithAuth<{ menu: MenuResult }>(`/api/menu/${id}`),
   getShoppingList: (id: string) =>
     fetchWithAuth<{

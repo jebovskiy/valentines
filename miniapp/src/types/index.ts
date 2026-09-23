@@ -99,6 +99,10 @@ export interface MenuGenerationIssue {
   message: string;
   minCost?: number;
   budget?: number;
+  filledSlots?: number;
+  totalSlots?: number;
+  reason?: 'budget' | 'recipes';
+  missingSlots?: string[];
 }
 
 /** Structured 4xx response from the backend for the menu planner. */
@@ -108,6 +112,10 @@ export interface ApiIssue {
   message?: string;
   minCost?: number;
   budget?: number;
+  filledSlots?: number;
+  totalSlots?: number;
+  reason?: 'budget' | 'recipes';
+  missingSlots?: string[];
 }
 
 export const TEST_TELEGRAM_ID = 461666389;
@@ -501,8 +509,25 @@ export interface MenuRequest {
   budget: number;
   currency: 'BYN';
   allergens: MenuAllergenId[];
-  /** Kitchen equipment the user has; empty = no cookware filter. */
+  /** Free-text allergies typed by the user; a recipe is excluded when any ingredient name contains the term. */
+  customAllergens?: string[];
+  /** Products the user dislikes (free text, same matching as customAllergens). */
+  disliked?: string[];
+  /** Kitchen equipment the user has; empty/undefined disables the cookware filter. */
   cookware: MenuCookwareId[];
+}
+
+export type MenuMealId = 'breakfast' | 'lunch' | 'dinner';
+
+export interface MenuMeal {
+  meal: MenuMealId;
+  title: string;
+  recipe: MenuRecipeChoice;
+}
+
+export interface MenuDay {
+  day: number;
+  meals: MenuMeal[];
 }
 
 export interface MenuResult {
@@ -510,6 +535,8 @@ export interface MenuResult {
   store: MenuStoreInfo;
   request: MenuRequest;
   servings: MenuServings;
+  /** The week plan: 7 days × breakfast/lunch/dinner. Also mirrored in `recipes`. */
+  days: MenuDay[];
   recipes: MenuRecipeChoice[];
   recipesCost: number;
   totalCost: number;

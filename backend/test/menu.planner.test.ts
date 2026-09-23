@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { servingsBreakdown, scaleForServings, round1, round2 } from '../src/services/menu/scaling';
 import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe } from '../src/services/menu/costing';
 import { generateMenu, rebuildMenuForSelection, type GenerateMenuOptions } from '../src/services/menu/planner';
-import { RussianFoodRecipeProvider, FixtureNutritionProvider, FixtureRecipeProvider } from '../src/services/menu/providers';
+import { RussianFoodRecipeProvider, FixtureNutritionProvider, SnapshotRecipeProvider } from '../src/services/menu/providers';
 import { buildFixtureRecipes, STORES, buildMockOffers, INGREDIENTS, getIngredientNutrition } from '../src/services/menu/fixtures';
 import { inferCookware } from '../src/services/menu/cookware';
 import type { MenuProviders, PriceProvider, RecipeProvider } from '../src/services/menu/providers';
@@ -16,20 +16,26 @@ const baseRequest: MenuRequest = {
   storeId: 'euroopt',
   adults: 2,
   children: 1,
-  budget: 40,
+  budget: 300,
   currency: 'BYN',
   allergens: [],
 };
 
+const WEEK_SLOTS = 7 * 3;
+
+function priceProvider(): PriceProvider {
+  return {
+    kind: 'test',
+    isMock: true,
+    getStores: async () => STORES,
+    getOffers: async (storeId: StoreId) => buildMockOffers().filter((o) => o.storeId === storeId),
+  };
+}
+
 function providersOf(recipes?: RecipeProvider, prices?: PriceProvider): MenuProviders {
   return {
-    recipes: recipes ?? new FixtureRecipeProvider(),
-    prices: prices ?? {
-      kind: 'test',
-      isMock: true,
-      getStores: async () => STORES,
-      getOffers: async (storeId: StoreId) => buildMockOffers().filter((o) => o.storeId === storeId),
-    },
+    recipes: recipes ?? new SnapshotRecipeProvider(),
+    prices: prices ?? priceProvider(),
     nutrition: new FixtureNutritionProvider(),
   };
 }
@@ -128,22 +134,31 @@ test('priceRecipe reports missing and stale-priced ingredients', () => {
   assert.equal(withStale.staleMissing, 1);
 });
 
-test('generateMenu: happy path is deterministic and within budget', async () => {
-  const a = await generateMenu(baseRequest, { providers: providersOf(), now: NOW });
-  const b = await generateMenu(baseRequest, { providers: providersOf(), now: NOW });
+test('generateMenu: full week — 21 unique slots, deterministic and within budget', async () => {
+  const a = await generateMenu(baseRequest, { providers: providersOf(), now: NOW, randomize: false });
+  const b = await generateMenu(baseRequest, { providers: providersOf(), now: NOW, randomize: false });
   assert.ok(!('code' in a));
   assert.ok(!('code' in b));
   if ('code' in a || 'code' in b) return;
   assert.equal(a.recipes.map((r) => r.recipe.id).join(','), b.recipes.map((r) => r.recipe.id).join(','));
   assert.equal(a.totalCost, b.totalCost);
+  // full week: 7 days x breakfast/lunch/dinner
+  assert.equal(a.days.length, 7);
+  const meals = a.days.flatMap((d) => d.meals);
+  assert.equal(meals.length, WEEK_SLOTS);
+  const ids = meals.map((m) => m.recipe.recipe.id);
+  assert.equal(new Set(ids).size, WEEK_SLOTS, 'every recipe must be unique in the week');
   assert.ok(a.recipes.length >= 1);
-  assert.ok(a.recipes.length <= 4);
+  assert.ok(a.recipes.length <= WEEK_SLOTS);
   for (const choice of a.recipes) {
     assert.equal(choice.priceMissing.length, 0);
     assert.equal(choice.nutritionMissing, false);
     assert.ok(choice.nutrition && choice.nutrition.perRecipe.calories > 0);
     assert.equal(choice.servings, 2.6);
   }
+  // receipt must NEVER exceed the budget ("без «не хватает»")
+  assert.ok(a.totalCost <= a.budget + 1e-9, `total ${a.totalCost} must fit budget ${a.budget}`);
+  assert.equal(a.overspend, 0);
   // package checkout >= proportional cost
   assert.ok(a.totalCost >= a.recipesCost - 1e-9);
   // identity: totalCost === budget - remaining + overspend
@@ -151,9 +166,41 @@ test('generateMenu: happy path is deterministic and within budget', async () => 
   assert.ok(a.warnings.some((w) => w.includes('Демо-цены')));
 });
 
-test('generateMenu: milk allergen excludes milk-containing recipes (2 adults + 2 children, 50 BYN)', async () => {
+test('generateMenu: custom allergen excludes recipes containing that ingredient', async () => {
   const result = await generateMenu(
-    { ...baseRequest, adults: 2, children: 2, budget: 50, allergens: ['milk'] },
+    { ...baseRequest, budget: 350, customAllergens: ['курин'] },
+    { providers: providersOf(), now: NOW }
+  );
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+  const names = result.recipes.map((r) => r.recipe.name.toLowerCase()).join(' | ');
+  assert.ok(!names.includes('курин'), `menu must not contain chicken dishes: ${names}`);
+  for (const choice of result.recipes) {
+    for (const si of choice.scaledIngredients) {
+      assert.ok(si.ingredient.id !== 'chicken_fillet' && si.ingredient.id !== 'chicken_leg', `custom allergen hit in ${si.ingredient.name}`);
+    }
+  }
+});
+
+test('generateMenu: disliked products are excluded from the week', async () => {
+  const result = await generateMenu(
+    { ...baseRequest, budget: 350, disliked: ['гречк'] },
+    { providers: providersOf(), now: NOW }
+  );
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+  const names = result.recipes.map((r) => `|${r.recipe.name}|`).join(' ');
+  assert.ok(!names.includes('гречк'), `menu must not contain buckwheat dishes: ${names}`);
+  for (const choice of result.recipes) {
+    for (const si of choice.scaledIngredients) {
+      assert.ok(!si.ingredient.name.toLowerCase().includes('гречк'), `disliked hit in ${si.ingredient.name}`);
+    }
+  }
+});
+
+test('generateMenu: milk allergen excludes milk-containing recipes', async () => {
+  const result = await generateMenu(
+    { ...baseRequest, adults: 2, children: 2, budget: 350, allergens: ['milk'] },
     { providers: providersOf(), now: NOW }
   );
   assert.ok(!('code' in result));
@@ -168,7 +215,7 @@ test('generateMenu: milk allergen excludes milk-containing recipes (2 adults + 2
   }
 });
 
-test('generateMenu: budget below cheapest recipe returns budget_too_low', async () => {
+test('generateMenu: tiny budget returns budget_too_low', async () => {
   const result = await generateMenu(
     { ...baseRequest, budget: 0.01 },
     { providers: providersOf(), now: NOW }
@@ -178,6 +225,21 @@ test('generateMenu: budget below cheapest recipe returns budget_too_low', async 
   assert.equal(result.code, 'budget_too_low');
   if (result.code === 'budget_too_low') {
     assert.ok(result.minCost > result.budget);
+  }
+});
+
+test('generateMenu: moderate budget returns menu_incomplete instead of overspend', async () => {
+  const result = await generateMenu(
+    { ...baseRequest, budget: 40 },
+    { providers: providersOf(), now: NOW }
+  );
+  assert.ok('code' in result);
+  if (!('code' in result)) return;
+  assert.equal(result.code, 'menu_incomplete');
+  if (result.code === 'menu_incomplete') {
+    assert.equal(result.reason, 'budget');
+    assert.ok(result.filledSlots < result.totalSlots);
+    assert.ok(result.missingSlots.length > 0);
   }
 });
 
@@ -286,12 +348,13 @@ test('inferCookware maps dishes to kitchen equipment', () => {
 
 test('generateMenu: cookware filter excludes recipes needing missing equipment', async () => {
   const result = await generateMenu(
-    { ...baseRequest, budget: 40, cookware: ['pot'] },
-    { providers: providersOf(), now: NOW }
+    { ...baseRequest, budget: 300, cookware: ['pot'] },
+    { providers: providersOf(), now: NOW, randomize: false }
   );
   assert.ok(!('code' in result), 'expected a menu with only pot-cookable recipes');
   if ('code' in result) return;
   assert.ok(result.recipes.length >= 1);
+  assert.equal(result.days.flatMap((d) => d.meals).length, WEEK_SLOTS);
   for (const choice of result.recipes) {
     const required = inferCookware(choice.recipe);
     for (const r of required) {
@@ -303,8 +366,8 @@ test('generateMenu: cookware filter excludes recipes needing missing equipment',
 
 // exposed for future planner counters
 test('generateMenu: empty cookware list disables the filter', async () => {
-  const a = await generateMenu({ ...baseRequest, cookware: [] }, { providers: providersOf(), now: NOW });
-  const b = await generateMenu(baseRequest, { providers: providersOf(), now: NOW });
+  const a = await generateMenu({ ...baseRequest, cookware: [] }, { providers: providersOf(), now: NOW, randomize: false });
+  const b = await generateMenu(baseRequest, { providers: providersOf(), now: NOW, randomize: false });
   assert.ok(!('code' in a) && !('code' in b));
   if ('code' in a || 'code' in b) return;
   const kitchenOfA = a.recipes.map((r) => inferCookware(r.recipe).join(',')).join('|');

@@ -35,6 +35,19 @@ export async function getStoredMenuForPair(menuId: string, pairId: string): Prom
   return (data as StoredMenu) ?? null;
 }
 
+/** The most recently created stored menu for a pair (the saved week plan). */
+export async function getLatestStoredMenuForPair(pairId: string): Promise<StoredMenu | null> {
+  const { data, error } = await supabase
+    .from('menus')
+    .select('*')
+    .eq('pair_id', pairId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as StoredMenu) ?? null;
+}
+
 /** Persists a refreshed result (e.g. after picking a subset of recipes). */
 export async function updateStoredMenuResult(menuId: string, pairId: string, result: MenuResult): Promise<void> {
   const { error } = await supabase

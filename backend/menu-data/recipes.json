@@ -1013,6 +1013,2360 @@
       "sourceUrl": "https://www.russianfood.com/recipes/recipe.php?rid=166010",
       "dataKind": "russianfood_import",
       "sourceLabel": "RussianFood.com"
+    },
+    {
+      "id": "rcp_rice_porridge",
+      "name": "Рисовая молочная каша",
+      "category": "Завтраки",
+      "baseServings": 3,
+      "timeMin": 30,
+      "ingredients": [
+        {
+          "ingredientId": "rice",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "milk",
+          "qty": 800,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "sugar",
+          "qty": 25,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "butter",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 2,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Рис дважды промыть, залить молоком.",
+        "Варить на слабом огне 20–25 минут, помешивая.",
+        "Заправить сахаром, солью и сливочным маслом."
+      ],
+      "cookware": [
+        "pot"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_scrambled_tomato",
+      "name": "Яичница с помидорами",
+      "category": "Завтраки",
+      "baseServings": 2,
+      "timeMin": 15,
+      "ingredients": [
+        {
+          "ingredientId": "eggs",
+          "qty": 5,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "tomato",
+          "qty": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 2,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Помидоры нарезать и слегка обжарить на масле.",
+        "Разбить яйца, посолить и готовить до нужной степени.",
+        "Посыпать зеленью при подаче."
+      ],
+      "cookware": [
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_toast_cheese",
+      "name": "Тосты с сыром",
+      "category": "Завтраки",
+      "baseServings": 2,
+      "timeMin": 12,
+      "ingredients": [
+        {
+          "ingredientId": "bread",
+          "qty": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cheese",
+          "qty": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "butter",
+          "qty": 20,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Хлеб подсушить до лёгкой корочки.",
+        "Смазать маслом, выложить ломтики сыра.",
+        "Запекать или подогреть в микроволновке до расплавления сыра."
+      ],
+      "cookware": [
+        "microwave"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_yogurt_apples",
+      "name": "Йогурт с яблоком и орехами",
+      "category": "Завтраки",
+      "baseServings": 2,
+      "timeMin": 10,
+      "ingredients": [
+        {
+          "ingredientId": "yogurt",
+          "qty": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "apples",
+          "qty": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "walnuts",
+          "qty": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "honey",
+          "qty": 30,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Яблоко нарезать кубиками.",
+        "Смешать йогурт, яблоко и орехи.",
+        "Полить мёдом и подавать."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_omelet_spinach",
+      "name": "Омлет со шпинатом",
+      "category": "Завтраки",
+      "baseServings": 2,
+      "timeMin": 15,
+      "ingredients": [
+        {
+          "ingredientId": "eggs",
+          "qty": 4,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "milk",
+          "qty": 80,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "spinach",
+          "qty": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "butter",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 2,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Шпинат слегка припустить на масле.",
+        "Яйца взбить с молоком и солью, влить к шпинату.",
+        "Готовить под крышкой 6–8 минут."
+      ],
+      "cookware": [
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_cottage_honey",
+      "name": "Творог с мёдом и яблоком",
+      "category": "Завтраки",
+      "baseServings": 2,
+      "timeMin": 10,
+      "ingredients": [
+        {
+          "ingredientId": "cottage_cheese",
+          "qty": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "honey",
+          "qty": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "apples",
+          "qty": 200,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Яблоко натереть на крупной тёрке.",
+        "Смешать творог с мёдом и яблоком.",
+        "Подавать сразу."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_pancakes_milk",
+      "name": "Блинчики на молоке",
+      "category": "Завтраки",
+      "baseServings": 4,
+      "timeMin": 45,
+      "ingredients": [
+        {
+          "ingredientId": "flour",
+          "qty": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "milk",
+          "qty": 500,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "eggs",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "sugar",
+          "qty": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "butter",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 2,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Яйца взбить с сахаром и солью, добавить молоко.",
+        "Постепенно ввести муку, перемешать до однородности.",
+        "Жарить блинчики на смазанной маслом сковороде.",
+        "Каждый блин смазать сливочным маслом."
+      ],
+      "cookware": [
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_mushroom_soup",
+      "name": "Грибной суп со сметаной",
+      "category": "Супы",
+      "baseServings": 4,
+      "timeMin": 45,
+      "ingredients": [
+        {
+          "ingredientId": "mushroom",
+          "qty": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "potatoes",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "sour_cream",
+          "qty": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Грибы с луком и морковью обжарить на масле.",
+        "Добавить картофель, залить водой и варить 20 минут.",
+        "В конце добавить сметану, посолить, посыпать зеленью."
+      ],
+      "cookware": [
+        "pot"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_vegetable_soup",
+      "name": "Овощной суп с капустой",
+      "category": "Супы",
+      "baseServings": 4,
+      "timeMin": 40,
+      "ingredients": [
+        {
+          "ingredientId": "potatoes",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cabbage",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "tomato",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Картофель нарезать и варить 10 минут.",
+        "Добавить капусту, морковь, лук и помидоры.",
+        "Варить ещё 15 минут, посолить, посыпать зеленью."
+      ],
+      "cookware": [
+        "pot"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_buckwheat_soup",
+      "name": "Гречневый суп с курицей",
+      "category": "Супы",
+      "baseServings": 4,
+      "timeMin": 50,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_fillet",
+          "qty": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "buckwheat",
+          "qty": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "potatoes",
+          "qty": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Курицу отварить, бульон процедить.",
+        "Добавить картофель и гречку, варить 15 минут.",
+        "Обжарить лук и морковь, добавить в суп.",
+        "Посолить, посыпать зеленью."
+      ],
+      "cookware": [
+        "pot"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_fish_soup",
+      "name": "Уха из трески",
+      "category": "Супы",
+      "baseServings": 4,
+      "timeMin": 50,
+      "ingredients": [
+        {
+          "ingredientId": "cod",
+          "qty": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "potatoes",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "lemon",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Овощи нарезать и варить 12 минут.",
+        "Добавить рыбу и варить 15 минут.",
+        "Заправить лимонным соком, посолить, посыпать зеленью."
+      ],
+      "cookware": [
+        "pot"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_chicken_broth",
+      "name": "Куриный бульон с лапшой",
+      "category": "Супы",
+      "baseServings": 4,
+      "timeMin": 55,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_leg",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pasta",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Куриные ножки отварить, снять пену.",
+        "Добавить лук и морковь, варить 30 минут.",
+        "Добавить лапшу и варить до готовности.",
+        "Посолить, посыпать зеленью."
+      ],
+      "cookware": [
+        "pot"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_chicken_rice_veg",
+      "name": "Курица с рисом и овощами",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 55,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_fillet",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "rice",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 30,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 6,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Курицу обжарить с луком и морковью.",
+        "Добавить рис, залить водой на 2 см.",
+        "Готовить под крышкой 25 минут, в конце добавить чеснок и специи."
+      ],
+      "cookware": [
+        "pot",
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_spaghetti_meatballs",
+      "name": "Спагетти с фрикадельками",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 60,
+      "ingredients": [
+        {
+          "ingredientId": "pasta",
+          "qty": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "beef",
+          "qty": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "eggs",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 6,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Из фарша с луком и яйцом сформировать фрикадельки.",
+        "Обжарить фрикадельки до золотистой корочки.",
+        "Добавить томатную пасту, чеснок и тушить 15 минут.",
+        "Спагетти отварить и подать с соусом."
+      ],
+      "cookware": [
+        "pot",
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_meatballs_gravy",
+      "name": "Тефтели в томатном соусе",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 70,
+      "ingredients": [
+        {
+          "ingredientId": "pork",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "rice",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "eggs",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "sour_cream",
+          "qty": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 6,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Рис отварить до полуготовности, смешать с фаршем, луком и яйцом.",
+        "Сформировать тефтели и обжарить.",
+        "Томатную пасту со сметаной развести водой, залить тефтели.",
+        "Тушить под крышкой 30 минут."
+      ],
+      "cookware": [
+        "pot",
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_chicken_cheese_bake",
+      "name": "Курица запечённая с сыром",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 60,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_fillet",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cheese",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "tomato",
+          "qty": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Курицу отбить, посолить и поперчить.",
+        "Выложить ломтики помидора, посыпать чесноком и сыром.",
+        "Запекать 30–35 минут при 190 °C."
+      ],
+      "cookware": [
+        "oven"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_veg_stew_rice",
+      "name": "Овощное рагу с рисом",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 45,
+      "ingredients": [
+        {
+          "ingredientId": "rice",
+          "qty": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "bell_pepper",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "tomato",
+          "qty": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Лук, морковь и перец обжарить на масле.",
+        "Добавить помидоры, томатную пасту, чеснок.",
+        "Всыпать рис, залить водой и тушить под крышкой 20 минут."
+      ],
+      "cookware": [
+        "pot",
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_lazy_cabbage_rolls",
+      "name": "Ленивые голубцы",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 70,
+      "ingredients": [
+        {
+          "ingredientId": "pork",
+          "qty": 450,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cabbage",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "rice",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "sour_cream",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 30,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 6,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Капусту нашинковать и слегка обжарить с луком и морковью.",
+        "Смешать с фаршем и рисом, сформировать котлетки.",
+        "Залить соусом из томатной пасты и сметаны, тушить 40 минут."
+      ],
+      "cookware": [
+        "pot",
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_cauliflower_chicken",
+      "name": "Курица с цветной капустой",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 50,
+      "ingredients": [
+        {
+          "ingredientId": "cauliflower",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "chicken_fillet",
+          "qty": 450,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 25,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 5,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Курицу нарезать и обжарить с луком.",
+        "Добавить соцветия цветной капусты.",
+        "Влить немного воды, тушить под крышкой 20 минут, приправить чесноком."
+      ],
+      "cookware": [
+        "pot",
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_chicken_potato_oven",
+      "name": "Курица с картофелем в духовке",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 75,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_leg",
+          "qty": 800,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "potatoes",
+          "qty": 800,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 150,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 12,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 30,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 7,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Картофель и лук нарезать, выложить на противень.",
+        "Сверху выложить куриные ножки.",
+        "Полить маслом, посолить, запекать 50 минут при 200 °C."
+      ],
+      "cookware": [
+        "oven"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_salmon_rice",
+      "name": "Лосось с рисом и лимоном",
+      "category": "Основные блюда",
+      "baseServings": 3,
+      "timeMin": 40,
+      "ingredients": [
+        {
+          "ingredientId": "salmon",
+          "qty": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "rice",
+          "qty": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "lemon",
+          "qty": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 4,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Рис отварить до готовности.",
+        "Стейки лосося сбрызнуть лимоном, посолить.",
+        "Обжарить или запечь лосось до готовности, подать с рисом."
+      ],
+      "cookware": [
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_mushroom_creamy_pasta",
+      "name": "Паста со сливочным соусом и грибами",
+      "category": "Основные блюда",
+      "baseServings": 3,
+      "timeMin": 35,
+      "ingredients": [
+        {
+          "ingredientId": "pasta",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "mushroom",
+          "qty": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cream",
+          "qty": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 15,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 4,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Пасту отварить до состояния аль денте.",
+        "Грибы с луком и чесноком обжарить.",
+        "Влить сливки, прогреть, соединить с пастой."
+      ],
+      "cookware": [
+        "pot",
+        "skillet"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_salad_cabbage_cucumber",
+      "name": "Салат из капусты с огурцом",
+      "category": "Салаты",
+      "baseServings": 4,
+      "timeMin": 15,
+      "ingredients": [
+        {
+          "ingredientId": "cabbage",
+          "qty": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cucumber",
+          "qty": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "lemon",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Капусту тонко нашинковать и перетереть с солью.",
+        "Добавить нарезанный огурец и зелень.",
+        "Заправить маслом и лимонным соком."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_salad_chicken_veg",
+      "name": "Салат с курицей и овощами",
+      "category": "Салаты",
+      "baseServings": 3,
+      "timeMin": 35,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_fillet",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cucumber",
+          "qty": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cabbage",
+          "qty": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "lemon",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Курицу отварить и разобрать на кусочки.",
+        "Огурцы и капусту нарезать.",
+        "Заправить маслом, лимонным соком и посолить."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_salad_tomato_cheese",
+      "name": "Салат с помидорами и сыром",
+      "category": "Салаты",
+      "baseServings": 3,
+      "timeMin": 15,
+      "ingredients": [
+        {
+          "ingredientId": "tomato",
+          "qty": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cheese",
+          "qty": 120,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 20,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Помидоры нарезать дольками.",
+        "Добавить кубики сыра и зелень.",
+        "Заправить маслом и посолить."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "rcp_baked_apples",
+      "name": "Яблоки печёные с мёдом",
+      "category": "Десерты",
+      "baseServings": 2,
+      "timeMin": 40,
+      "ingredients": [
+        {
+          "ingredientId": "apples",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "honey",
+          "qty": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "butter",
+          "qty": 20,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Из яблок вырезать сердцевину.",
+        "Внутрь положить мёд и сливочное масло.",
+        "Запекать 25 минут при 180 °C."
+      ],
+      "cookware": [
+        "oven"
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Демо-каталог"
+    },
+    {
+      "id": "fixture-week-001",
+      "name": "Овсяная каша на воде с яблоком и мёдом",
+      "category": "Завтраки",
+      "baseServings": 1,
+      "timeMin": 15,
+      "ingredients": [
+        {
+          "ingredientId": "oatmeal",
+          "qty": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "apples",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "honey",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "В кастрюле залить овсяные хлопья водой и довести до кипения.",
+        "Варить на слабом огне 5–7 минут, помешивая.",
+        "Добавить нарезанное яблоко и мёд, посолить по вкусу и перемешать."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-002",
+      "name": "Овсяная каша на молоке",
+      "category": "Завтраки",
+      "baseServings": 1,
+      "timeMin": 12,
+      "ingredients": [
+        {
+          "ingredientId": "oatmeal",
+          "qty": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "milk",
+          "qty": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "butter",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "sugar",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "В кастрюлю налить молоко и довести до кипения.",
+        "Всыпать овсяные хлопья и варить 5–7 минут.",
+        "Добавить сливочное масло, сахар и соль по вкусу."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-003",
+      "name": "Рисовая каша на воде с яблоком и мёдом",
+      "category": "Завтраки",
+      "baseServings": 1,
+      "timeMin": 25,
+      "ingredients": [
+        {
+          "ingredientId": "rice",
+          "qty": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "apples",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "honey",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Рис промыть, залить водой в кастрюле и довести до кипения.",
+        "Убавить огонь и варить до готовности, помешивая.",
+        "Добавить нарезанное яблоко и мёд, посолить по вкусу."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-004",
+      "name": "Гречневая каша с молоком",
+      "category": "Завтраки",
+      "baseServings": 1,
+      "timeMin": 20,
+      "ingredients": [
+        {
+          "ingredientId": "buckwheat",
+          "qty": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "milk",
+          "qty": 200,
+          "unit": "ml"
+        },
+        {
+          "ingredientId": "butter",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "sugar",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "В кастрюле довести молоко до кипения.",
+        "Всыпать гречку и варить на слабом огне до готовности.",
+        "Добавить сливочное масло, сахар и соль по вкусу."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-005",
+      "name": "Омлет с грибами",
+      "category": "Завтраки",
+      "baseServings": 1,
+      "timeMin": 15,
+      "ingredients": [
+        {
+          "ingredientId": "eggs",
+          "qty": 3,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "mushroom",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 0.5,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Шампиньоны нарезать и обжарить на сковороде.",
+        "Взбить яйца с солью и перцем.",
+        "Залить яйцами грибы и готовить под крышкой до готовности."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-006",
+      "name": "Горячие тосты с помидорами",
+      "category": "Завтраки",
+      "baseServings": 1,
+      "timeMin": 10,
+      "ingredients": [
+        {
+          "ingredientId": "bread",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "tomato",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Хлеб подрумянить на сковороде без масла.",
+        "Помидор нарезать ломтиками.",
+        "Выложить помидор на тосты, полить оливковым маслом, посолить и посыпать зеленью."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-007",
+      "name": "Гречневая каша с яйцом",
+      "category": "Завтраки",
+      "baseServings": 1,
+      "timeMin": 20,
+      "ingredients": [
+        {
+          "ingredientId": "buckwheat",
+          "qty": 60,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "eggs",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 10,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Гречку промыть, залить водой в кастрюле и варить до готовности.",
+        "Яйца сварить вкрутую и очистить.",
+        "Подавать гречку с яйцом, полив растительным маслом и посолив по вкусу."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-008",
+      "name": "Рагу из курицы с овощами",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 60,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_fillet",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "potatoes",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Курицу и овощи нарезать и сложить в кастрюлю.",
+        "Добавить томатную пасту, соль и перец, залить водой.",
+        "Тушить на медленном огне под крышкой до готовности, посыпать зеленью."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-009",
+      "name": "Гуляш из свинины",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 90,
+      "ingredients": [
+        {
+          "ingredientId": "pork",
+          "qty": 600,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "flour",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Свинину нарезать кубиками и сложить в кастрюлю.",
+        "Добавить лук, морковь, томатную пасту и муку, залить водой.",
+        "Тушить на слабом огне до мягкости мяса, посолить и поперчить."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-010",
+      "name": "Тушёная капуста с курицей",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 50,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_fillet",
+          "qty": 400,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "cabbage",
+          "qty": 600,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "В кастрюлю выложить нарезанную капусту, курицу, морковь и лук.",
+        "Добавить томатную пасту и соль, залить небольшим количеством воды.",
+        "Тушить под крышкой до мягкости капусты."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-011",
+      "name": "Плов с курицей",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 70,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_fillet",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "rice",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 3,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Рис промыть и замочить в холодной воде.",
+        "Курицу, лук и морковь сложить в кастрюлю, добавить специи и залить водой.",
+        "Довести до кипения, всыпать рис и варить на слабом огне до готовности."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-012",
+      "name": "Рис с овощами и грибами",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 40,
+      "ingredients": [
+        {
+          "ingredientId": "rice",
+          "qty": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "mushroom",
+          "qty": 200,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "В кастрюле довести воду до кипения и засыпать рис.",
+        "Добавить нарезанные овощи и грибы, посолить.",
+        "Варить на слабом огне до готовности риса, подавать с зеленью."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-013",
+      "name": "Картофель тушёный с мясом",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 80,
+      "ingredients": [
+        {
+          "ingredientId": "beef",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "potatoes",
+          "qty": 600,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Говядину и картофель нарезать и сложить в кастрюлю.",
+        "Добавить овощи, томатную пасту и соль, залить водой.",
+        "Тушить под крышкой на медленном огне до готовности."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-014",
+      "name": "Говядина тушёная с овощами",
+      "category": "Основные блюда",
+      "baseServings": 4,
+      "timeMin": 90,
+      "ingredients": [
+        {
+          "ingredientId": "beef",
+          "qty": 600,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "garlic",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "bell_pepper",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 40,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 20,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Говядину нарезать порционными кусками, сложить в кастрюлю.",
+        "Добавить томатную пасту, овощи и специи, залить водой.",
+        "Тушить на слабом огне до мягкости мяса."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-015",
+      "name": "Щи из свежей капусты",
+      "category": "Супы",
+      "baseServings": 4,
+      "timeMin": 60,
+      "ingredients": [
+        {
+          "ingredientId": "cabbage",
+          "qty": 500,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "potatoes",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "tomato_paste",
+          "qty": 30,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "В кастрюле вскипятить воду.",
+        "Сложить нашинкованную капусту, картофель, морковь и лук, добавить томатную пасту и соль.",
+        "Варить до готовности овощей, посыпать зеленью."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-016",
+      "name": "Суп рисовый с курицей",
+      "category": "Супы",
+      "baseServings": 4,
+      "timeMin": 45,
+      "ingredients": [
+        {
+          "ingredientId": "chicken_fillet",
+          "qty": 300,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "rice",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "potatoes",
+          "qty": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "В кастрюле вскипятить воду.",
+        "Сложить нарезанное куриное филе, промытый рис, картофель, морковь и лук, посолить.",
+        "Варить до готовности курицы и риса, посыпать зеленью."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-017",
+      "name": "Яичница болтунья с шампиньонами и помидорами",
+      "category": "Завтраки",
+      "baseServings": 1,
+      "timeMin": 15,
+      "ingredients": [
+        {
+          "ingredientId": "eggs",
+          "qty": 3,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "mushroom",
+          "qty": 80,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "tomato",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 0.5,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 0.5,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Шампиньоны и лук нарезать и обжарить на сковороде.",
+        "Добавить нарезанные помидоры и готовить пару минут.",
+        "Влить взбитые яйца, посолить и поперчить, довести до готовности, посыпать зеленью."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-018",
+      "name": "Суп овощной с грибами",
+      "category": "Супы",
+      "baseServings": 4,
+      "timeMin": 45,
+      "ingredients": [
+        {
+          "ingredientId": "potatoes",
+          "qty": 350,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "mushroom",
+          "qty": 250,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "carrots",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "onions",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "vegetable_oil",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 3,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "pepper",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "В кастрюле вскипятить воду.",
+        "Сложить нарезанный картофель, лук, морковь и грибы, посолить.",
+        "Варить до готовности овощей, посыпать зеленью."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-019",
+      "name": "Салат из огурцов и помидоров с оливковым маслом",
+      "category": "Салаты",
+      "baseServings": 2,
+      "timeMin": 10,
+      "ingredients": [
+        {
+          "ingredientId": "cucumber",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "tomato",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Огурцы и помидоры нарезать.",
+        "Заправить оливковым маслом, посолить и посыпать зеленью."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
+    },
+    {
+      "id": "fixture-week-020",
+      "name": "Салат греческий с фетой",
+      "category": "Салаты",
+      "baseServings": 2,
+      "timeMin": 12,
+      "ingredients": [
+        {
+          "ingredientId": "cucumber",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "tomato",
+          "qty": 2,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "bell_pepper",
+          "qty": 1,
+          "unit": "pcs"
+        },
+        {
+          "ingredientId": "feta",
+          "qty": 100,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "olive_oil",
+          "qty": 15,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "salt",
+          "qty": 1,
+          "unit": "g"
+        },
+        {
+          "ingredientId": "herbs",
+          "qty": 10,
+          "unit": "g"
+        }
+      ],
+      "steps": [
+        "Овощи нарезать крупными кубиками.",
+        "Добавить кубики феты, заправить оливковым маслом, посолить и посыпать зеленью."
+      ],
+      "dataKind": "fixture",
+      "sourceLabel": "Кухня"
     }
   ]
 }

@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { MENU_ID_PREFIX, MENU_MAX_RECIPES } from './config';
+import {
+  MENU_GENERATION_ATTEMPTS,
+  MENU_DAILY_MEALS,
+  MENU_ID_PREFIX,
+  MENU_WEEK_DAYS,
+} from './config';
 import { buildShoppingList, priceRecipe } from './costing';
 import { describeCookware, inferCookware } from './cookware';
 import { defaultProviders, type MenuProviders } from './providers';
@@ -7,8 +12,10 @@ import { computeRecipeNutrition, perServing } from './nutrition';
 import { scaleForServings, servingsBreakdown } from './scaling';
 import { getIngredient } from './fixtures';
 import { ALLERGENS } from './allergens';
+import { MEAL_TITLES } from './types';
 import type {
-  AllergenId, CostedRecipe, MenuGenerationIssue, MenuRequest, MenuResult, RecipeChoice,
+  AllergenId, CostedRecipe, MealId, MenuDay, MenuGenerationIssue, MenuMeal, MenuRequest, MenuResult,
+  ProductOffer, RecipeChoice, StoreId,
 } from './types';
 
 export interface GenerateMenuOptions {
@@ -21,6 +28,8 @@ export interface GenerateMenuOptions {
 export interface PlannerCounters {
   allergenExcluded: number;
   unknownAllergenCount: number;
+  customAllergenExcluded: number;
+  dislikedExcluded: number;
   cookwareExcluded: number;
   priceMissingRecipes: number;
   staleMissing: number;
@@ -29,12 +38,18 @@ export interface PlannerCounters {
 
 const EPS = 1e-9;
 
+/** Slot label like «Завтрак · День 3» used in failure diagnostics. */
+export function slotLabel(meal: MealId, day: number): string {
+  return `${MEAL_TITLES[meal]} · День ${day}`;
+}
+
 /**
- * Deterministic menu planner (no LLM involved):
+ * Deterministic week menu planner (no LLM involved):
  *   1. weight servings by adults/children coefficients
- *   2. hard filters: confidence about allergens ∧ fully priced
- *   3. score remaining recipes (nutrition completeness, cost fit, data completeness)
- *   4. greedy pick up to MENU_MAX_RECIPES staying within the budget
+ *   2. hard filters: allergens (curated + free-text) ∧ disliked ∧ cookware ∧ fully priced
+ *   3. classify every recipe into breakfast / lunch / dinner
+ *   4. greedy-fill 7 days × 3 meals with unique recipes so that the final
+ *      shopping receipt (whole packages) NEVER exceeds the budget
  *   5. build a merged shopping list, rounded up to whole packages
  */
 export async function generateMenu(
@@ -58,25 +73,38 @@ export async function generateMenu(
   const counters: PlannerCounters = {
     allergenExcluded: 0,
     unknownAllergenCount: 0,
+    customAllergenExcluded: 0,
+    dislikedExcluded: 0,
     cookwareExcluded: 0,
     priceMissingRecipes: 0,
     staleMissing: 0,
     totalRecipes: recipes.length,
   };
 
+  const customTerms = normalizeExclusions(request.customAllergens);
+  const dislikedTerms = normalizeExclusions(request.disliked);
+
   for (const recipe of recipes) {
     const { scale, scaledIngredients, unknownIngredients } = scaleForServings(recipe, effectiveServings);
 
     // --- kitchen equipment ------------------------------------------------
-    const cookware = recipe.cookware ?? inferCookware(recipe);
+    const explicitCookware = recipe.cookware ?? [];
+    const cookware = [...new Set([...explicitCookware, ...inferCookware(recipe)])];
 
     // --- allergen safety ----------------------------------------------------
     const allergens = new Set<AllergenId>();
+    const excludedTerms = { custom: [] as string[], disliked: [] as string[] };
     for (const scaled of scaledIngredients) {
       const catalogue = getIngredient(scaled.ingredient.id);
       if (catalogue) {
         for (const a of catalogue.allergens) allergens.add(a);
       }
+      const nameLower = scaled.ingredient.name.toLowerCase();
+      const hit = (terms: string[]): string | null => terms.find((t) => nameLower.includes(t)) ?? null;
+      const customHit = hit(customTerms);
+      if (customHit) excludedTerms.custom.push(`${scaled.ingredient.name} (${customHit})`);
+      const dislikedHit = hit(dislikedTerms);
+      if (dislikedHit) excludedTerms.disliked.push(`${scaled.ingredient.name} (${dislikedHit})`);
     }
 
     let rejected = false;
@@ -92,6 +120,14 @@ export async function generateMenu(
       counters.unknownAllergenCount += unknownIngredients.length;
       rejected = true;
       rejectedReason = 'unknown_allergen';
+    } else if (excludedTerms.custom.length > 0) {
+      counters.customAllergenExcluded += 1;
+      rejected = true;
+      rejectedReason = `custom_allergen:${excludedTerms.custom.join(',')}`;
+    } else if (excludedTerms.disliked.length > 0) {
+      counters.dislikedExcluded += 1;
+      rejected = true;
+      rejectedReason = `disliked:${excludedTerms.disliked.join(',')}`;
     }
 
     // --- kitchen equipment filter -------------------------------------------
@@ -155,17 +191,6 @@ export async function generateMenu(
   }
 
   const usable = candidates.filter((c) => !c.rejectedReason && c.fullyPriced);
-  usable.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return a.choice.recipe.id < b.choice.recipe.id ? -1 : 1;
-  });
-  if (opts.randomize && usable.length > 1) {
-    for (let i = usable.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [usable[i], usable[j]] = [usable[j], usable[i]];
-    }
-  }
-
   if (usable.length === 0) {
     if (recipes.length === 0) {
       return { code: 'empty_catalog', message: 'Каталог рецептов пуст' };
@@ -173,40 +198,66 @@ export async function generateMenu(
     return { code: 'no_recipes', message: describeNoRecipes(counters, request) };
   }
 
-  const minCost = Math.min(...usable.map((c) => c.choice.cost));
-  if (minCost > request.budget + EPS) {
-    return {
-      code: 'budget_too_low',
-      message: 'Бюджет слишком мал для самого дешёвого рецепта',
-      minCost: Math.round(minCost * 100) / 100,
-      budget: request.budget,
-    };
-  }
-
-  // Greedy: always fits at least one (cheapest fits), then fills up to 4 and budget.
-  const picked: RecipeChoice[] = [];
-  let remaining = request.budget;
+  // --- canned meals per day ------------------------------------------------
+  const byMeal = new Map<MealId, RecipeChoice[]>();
+  for (const meal of ['breakfast', 'lunch', 'dinner'] as MealId[]) byMeal.set(meal, []);
   for (const c of usable) {
-    if (picked.length >= MENU_MAX_RECIPES) break;
-    if (c.choice.cost <= remaining + EPS) {
-      picked.push(c.choice);
-      remaining -= c.choice.cost;
-    }
+    const meal = mealOfRecipe(c.choice.recipe);
+    if (meal) byMeal.get(meal)!.push(c.choice);
+  }
+  for (const meal of byMeal.keys()) {
+    byMeal.get(meal)!.sort((a, b) => a.cost - b.cost);
   }
 
-  const scaledInputs = picked.flatMap((p) =>
-    p.scaledIngredients.map((si) => ({
-      ingredient: si.ingredient,
-      qty: si.qty,
-      unit: si.unit,
-    }))
-  );
-  const shoppingList = buildShoppingList(scaledInputs, offers, request.storeId, now);
+  // --- greedy week fill ----------------------------------------------------
+  const wantedSlots = MENU_WEEK_DAYS * MENU_DAILY_MEALS.length;
 
+  let best: FilledAttempt | null = null;
+  for (let attempt = 0; attempt < MENU_GENERATION_ATTEMPTS; attempt += 1) {
+    const plan = fillWeek(byMeal, offers, request.storeId, now, request.budget, opts.randomize ?? true);
+    if (!best || plan.filledSlots > best.filledSlots || (plan.filledSlots === best.filledSlots && plan.totalCost < best.totalCost)) {
+      best = plan;
+    }
+    if (plan.filledSlots === wantedSlots) break;
+  }
+  if (!best) {
+    return { code: 'no_recipes', message: describeNoRecipes(counters, request) };
+  }
+
+  if (best.filledSlots === 0) {
+    const minCost = Math.min(...usable.map((c) => c.choice.cost));
+    if (minCost > request.budget + EPS) {
+      return {
+        code: 'budget_too_low',
+        message: 'Бюджет слишком мал для самого дешёвого блюда',
+        minCost: Math.round(minCost * 100) / 100,
+        budget: request.budget,
+      };
+    }
+    return incompleteIssue(best, wantedSlots);
+  }
+
+  if (best.filledSlots < wantedSlots) {
+    return incompleteIssue(best, wantedSlots);
+  }
+
+  const meals = best.slots.flatMap((s) => s);
+  const picked = meals.map((m) => m.recipe);
+  const shoppingList = buildReceipt(meals.map((m) => m.recipe), offers, request.storeId, now);
   const totalCost = shoppingList.total;
   const remainingBudget = request.budget > totalCost ? round2Safe(request.budget - totalCost) : 0;
   const overspend = totalCost > request.budget ? round2Safe(totalCost - request.budget) : 0;
   const recipesCost = round2Safe(picked.reduce((s, p) => s + p.cost, 0));
+
+  const days: MenuDay[] = [];
+  for (let day = 1; day <= MENU_WEEK_DAYS; day += 1) {
+    const dayMeals: MenuMeal[] = [];
+    for (const meal of MENU_DAILY_MEALS) {
+      const m = meals.find((s) => s.day === day && s.meal === meal);
+      if (m) dayMeals.push({ meal, title: MEAL_TITLES[meal], recipe: m.recipe });
+    }
+    days.push({ day, meals: dayMeals });
+  }
 
   const warnings = buildWarnings(counters, providers, picked, totalCost);
 
@@ -215,6 +266,7 @@ export async function generateMenu(
     store,
     request,
     servings,
+    days,
     recipes: picked,
     recipesCost,
     totalCost,
@@ -229,6 +281,177 @@ export async function generateMenu(
   return result;
 }
 
+interface FilledSlot {
+  day: number;
+  meal: MealId;
+  recipe: RecipeChoice;
+}
+
+interface FilledAttempt {
+  slots: FilledSlot[];
+  filledSlots: number;
+  totalCost: number;
+  missingSlots: string[];
+}
+
+/**
+ * Greedy fill: 7 days × 3 meals in day-major order. Every recipe is used at
+ * most once in the whole week. A meal slot keeps the cheapest available recipe
+ * (low-cost, high-variety food is preferred) whose addition does NOT push the
+ * receipt above the budget. shopping new cart is recomputed on each attempt so
+ * that receipts are always guaranteed to stay within budget.
+ */
+function fillWeek(
+  byMeal: Map<MealId, RecipeChoice[]>,
+  offers: ProductOffer[],
+  storeId: StoreId,
+  now: Date,
+  budget: number,
+  randomize: boolean
+): FilledAttempt {
+  const pools = new Map<MealId, RecipeChoice[]>();
+  for (const meal of byMeal.keys()) {
+    const list = [...byMeal.get(meal)!];
+    if (randomize) shuffle(list);
+    const kept: RecipeChoice[] = [];
+    // stabilise randomness: keep cheapest candidates up front, randomise the tail.
+    const sorted = [...list].sort((a, b) => a.cost - b.cost);
+    const core = sorted.slice(0, Math.max(2, Math.floor(sorted.length / 3)));
+    const tail = sorted.slice(Math.max(2, Math.floor(sorted.length / 3)));
+    if (randomize) shuffle(tail);
+    kept.push(...core, ...tail);
+    pools.set(meal, kept);
+  }
+
+  const used = new Set<string>();
+  const slots: FilledSlot[] = [];
+  const missingSlots: string[] = [];
+  let totalCost = 0;
+
+  for (let day = 1; day <= MENU_WEEK_DAYS; day += 1) {
+    for (const meal of MENU_DAILY_MEALS) {
+      const pool = pools.get(meal) ?? [];
+      let chosen: RecipeChoice | null = null;
+      for (const candidate of pool) {
+        const id = candidate.recipe.id;
+        if (used.has(id)) continue;
+        const trialTotal = receiptTotal([...slots.map((s) => s.recipe), candidate], offers, storeId, now);
+        if (trialTotal > budget + EPS) continue;
+        chosen = candidate;
+        break;
+      }
+      if (!chosen) {
+        missingSlots.push(slotLabel(meal, day));
+        continue;
+      }
+      used.add(chosen.recipe.id);
+      slots.push({ day, meal, recipe: chosen });
+    }
+  }
+
+  const finalReceipt = buildReceipt(slots.map((s) => s.recipe), offers, storeId, now);
+  totalCost = finalReceipt.total;
+
+  return {
+    slots,
+    filledSlots: slots.length,
+    totalCost,
+    missingSlots,
+  };
+}
+
+function incompleteIssue(attempt: FilledAttempt, wantedSlots: number): MenuGenerationIssue {
+  const reason: 'budget' | 'recipes' = attempt.missingSlots.length > 0 ? 'budget' : 'recipes';
+  if (attempt.filledSlots === 0) {
+    return {
+      code: 'menu_incomplete',
+      message: 'Бюджет слишком мал, чтобы набрать недельное меню. Увеличьте бюджет или ослабьте условия (аллергии, утварь).',
+      filledSlots: 0,
+      totalSlots: wantedSlots,
+      reason,
+      missingSlots: attempt.missingSlots.slice(0, 6),
+    };
+  }
+  const reasonText =
+    reason === 'budget'
+      ? `Бюджет пока позволяет покрыть ${attempt.filledSlots} из ${wantedSlots} приёмов пищи.`
+      : 'Не хватает подходящих рецептов для части приёмов (проверьте фильтры аллергий и кухонной утвари).';
+  const missing = attempt.missingSlots.slice(0, 6).join(', ');
+  return {
+    code: 'menu_incomplete',
+    message: `${reasonText} Не удалось заполнить: ${missing}. Увеличьте бюджет или упростите условия.`,
+    filledSlots: attempt.filledSlots,
+    totalSlots: wantedSlots,
+    reason,
+    missingSlots: attempt.missingSlots.slice(0, 6),
+  };
+}
+
+/** Builds the merged shopping list for a set of recipes. */
+function buildReceipt(
+  choices: RecipeChoice[],
+  offers: Parameters<typeof buildShoppingList>[1],
+  storeId: Parameters<typeof buildShoppingList>[2],
+  now: Date
+) {
+  const inputs = choices.flatMap((p) =>
+    p.scaledIngredients.map((si) => ({
+      ingredient: si.ingredient,
+      qty: si.qty,
+      unit: si.unit,
+    }))
+  );
+  return buildShoppingList(inputs, offers, storeId, now);
+}
+
+/** Total receipt for the given recipes (used to keep the week within budget). */
+function receiptTotal(
+  choices: RecipeChoice[],
+  offers: Parameters<typeof buildShoppingList>[1],
+  storeId: Parameters<typeof buildShoppingList>[2],
+  now: Date
+): number {
+  return buildReceipt(choices, offers, storeId, now).total;
+}
+
+/** Maps a recipe to the meal slot it can fill (or null for desserts/drinks). */
+export function mealOfRecipe(recipe: { category: string; name: string }): MealId | null {
+  const cat = recipe.category.trim().toLowerCase();
+  const name = recipe.name.toLowerCase();
+  const breakfastKw = /каш|овсян|омлет|блин|сырник|тост|яичниц|йогурт|творог/;
+  const lunchKw = /суп|борщ|уха|бульон|солянк|рассольник|щи|салат/;
+  if (cat.includes('завтрак')) return 'breakfast';
+  if (cat.includes('суп')) return 'lunch';
+  if (cat.includes('салат')) return 'lunch';
+  if (cat.includes('десерт') || cat.includes('напит')) return null;
+  if (cat.includes('основн')) return 'dinner';
+  // Imported recipes use the generic «Рецепты» category — classify by name.
+  if (breakfastKw.test(name)) return 'breakfast';
+  if (lunchKw.test(name)) return 'lunch';
+  return 'dinner';
+}
+
+function normalizeExclusions(terms?: string[]): string[] {
+  if (!terms) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of terms) {
+    const t = raw.trim().toLowerCase();
+    if (t.length < 2) continue;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
+function shuffle<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
 function round2Safe(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -240,6 +463,8 @@ function describeNoRecipes(counters: PlannerCounters, request: MenuRequest): str
     .map((id) => ALLERGENS.find((a) => a.id === id)?.title ?? id)
     .join(', ');
   if (counters.allergenExcluded > 0) parts.push(`${counters.allergenExcluded} рецепт(ов) исключено из-за аллергенов (${banned})`);
+  if (counters.customAllergenExcluded > 0) parts.push(`${counters.customAllergenExcluded} рецепт(ов) исключено из-за указанных вами аллергий`);
+  if (counters.dislikedExcluded > 0) parts.push(`${counters.dislikedExcluded} рецепт(ов) исключено из-за нелюбимых продуктов`);
   if (counters.cookwareExcluded > 0) parts.push(`${counters.cookwareExcluded} рецепт(ов) исключено по кухонной утвари`);
   if (counters.priceMissingRecipes > 0) parts.push(`${counters.priceMissingRecipes} рецепт(ов) без цен в магазине`);
   if (counters.unknownAllergenCount > 0) parts.push(`${counters.unknownAllergenCount} ингредиент(ов) с неустановленной аллергенностью`);
@@ -258,6 +483,12 @@ function buildWarnings(
   }
   if (counters.allergenExcluded > 0) {
     warnings.push(`${counters.allergenExcluded} рецепт(ов) исключено из подбора из-за аллергенов`);
+  }
+  if (counters.customAllergenExcluded > 0) {
+    warnings.push(`${counters.customAllergenExcluded} рецепт(ов) исключено из-за указанных вами аллергий`);
+  }
+  if (counters.dislikedExcluded > 0) {
+    warnings.push(`${counters.dislikedExcluded} рецепт(ов) исключено — содержит нелюбимые продукты`);
   }
   if (counters.unknownAllergenCount > 0) {
     warnings.push(`${counters.unknownAllergenCount} ингредиент(ов) с неустановленной аллергенностью — рецепты с ними не рекомендуются автоматически`);
@@ -283,7 +514,7 @@ export function recipeIds(result: MenuResult): string[] {
 
 /**
  * Rebuilds the shopping list and totals for a user-chosen subset of the
- * generated menu's recipes (the planner's own pick can be replaced).
+ * generated week's recipes (the planner's own pick can be replaced).
  * Prices are re-fetched from the store so the totals stay current.
  */
 export async function rebuildMenuForSelection(
@@ -310,8 +541,21 @@ export async function rebuildMenuForSelection(
   const overspend = totalCost > result.budget ? round2Safe(totalCost - result.budget) : 0;
   const recipesCost = round2Safe(selected.reduce((s, p) => s + p.cost, 0));
 
+  const days: MenuDay[] = [];
+  for (let day = 1; day <= MENU_WEEK_DAYS; day += 1) {
+    const dayMeals: MenuMeal[] = [];
+    for (const meal of MENU_DAILY_MEALS) {
+      const choice = selected.find((r) => r.recipe.id === result.days
+        .find((d) => d.day === day)
+        ?.meals.find((m) => m.meal === meal)?.recipe.recipe.id);
+      if (choice) dayMeals.push({ meal, title: MEAL_TITLES[meal], recipe: choice });
+    }
+    if (dayMeals.length > 0) days.push({ day, meals: dayMeals });
+  }
+
   return {
     ...result,
+    days,
     recipes: selected,
     recipesCost,
     totalCost,

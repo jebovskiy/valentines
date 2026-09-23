@@ -8,7 +8,7 @@ import { BackButton } from '../../components/BackButton';
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    padding: '18px 16px calc(24px + env(safe-area-inset-bottom))',
+    padding: '16px 16px calc(28px + env(safe-area-inset-bottom))',
     maxWidth: 460,
     margin: '0 auto',
     minHeight: '100vh',
@@ -19,7 +19,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    height: 48,
     position: 'relative',
   },
   title: {
@@ -27,18 +27,20 @@ const styles: Record<string, React.CSSProperties> = {
     left: 0,
     right: 0,
     textAlign: 'center',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 800,
+    lineHeight: 1.2,
     color: 'var(--ink)',
     zIndex: 1,
     pointerEvents: 'none',
+    padding: '0 52px',
   },
   stepBadge: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginTop: 14,
   },
   stepDot: {
     width: 7,
@@ -54,19 +56,21 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: 'var(--ash)',
     textAlign: 'center',
-    marginBottom: 14,
+    marginTop: 8,
+    marginBottom: 18,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 800,
     color: 'var(--ink)',
-    marginBottom: 4,
+    lineHeight: 1.3,
+    marginBottom: 6,
   },
   sectionHint: {
     fontSize: 13,
     lineHeight: '19px',
     color: 'var(--mute)',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   storeGrid: {
     display: 'grid',
@@ -80,6 +84,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--surface-card)',
     cursor: 'pointer',
     textAlign: 'left',
+    lineHeight: 1.3,
     transition: 'border-color 120ms ease',
   },
   storeCardSelected: {
@@ -93,7 +98,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 700,
     color: 'var(--ink)',
-    marginBottom: 3,
+    marginBottom: 5,
   },
   storeDesc: {
     fontSize: 11,
@@ -107,7 +112,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--surface-card)',
     border: '1px solid var(--hairline)',
     borderRadius: 16,
-    padding: '10px 12px',
+    padding: '12px 14px',
     marginBottom: 10,
   },
   stepperLabel: {
@@ -117,6 +122,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 600,
     color: 'var(--ink)',
+    lineHeight: 1.3,
   },
   stepperControls: {
     display: 'flex',
@@ -150,7 +156,7 @@ const styles: Record<string, React.CSSProperties> = {
   budgetInput: {
     width: '100%',
     boxSizing: 'border-box',
-    height: 48,
+    height: 50,
     borderRadius: 14,
     border: '1px solid var(--hairline)',
     background: 'var(--surface-card)',
@@ -162,18 +168,19 @@ const styles: Record<string, React.CSSProperties> = {
   cookwareGrid: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 10,
+    gap: 12,
   },
   cookwareCard: {
     display: 'flex',
     alignItems: 'center',
     gap: 12,
     borderRadius: 16,
-    padding: '12px 14px',
+    padding: '13px 14px',
     border: '1px solid var(--hairline)',
     background: 'var(--surface-card)',
     cursor: 'pointer',
     textAlign: 'left',
+    lineHeight: 1.3,
     transition: 'border-color 120ms ease',
   },
   cookwareCardSelected: {
@@ -184,6 +191,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 22,
     width: 26,
     textAlign: 'center' as const,
+    flexShrink: 0,
   },
   cookwareBody: {
     flex: 1,
@@ -193,11 +201,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 14,
     fontWeight: 700,
     color: 'var(--ink)',
-    marginBottom: 1,
+    lineHeight: 1.3,
+    marginBottom: 2,
+    display: 'block',
   },
   cookwareHint: {
     fontSize: 12,
     color: 'var(--ash)',
+    lineHeight: 1.35,
+    display: 'block',
   },
   allergenGrid: {
     display: 'flex',
@@ -206,11 +218,12 @@ const styles: Record<string, React.CSSProperties> = {
   },
   allergenChip: {
     borderRadius: 999,
-    padding: '8px 12px',
+    padding: '9px 13px',
     border: '1px solid var(--hairline)',
     background: 'var(--surface-card)',
     color: 'var(--ink)',
     fontSize: 13,
+    lineHeight: 1.25,
     cursor: 'pointer',
     transition: 'border-color 120ms ease',
   },
@@ -219,23 +232,72 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--primary)',
     color: '#fff',
   },
+  tagSectionTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: 'var(--ink)',
+    marginTop: 22,
+    marginBottom: 4,
+  },
+  tagSectionHint: {
+    fontSize: 12,
+    lineHeight: '17px',
+    color: 'var(--ash)',
+    marginBottom: 10,
+  },
+  tagInput: {
+    width: '100%',
+    borderRadius: 14,
+    border: '1px solid var(--hairline)',
+    background: 'var(--surface-card)',
+    color: 'var(--ink)',
+    padding: '11px 14px',
+    fontSize: 14,
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+  tagChips: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  tagChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    padding: '6px 10px',
+    border: '1px solid var(--hairline)',
+    background: 'var(--surface-elevated)',
+    color: 'var(--ink)',
+    fontSize: 13,
+  },
+  tagChipRemove: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: 'var(--ash)',
+    fontSize: 15,
+    lineHeight: 1,
+    padding: 0,
+  },
   errorBox: {
     background: 'var(--surface-card)',
     border: '1px solid var(--hairline)',
     borderRadius: 14,
     padding: '12px 14px',
     fontSize: 13,
-    lineHeight: '18px',
+    lineHeight: '19px',
     color: 'var(--primary)',
     marginBottom: 14,
   },
   footer: {
-    marginTop: 'auto',
-    paddingTop: 20,
+    marginTop: 24,
   },
   primaryBtnBig: {
     width: '100%',
-    height: 48,
+    height: 50,
     borderRadius: 999,
     background: 'var(--primary)',
     color: '#fff',
@@ -251,12 +313,66 @@ const styles: Record<string, React.CSSProperties> = {
   mockNote: {
     fontSize: 11,
     color: 'var(--ash)',
-    marginTop: 10,
-    lineHeight: '15px',
+    marginTop: 12,
+    lineHeight: '16px',
   },
 };
 
 const TOTAL_STEPS = 5;
+
+function TagInput(props: {
+  value: string[];
+  onChange: (tags: string[]) => void;
+  placeholder: string;
+}) {
+  const { value, onChange, placeholder } = props;
+  const [text, setText] = useState('');
+
+  const add = (raw: string) => {
+    const tag = raw.replace(/[0-9]/g, '').trim();
+    if (!tag) return;
+    onChange(value.includes(tag) ? value : [...value, tag]);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+      e.preventDefault();
+      add(text);
+      setText('');
+    }
+  };
+
+  return (
+    <div>
+      <input
+        style={styles.tagInput}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={onKeyDown}
+        onBlur={() => {
+          add(text);
+          setText('');
+        }}
+        placeholder={placeholder}
+      />
+      {value.length > 0 && (
+        <div style={styles.tagChips}>
+          {value.map((tag) => (
+            <span key={tag} style={styles.tagChip}>
+              {tag}
+              <button
+                style={styles.tagChipRemove}
+                onClick={() => onChange(value.filter((t) => t !== tag))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StepFrame(props: {
   step: number;
@@ -565,6 +681,8 @@ export function MenuAllergensStep() {
       budget: parseFloat(menuDraft.budget.replace(',', '.')) || 0,
       currency: 'BYN',
       allergens: menuDraft.allergens,
+      customAllergens: menuDraft.customAllergens,
+      disliked: menuDraft.disliked,
       cookware: menuDraft.cookware,
     };
     const result = await generateMenuPlan(request);
@@ -612,6 +730,26 @@ export function MenuAllergensStep() {
           );
         })}
       </div>
+
+      <div style={styles.tagSectionTitle}>Свои аллергии</div>
+      <div style={styles.tagSectionHint}>
+        Если аллергия не в списке — впишите продукт (например «курица», «консервы», «грибы»). Разделяйте слова пробелом или запятой.
+      </div>
+      <TagInput
+        value={menuDraft.customAllergens}
+        onChange={(tags) => updateMenuDraft({ customAllergens: tags })}
+        placeholder="Например: курица, грибы"
+      />
+
+      <div style={styles.tagSectionTitle}>Что не нравится</div>
+      <div style={styles.tagSectionHint}>
+        Нелюбимые продукты тоже будут исключены из блюд на неделю.
+      </div>
+      <TagInput
+        value={menuDraft.disliked}
+        onChange={(tags) => updateMenuDraft({ disliked: tags })}
+        placeholder="Например: печень, кабачки"
+      />
     </StepFrame>
   );
 }
