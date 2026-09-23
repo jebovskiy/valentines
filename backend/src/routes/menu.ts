@@ -9,6 +9,7 @@ import { createStoredMenu, getStoredMenuForPair, updateStoredMenuResult } from '
 
 const storeIdEnum = ['euroopt', 'hippo', 'green', 'korona'] as const;
 const allergenEnum = ['milk', 'egg', 'peanut', 'tree_nut', 'fish', 'seafood', 'soy', 'gluten'] as const;
+const cookwareEnum = ['skillet', 'pot', 'oven', 'slow_cooker', 'microwave'] as const;
 
 const menuRequestSchema = z
   .object({
@@ -18,6 +19,7 @@ const menuRequestSchema = z
     budget: z.number().min(0.01).max(100000),
     currency: z.literal('BYN'),
     allergens: z.array(z.enum(allergenEnum)).max(8).default([]),
+    cookware: z.array(z.enum(cookwareEnum)).max(5).default([]),
   })
   .refine((d) => d.adults + d.children >= 1, {
     message: 'Хотя бы один взрослый или ребёнок',

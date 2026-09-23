@@ -281,6 +281,9 @@ export function MenuResultScreen() {
                   <span style={styles.chip}>💰 {choice.cost.toFixed(2)} BYN</span>
                   <span style={styles.chip}>≈ {choice.costPerServing.toFixed(2)} BYN/порц.</span>
                   {choice.recipe.timeMin != null && <span style={styles.chip}>⏱ {choice.recipe.timeMin} мин</span>}
+                  {choice.cookwareLabels && choice.cookwareLabels.length > 0 && (
+                    <span style={styles.chip}>{choice.cookwareLabels.join(' · ')}</span>
+                  )}
                   {nutrition && (
                     <span style={styles.chip}>
                       🔥 {Math.round(nutrition.perServing.calories)} ккал · Б {Math.round(nutrition.perServing.protein)} · Ж {Math.round(nutrition.perServing.fat)} · У {Math.round(nutrition.perServing.carbs)}

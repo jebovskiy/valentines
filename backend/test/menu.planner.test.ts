@@ -6,6 +6,7 @@ import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe } from '.
 import { generateMenu, rebuildMenuForSelection, type GenerateMenuOptions } from '../src/services/menu/planner';
 import { RussianFoodRecipeProvider, FixtureNutritionProvider, FixtureRecipeProvider } from '../src/services/menu/providers';
 import { buildFixtureRecipes, STORES, buildMockOffers, INGREDIENTS, getIngredientNutrition } from '../src/services/menu/fixtures';
+import { inferCookware } from '../src/services/menu/cookware';
 import type { MenuProviders, PriceProvider, RecipeProvider } from '../src/services/menu/providers';
 import type { MenuRequest, ProductOffer, Recipe, StoreId } from '../src/services/menu/types';
 
@@ -267,6 +268,48 @@ test('provided fixtures catalog covers recipes with offers in every store', () =
       }
     }
   }
+});
+
+test('inferCookware maps dishes to kitchen equipment', () => {
+  assert.deepEqual(inferCookware({ name: 'Суп куриный с лапшой', category: 'Супы' }), ['pot']);
+  assert.deepEqual(inferCookware({ name: 'Куриные котлеты', category: 'Основные блюда' }), ['skillet']);
+  assert.deepEqual(
+    inferCookware({ name: 'Шарлотка с яблоками', category: 'Выпечка', steps: ['Запекать в духовке 40 минут.'] }),
+    ['oven']
+  );
+  assert.deepEqual(
+    inferCookware({ name: 'Плов с курицей', category: 'Основные блюда', steps: ['Курицу обжарить, добавить рис и варить.'] }),
+    ['skillet', 'pot']
+  );
+  assert.deepEqual(inferCookware({ name: 'Салат овощной', category: 'Салаты' }), []);
+});
+
+test('generateMenu: cookware filter excludes recipes needing missing equipment', async () => {
+  const result = await generateMenu(
+    { ...baseRequest, budget: 40, cookware: ['pot'] },
+    { providers: providersOf(), now: NOW }
+  );
+  assert.ok(!('code' in result), 'expected a menu with only pot-cookable recipes');
+  if ('code' in result) return;
+  assert.ok(result.recipes.length >= 1);
+  for (const choice of result.recipes) {
+    const required = inferCookware(choice.recipe);
+    for (const r of required) {
+      assert.equal(r, 'pot', `${choice.recipe.name} should require only a pot, got ${r}`);
+    }
+    assert.ok(!choice.cookwareLabels.some((l) => l.includes('Сковорода')), `${choice.recipe.name} should not claim a skillet`);
+  }
+});
+
+// exposed for future planner counters
+test('generateMenu: empty cookware list disables the filter', async () => {
+  const a = await generateMenu({ ...baseRequest, cookware: [] }, { providers: providersOf(), now: NOW });
+  const b = await generateMenu(baseRequest, { providers: providersOf(), now: NOW });
+  assert.ok(!('code' in a) && !('code' in b));
+  if ('code' in a || 'code' in b) return;
+  const kitchenOfA = a.recipes.map((r) => inferCookware(r.recipe).join(',')).join('|');
+  const kitchenOfB = b.recipes.map((r) => inferCookware(r.recipe).join(',')).join('|');
+  assert.equal(kitchenOfA, kitchenOfB);
 });
 
 test('nutrition reference DB covers the whole ingredient catalogue', () => {

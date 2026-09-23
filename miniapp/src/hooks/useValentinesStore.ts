@@ -1,5 +1,5 @@
 ﻿import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuGenerationIssue } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions, subscribeToGameSessions, unsubscribeFromGameSessions } from '../api/supabase';
 
@@ -122,6 +122,18 @@ interface ValentinesState {
   generateMenuPlan: (request: MenuRequest) => Promise<MenuResult | MenuGenerationIssue | null>;
   pickMenuRecipes: (id: string, recipeIds: string[]) => Promise<MenuResult | null>;
   clearMenu: () => void;
+  menuDraft: MenuDraft;
+  updateMenuDraft: (patch: Partial<MenuDraft>) => void;
+  resetMenuDraft: () => void;
+}
+
+export interface MenuDraft {
+  storeId: MenuStoreId | null;
+  adults: number;
+  children: number;
+  budget: string;
+  allergens: MenuAllergenId[];
+  cookware: MenuCookwareId[];
 }
 
 function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
@@ -711,6 +723,14 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   menuAllergens: [],
   menuResult: null,
   menuLoading: false,
+  menuDraft: {
+    storeId: null,
+    adults: 2,
+    children: 0,
+    budget: '',
+    allergens: [],
+    cookware: [],
+  },
 
   fetchMenuStoresAndAllergens: async () => {
     const [storesRes, allergensRes] = await Promise.all([api.getMenuStores(), api.getAllergens()]);
@@ -758,5 +778,12 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   },
 
   clearMenu: () => set({ menuResult: null, error: null }),
+
+  updateMenuDraft: (patch) => set((state) => ({ menuDraft: { ...state.menuDraft, ...patch } })),
+
+  resetMenuDraft: () =>
+    set({
+      menuDraft: { storeId: null, adults: 2, children: 0, budget: '', allergens: [], cookware: [] },
+    }),
 }));
 

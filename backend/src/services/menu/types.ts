@@ -12,6 +12,9 @@ export type StoreId = 'euroopt' | 'hippo' | 'green' | 'korona';
 
 export type Unit = 'g' | 'ml' | 'pcs';
 
+/** Kitchen equipment the user declares to have; recipes needing the rest are filtered out. */
+export type CookwareId = 'skillet' | 'pot' | 'oven' | 'slow_cooker' | 'microwave';
+
 export interface AllergenInfo {
   id: AllergenId;
   title: string;
@@ -87,6 +90,8 @@ export interface Recipe {
   photoUrl?: string;
   /** Link to the original recipe page. Present only for real imported data. */
   sourceUrl?: string;
+  /** Required kitchen equipment; when absent the planner infers it heuristically. */
+  cookware?: CookwareId[];
   dataKind: RecipeDataKind;
   sourceLabel: string;
 }
@@ -108,6 +113,12 @@ export interface MenuRequest {
   budget: number;
   currency: 'BYN';
   allergens: AllergenId[];
+  /**
+   * Kitchen equipment the user has. Empty/undefined disables the cookware
+   * filter (every recipe is allowed); otherwise recipes requiring equipment
+   * outside this set are excluded.
+   */
+  cookware?: CookwareId[];
 }
 
 export interface ServingsBreakdown {
@@ -141,6 +152,8 @@ export interface RecipeChoice {
   allergens: AllergenId[];
   /** Ingredient names whose allergenicity could not be determined confidently. */
   allergenUnknown: string[];
+  /** Inferred kitchen equipment labels (e.g. «🍳 Сковорода») for the recipe. */
+  cookwareLabels: string[];
 }
 
 export interface ShoppingListItem {

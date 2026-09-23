@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { MENU_ID_PREFIX, MENU_MAX_RECIPES } from './config';
 import { buildShoppingList, priceRecipe } from './costing';
+import { describeCookware, inferCookware } from './cookware';
 import { defaultProviders, type MenuProviders } from './providers';
 import { computeRecipeNutrition, perServing } from './nutrition';
 import { scaleForServings, servingsBreakdown } from './scaling';
@@ -20,6 +21,7 @@ export interface GenerateMenuOptions {
 export interface PlannerCounters {
   allergenExcluded: number;
   unknownAllergenCount: number;
+  cookwareExcluded: number;
   priceMissingRecipes: number;
   staleMissing: number;
   totalRecipes: number;
@@ -56,6 +58,7 @@ export async function generateMenu(
   const counters: PlannerCounters = {
     allergenExcluded: 0,
     unknownAllergenCount: 0,
+    cookwareExcluded: 0,
     priceMissingRecipes: 0,
     staleMissing: 0,
     totalRecipes: recipes.length,
@@ -63,6 +66,9 @@ export async function generateMenu(
 
   for (const recipe of recipes) {
     const { scale, scaledIngredients, unknownIngredients } = scaleForServings(recipe, effectiveServings);
+
+    // --- kitchen equipment ------------------------------------------------
+    const cookware = recipe.cookware ?? inferCookware(recipe);
 
     // --- allergen safety ----------------------------------------------------
     const allergens = new Set<AllergenId>();
@@ -86,6 +92,19 @@ export async function generateMenu(
       counters.unknownAllergenCount += unknownIngredients.length;
       rejected = true;
       rejectedReason = 'unknown_allergen';
+    }
+
+    // --- kitchen equipment filter -------------------------------------------
+    if (
+      !rejected &&
+      request.cookware &&
+      request.cookware.length > 0 &&
+      cookware.length > 0 &&
+      cookware.some((c) => !request.cookware!.includes(c))
+    ) {
+      counters.cookwareExcluded += 1;
+      rejected = true;
+      rejectedReason = `cookware:${cookware.join(',')}`;
     }
 
     // --- pricing -------------------------------------------------------------
@@ -116,6 +135,7 @@ export async function generateMenu(
       nutritionMissing,
       allergens: [...allergens].sort(),
       allergenUnknown: unknownIngredients.map((u) => u.name),
+      cookwareLabels: describeCookware(cookware),
     };
 
     // --- scoring (used only for ranking already-safe fully-priced recipes) ---
@@ -220,6 +240,7 @@ function describeNoRecipes(counters: PlannerCounters, request: MenuRequest): str
     .map((id) => ALLERGENS.find((a) => a.id === id)?.title ?? id)
     .join(', ');
   if (counters.allergenExcluded > 0) parts.push(`${counters.allergenExcluded} рецепт(ов) исключено из-за аллергенов (${banned})`);
+  if (counters.cookwareExcluded > 0) parts.push(`${counters.cookwareExcluded} рецепт(ов) исключено по кухонной утвари`);
   if (counters.priceMissingRecipes > 0) parts.push(`${counters.priceMissingRecipes} рецепт(ов) без цен в магазине`);
   if (counters.unknownAllergenCount > 0) parts.push(`${counters.unknownAllergenCount} ингредиент(ов) с неустановленной аллергенностью`);
   return parts.length ? parts.join('; ') : 'Нет подходящих рецептов';
@@ -240,6 +261,9 @@ function buildWarnings(
   }
   if (counters.unknownAllergenCount > 0) {
     warnings.push(`${counters.unknownAllergenCount} ингредиент(ов) с неустановленной аллергенностью — рецепты с ними не рекомендуются автоматически`);
+  }
+  if (counters.cookwareExcluded > 0) {
+    warnings.push(`${counters.cookwareExcluded} рецепт(ов) исключено: для них нужна кухонная утварь, которой у вас нет`);
   }
   if (counters.priceMissingRecipes > 0) {
     warnings.push(`${counters.priceMissingRecipes} рецепт(ов) не имели актуальных цен в выбранном магазине`);

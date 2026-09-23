@@ -392,6 +392,23 @@ export interface GameSession {
 export type MenuAllergenId = 'milk' | 'egg' | 'peanut' | 'tree_nut' | 'fish' | 'seafood' | 'soy' | 'gluten';
 export type MenuStoreId = 'euroopt' | 'hippo' | 'green' | 'korona';
 export type MenuUnit = 'g' | 'ml' | 'pcs';
+export type MenuCookwareId = 'skillet' | 'pot' | 'oven' | 'slow_cooker' | 'microwave';
+
+export interface MenuCookwareInfo {
+  id: MenuCookwareId;
+  title: string;
+  emoji: string;
+  hint: string;
+}
+
+/** Kitchen equipment catalogue; recipes needing anything else are filtered out. */
+export const MENU_COOKWARE: MenuCookwareInfo[] = [
+  { id: 'skillet', title: 'Сковорода', emoji: '🍳', hint: 'Жарка, блины, котлеты' },
+  { id: 'pot', title: 'Кастрюля', emoji: '🥘', hint: 'Варка, супы, каши' },
+  { id: 'oven', title: 'Духовка', emoji: '🔥', hint: 'Запекание, выпечка' },
+  { id: 'slow_cooker', title: 'Мультиварка', emoji: '🥣', hint: 'Плов, тушение, режимы' },
+  { id: 'microwave', title: 'Микроволновка', emoji: '📡', hint: 'Быстрый разогрев и готовка' },
+];
 
 export interface MenuAllergenInfo {
   id: MenuAllergenId;
@@ -436,6 +453,8 @@ export interface MenuRecipeChoice {
   nutritionMissing: boolean;
   allergens: MenuAllergenId[];
   allergenUnknown: string[];
+  /** Inferred kitchen equipment labels (e.g. «🍳 Сковорода»). */
+  cookwareLabels: string[];
 }
 
 export interface MenuShoppingListItem {
@@ -482,6 +501,8 @@ export interface MenuRequest {
   budget: number;
   currency: 'BYN';
   allergens: MenuAllergenId[];
+  /** Kitchen equipment the user has; empty = no cookware filter. */
+  cookware: MenuCookwareId[];
 }
 
 export interface MenuResult {
