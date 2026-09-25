@@ -194,7 +194,7 @@ interface GeminiResponse {
 
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 const GROQ_BASE_URL = 'https://api.groq.com/openai';
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api';
 
 interface OpenAiCompatibleResponse {
   choices?: { message?: { content?: string } }[];

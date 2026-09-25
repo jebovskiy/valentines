@@ -26,7 +26,31 @@ import { startUpdateBroadcast } from './services/updateBroadcaster';
 
 const app = fastify({ logger: true });
 
+function activeAiModel(): string {
+  switch (config.AI_PROVIDER) {
+    case 'deepseek':
+      return config.DEEPSEEK_MODEL;
+    case 'groq':
+      return config.GROQ_MODEL;
+    case 'openrouter':
+      return config.OPENROUTER_MODEL;
+    default:
+      return config.GEMINI_MODEL;
+  }
+}
+
+function logAiConfig(): void {
+  console.log(
+    `[llm] ai config: provider=${config.AI_PROVIDER} model=${activeAiModel()}` +
+      ` openrouterKey=${config.OPENROUTER_API_KEY ? 'set' : 'missing'}` +
+      ` deepseekKey=${config.DEEPSEEK_API_KEY ? 'set' : 'missing'}` +
+      ` groqKey=${config.GROQ_API_KEY ? 'set' : 'missing'}` +
+      ` geminiKey=${config.GEMINI_API_KEY ? 'set' : 'missing'}`
+  );
+}
+
 async function start() {
+  logAiConfig();
   await app.register(cors, { origin: true });
   await app.register(helmet);
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
