@@ -13,7 +13,7 @@ const envSchema = z.object({
   WEBHOOK_SHARED_SECRET: z.string().min(32),
   PAIRING_TOKEN_TTL_MINUTES: z.coerce.number().default(10),
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default('gemini-1.5-flash'),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
   POISKKINO_API_KEY: z.string().optional(),
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 });
