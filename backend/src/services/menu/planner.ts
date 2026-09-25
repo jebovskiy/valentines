@@ -115,6 +115,15 @@ export async function generateMenu(
       const dislikedHit = hit(dislikedTerms);
       if (dislikedHit) excludedTerms.disliked.push(`${scaled.ingredient.name} (${dislikedHit})`);
     }
+    const recipeNameLower = recipe.name.toLowerCase();
+    const nameCustomHit = customTerms.find((t) => recipeNameLower.includes(t)) ?? null;
+    if (nameCustomHit && excludedTerms.custom.length === 0) {
+      excludedTerms.custom.push(`название блюда «${recipe.name}» (${nameCustomHit})`);
+    }
+    const nameDislikedHit = dislikedTerms.find((t) => recipeNameLower.includes(t)) ?? null;
+    if (nameDislikedHit && excludedTerms.disliked.length === 0) {
+      excludedTerms.disliked.push(`название блюда «${recipe.name}» (${nameDislikedHit})`);
+    }
 
     let rejected = false;
     let rejectedReason: string | undefined;

@@ -93,7 +93,9 @@ type FallbackReason =
 /**
  * Generic structured-JSON call for modules that need a fresh schema (e.g. the
  * AI menu planner). Returns the raw model text on success, or null with the
- * failure reason so the caller can fall back gracefully.
+ * failure reason so the caller can fall back gracefully. Provider is chosen
+ * via AI_PROVIDER (gemini by default; deepseek/groq through OpenAI-compatible
+ * endpoints with gemini as fallback).
  */
 export async function generateStructuredJson(
   prompt: string,
@@ -101,7 +103,7 @@ export async function generateStructuredJson(
   timeoutMs: number = GEMINI_TIMEOUT_MS,
   maxOutputTokens: number = 8192
 ): Promise<{ text: string | null; error: FallbackReason | null }> {
-  const { body, error } = await callGemini(prompt, schema, timeoutMs, maxOutputTokens);
+  const { body, error } = await callLlm(prompt, schema, timeoutMs, maxOutputTokens);
   if (error) return { text: null, error };
   const text = body.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
   return { text, error: null };
@@ -188,6 +190,114 @@ const RESPONSE_SCHEMA = {
 
 interface GeminiResponse {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
+}
+
+const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
+const GROQ_BASE_URL = 'https://api.groq.com/openai';
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+
+interface OpenAiCompatibleResponse {
+  choices?: { message?: { content?: string } }[];
+}
+
+async function callOpenAiCompatible(
+  prompt: string,
+  timeoutMs: number,
+  maxOutputTokens: number,
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  disableThinking: boolean,
+  extraHeaders: Record<string, string> = {}
+): Promise<{ body: GeminiResponse; error: FallbackReason | null }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        ...extraHeaders,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Ты — строгий генератор структурированных данных. Всегда отвечай ровно одним валидным JSON-объектом, без markdown-обёрток и без пояснений вне JSON. Следуй схеме и полям, заданным в запросе пользователя.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+        max_tokens: maxOutputTokens,
+        response_format: { type: 'json_object' },
+        ...(disableThinking ? { thinking: { type: 'disabled' } } : {}),
+      }),
+    });
+    if (!res.ok) {
+      console.error(`[llm] HTTP ${res.status} from chat/completions for model ${model}, body redacted`);
+      return { body: {}, error: { kind: 'http', status: res.status } };
+    }
+    const raw = (await res.json()) as OpenAiCompatibleResponse;
+    const text = raw.choices?.[0]?.message?.content;
+    if (!text) {
+      return { body: {}, error: { kind: 'invalid_response', message: 'empty choices[0].message.content' } };
+    }
+    return { body: { candidates: [{ content: { parts: [{ text }] } }] }, error: null };
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') {
+      console.error('[llm] request timed out');
+      return { body: {}, error: { kind: 'timeout' } };
+    }
+    console.error('[llm] request failed, body redacted:', (error as Error).message);
+    return { body: {}, error: { kind: 'network', message: (error as Error).message } };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Routes a structured-JSON call through the configured provider (AI_PROVIDER)
+ * and returns a Gemini-shaped body so downstream parsing stays identical.
+ * gemini => callGemini directly. deepseek/groq => OpenAI-compatible endpoint,
+ * with gemini as a transparent fallback when its key is configured.
+ */
+async function callLlm(
+  prompt: string,
+  schema: Record<string, unknown>,
+  timeoutMs: number = GEMINI_TIMEOUT_MS,
+  maxOutputTokens: number = 8192
+): Promise<{ body: GeminiResponse; error: FallbackReason | null }> {
+  const provider = config.AI_PROVIDER;
+  if (provider !== 'gemini') {
+    const preset: { baseUrl: string; apiKey: string | undefined; model: string; disableThinking: boolean; extraHeaders: Record<string, string> } =
+      provider === 'deepseek'
+        ? { baseUrl: DEEPSEEK_BASE_URL, apiKey: config.DEEPSEEK_API_KEY, model: config.DEEPSEEK_MODEL, disableThinking: true, extraHeaders: {} }
+        : provider === 'groq'
+          ? { baseUrl: GROQ_BASE_URL, apiKey: config.GROQ_API_KEY, model: config.GROQ_MODEL, disableThinking: false, extraHeaders: {} }
+          : {
+              baseUrl: OPENROUTER_BASE_URL,
+              apiKey: config.OPENROUTER_API_KEY,
+              model: config.OPENROUTER_MODEL,
+              disableThinking: false,
+              extraHeaders: { 'X-Title': 'Valentains' },
+            };
+    if (preset.apiKey) {
+      const primary = await callOpenAiCompatible(prompt, timeoutMs, maxOutputTokens, preset.baseUrl, preset.apiKey, preset.model, preset.disableThinking, preset.extraHeaders);
+      if (!primary.error) return primary;
+      if (config.GEMINI_API_KEY) {
+        console.warn(`[llm] ${provider} failed (${primary.error.kind}), falling back to Gemini`);
+        const backup = await callGemini(prompt, schema, timeoutMs, maxOutputTokens);
+        if (!backup.error) return backup;
+      }
+      return primary;
+    }
+    console.warn(`[llm] provider ${provider} has no API key configured, falling back to Gemini`);
+  }
+  return callGemini(prompt, schema, timeoutMs, maxOutputTokens);
 }
 
 async function callGemini(
@@ -295,7 +405,7 @@ export async function classifyMovieAspects(movie: MovieClassifyInput): Promise<M
 Оценивай на основе общеизвестной репутации фильма и предоставленных данных, а не только краткого сюжета.
 Если информации недостаточно для уверенной оценки какого-то аспекта — всё равно дай оценку, но понизь confidence.`;
 
-  const { body, error } = await callGemini(prompt, CLASSIFICATION_SCHEMA);
+  const { body, error } = await callLlm(prompt, CLASSIFICATION_SCHEMA);
   if (error) {
     console.warn(`[gemini] classify fallback for "${movie.title}": ${error.kind === 'http' ? `HTTP ${error.status}` : error.kind === 'timeout' ? 'timeout' : error.kind === 'no_config' ? 'no key' : (error as { message: string }).message}`);
     return null;
@@ -360,7 +470,7 @@ ${reviewToText(rb)}
 
 В similar_movies укажи 4-5 реальных фильмов, похожих по вашим двум ревью и жанру фильма.`;
 
-  const { body, error } = await callGemini(prompt, RESPONSE_SCHEMA);
+  const { body, error } = await callLlm(prompt, RESPONSE_SCHEMA);
   if (error) {
     lastFallbackReason = error;
     return null;
@@ -609,7 +719,7 @@ export async function generateAiGameRounds(input: AiGameRoundsInput): Promise<Ai
   if (!config) return null;
 
   const prompt = gameRoundsPrompt(input);
-  const { body, error } = await callGemini(prompt, AI_ROUNDS_SCHEMA, AI_GAME_TIMEOUT_MS);
+  const { body, error } = await callLlm(prompt, AI_ROUNDS_SCHEMA, AI_GAME_TIMEOUT_MS);
   if (error) {
     console.warn(
       `[gemini] game rounds fallback for ${input.gameId}: ${error.kind === 'http'

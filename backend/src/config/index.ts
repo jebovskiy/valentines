@@ -14,6 +14,13 @@ const envSchema = z.object({
   PAIRING_TOKEN_TTL_MINUTES: z.coerce.number().default(10),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-3.5-flash-lite'),
+  AI_PROVIDER: z.enum(['gemini', 'deepseek', 'groq', 'openrouter']).default('gemini'),
+  DEEPSEEK_API_KEY: z.string().optional(),
+  DEEPSEEK_MODEL: z.string().default('deepseek-v4-flash'),
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().default('llama-3.3-70b-versatile'),
+  OPENROUTER_API_KEY: z.string().optional(),
+  OPENROUTER_MODEL: z.string().default('deepseek/deepseek-v4.1-flash'),
   POISKKINO_API_KEY: z.string().optional(),
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 });
