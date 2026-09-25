@@ -5,7 +5,7 @@ import { CuratedPriceProvider, SnapshotRecipeProvider } from '../src/services/me
 
 const DATA_DIR = path.join(__dirname, '..', 'menu-data');
 
-test('SnapshotRecipeProvider loads the imported RussianFood snapshot', () => {
+test('SnapshotRecipeProvider loads the imported recipe snapshot', () => {
   const p = new SnapshotRecipeProvider(path.join(DATA_DIR, 'recipes.json'));
   assert.ok(p.isAvailable, 'recipes.json must contain a real snapshot');
   assert.match(p.snapshotMeta?.source ?? '', /russianfood/);

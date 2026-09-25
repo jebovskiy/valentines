@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { servingsBreakdown, scaleForServings, round1, round2 } from '../src/services/menu/scaling';
 import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe } from '../src/services/menu/costing';
 import { generateMenu, rebuildMenuForSelection, type GenerateMenuOptions } from '../src/services/menu/planner';
-import { RussianFoodRecipeProvider, FixtureNutritionProvider, SnapshotRecipeProvider } from '../src/services/menu/providers';
+import { FixtureNutritionProvider, SnapshotRecipeProvider } from '../src/services/menu/providers';
 import { buildFixtureRecipes, STORES, buildMockOffers, INGREDIENTS, getIngredientNutrition } from '../src/services/menu/fixtures';
 import { inferCookware } from '../src/services/menu/cookware';
 import type { MenuProviders, PriceProvider, RecipeProvider } from '../src/services/menu/providers';
@@ -42,9 +42,9 @@ function providersOf(recipes?: RecipeProvider, prices?: PriceProvider): MenuProv
 
 test('servingsBreakdown weights children below adults', () => {
   const s = servingsBreakdown(2, 2);
-  assert.equal(s.effectiveServings, 3.2);
+  assert.equal(s.effectiveServings, 3.4);
   assert.equal(s.adultCoefficient, 1);
-  assert.equal(s.childCoefficient, 0.6);
+  assert.equal(s.childCoefficient, 0.7);
 });
 
 test('scaleForServings scales quantities and flags unknown ingredients', () => {
@@ -154,7 +154,7 @@ test('generateMenu: full week — 21 unique slots, deterministic and within budg
     assert.equal(choice.priceMissing.length, 0);
     assert.equal(choice.nutritionMissing, false);
     assert.ok(choice.nutrition && choice.nutrition.perRecipe.calories > 0);
-    assert.equal(choice.servings, 2.6);
+    assert.equal(choice.servings, 2.7);
   }
   // receipt must NEVER exceed the budget ("без «не хватает»")
   assert.ok(a.totalCost <= a.budget + 1e-9, `total ${a.totalCost} must fit budget ${a.budget}`);
@@ -270,52 +270,6 @@ test('rebuildMenuForSelection: subset recomputes totals and list', async () => {
   assert.equal(updated.recipes[0].recipe.id, pickedId);
   assert.equal(updated.shoppingList.storeId, baseRequest.storeId);
   assert.ok(updated.totalCost >= updated.recipesCost - 1e-9);
-});
-
-test('RussianFood provider: ingredient text parsing', () => {
-  const p = new RussianFoodRecipeProvider();
-  const ml = p.parseIngredientText('Молоко — 300 мл');
-  assert.deepEqual(ml, { ingredientId: 'milk', qty: 300, unit: 'ml' });
-  const kg = p.parseIngredientText('Картофель — 2 кг');
-  assert.deepEqual(kg, { ingredientId: 'potatoes', qty: 2000, unit: 'g' });
-  const pcs = p.parseIngredientText('Яйца — 5 шт');
-  assert.deepEqual(pcs, { ingredientId: 'eggs', qty: 5, unit: 'pcs' });
-  const unsupported = p.parseIngredientText('Соль — по вкусу');
-  assert.equal(unsupported, null);
-});
-
-test('RussianFood provider: parseRecipe on synthetic page', () => {
-  const html = `<html><head>
-    <meta property="og:image" content="//www.russianfood.com/dycontent/images_upl/1/big_1.jpg">
-  </head><body>
-    <h1 class="title">Омлет с молоком</h1>
-    <div class="sub-info">
-      <i class="ico_portion"></i></div>&nbsp;<span class="hl"><b>4</b>&nbsp;порций
-      <i class="ico_time"></i></div>&nbsp;<span class="hl">30 мин
-    </div>
-    <table class="ingr">
-      <tr class="ingr_tr_0"><td colspan="3" class="padding_l padding_r"><span class="">Яйца &mdash; 4 шт</span></td></tr>
-      <tr class="ingr_tr_1"><td colspan="3" class="padding_l padding_r"><span class="">Молоко &mdash; 200 мл</span></td></tr>
-    </table>
-    <div class="step_n"><div class="img_c"><img src="x.jpg"></div><p>Взбить яйца с молоком.</p></div>
-    <div class="step_n"><div class="img_c"></div><p>Обжарить до готовности.</p></div>
-  </body></html>`;
-  const recipe = new RussianFoodRecipeProvider().parseRecipe(html, '1');
-  assert.ok(recipe);
-  assert.equal(recipe!.name, 'Омлет с молоком');
-  assert.equal(recipe!.baseServings, 4);
-  assert.equal(recipe!.timeMin, 30);
-  assert.equal(recipe!.ingredients.length, 2);
-  assert.deepEqual(recipe!.ingredients[0], { ingredientId: 'eggs', qty: 4, unit: 'pcs' });
-  assert.equal(recipe!.steps!.length, 2);
-  assert.equal(recipe!.sourceUrl, 'https://www.russianfood.com/recipes/recipe.php?rid=1');
-  assert.equal(recipe!.photoUrl, 'https://www.russianfood.com/dycontent/images_upl/1/big_1.jpg');
-  assert.equal(recipe!.dataKind, 'russianfood_import');
-});
-
-test('RussianFood provider: unparseable page returns null', () => {
-  const recipe = new RussianFoodRecipeProvider().parseRecipe('<html><body><p>nothing</p></body></html>', '999');
-  assert.equal(recipe, null);
 });
 
 test('provided fixtures catalog covers recipes with offers in every store', () => {

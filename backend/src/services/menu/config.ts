@@ -12,7 +12,7 @@ export const CURRENCY = 'BYN';
  */
 export const SERVING_COEFFICIENTS: ServingCoefficients = {
   adult: 1.0,
-  child: 0.6,
+  child: 0.7,
 };
 
 /** Length of the week plan, in days. */
@@ -42,6 +42,25 @@ export const PRICE_MAX_AGE_DAYS = 30;
 
 /** Menu result ids are only ever generated once; prefix for human-readable ids. */
 export const MENU_ID_PREFIX = 'menu';
+
+/**
+ * How many LLM attempts the AI menu generator makes before giving up and
+ * falling back to the deterministic planner. The first call builds the menu;
+ * each next call is a budget/safety revision («собери заново, верни JSON»)
+ * until the whole 21-slot week fits the receipt (whole packages).
+ */
+export const MENU_AI_MAX_REVISIONS = 4;
+
+/** Upper bound for one Gemini menu-generation call. */
+export const MENU_AI_TIMEOUT_MS = 90_000;
+
+/** Visible note that the meals are generated, not curated from the catalogue. */
+export const MENU_AI_WARNING =
+  'Меню и рецепты сгенерированы ИИ; цены и БЖУ рассчитаны по базе магазина. Проверяйте состав на аллергены вручную.';
+
+/** Visible note when the planner had to use the deterministic catalogue instead. */
+export const MENU_AI_FALLBACK_WARNING =
+  'ИИ-планировщик не смог собрать полное меню в бюджет — показан подбор из каталога рецептов';
 
 export function priceMaxAgeMs(): number {
   return PRICE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;

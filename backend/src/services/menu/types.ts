@@ -101,7 +101,7 @@ export interface IngredientQty {
   unit: Unit;
 }
 
-export type RecipeDataKind = 'fixture' | 'russianfood_import' | 'live';
+export type RecipeDataKind = 'fixture' | 'russianfood_import' | 'ai';
 
 export interface Recipe {
   id: string;

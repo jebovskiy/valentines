@@ -4,7 +4,8 @@ import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth'
 import { getPairByUser } from '../services/database';
 import { ALLERGENS } from '../services/menu/allergens';
 import { defaultProviders } from '../services/menu/providers';
-import { generateMenu, rebuildMenuForSelection, type GenerateMenuOptions } from '../services/menu/planner';
+import { generateMenuWithAi, type GenerateMenuAiOptions } from '../services/menu/aiMenu';
+import { rebuildMenuForSelection } from '../services/menu/planner';
 import { createStoredMenu, getLatestStoredMenuForPair, getStoredMenuForPair, updateStoredMenuResult } from '../services/menu/persistence';
 
 const storeIdEnum = ['euroopt', 'hippo', 'green', 'korona'] as const;
@@ -44,7 +45,7 @@ const pickSchema = z.object({
 export async function menuRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
-  const providersOptions = (): GenerateMenuOptions => ({ providers: defaultProviders() });
+  const providersOptions = (): GenerateMenuAiOptions => ({ providers: defaultProviders() });
 
   app.get('/stores', { preHandler: requireTelegramAuth }, async () => {
     const providers = defaultProviders();
@@ -75,7 +76,9 @@ export async function menuRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
-    const result = await generateMenu(parsed.data, { providers: defaultProviders(), randomize: true });
+    // AI-driven week: Gemini builds dishes within the budget (revising against
+    // real store prices); any failure falls back to the deterministic planner.
+    const result = await generateMenuWithAi(parsed.data, { providers: defaultProviders(), randomize: true });
     if ('code' in result) {
       if (result.code === 'invalid_store') return reply.code(400).send({ error: result.message, code: result.code });
       return reply.code(422).send({ error: result.message, code: result.code });

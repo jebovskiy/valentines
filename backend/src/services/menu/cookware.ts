@@ -3,7 +3,7 @@ import type { CookwareId, Recipe } from './types';
 /**
  * Kitchen equipment catalogue used both as a user filter («что есть на кухне»)
  * and as the inferred requirements of a recipe (inferred from the recipe name
- * and its instruction steps — RussianFood.com does not publish this metadata).
+ * and its instruction steps).
  *
  * The planner excludes a recipe when ANY of its inferred requirements is not
  * present in the user's declared set. Empty inference = the dish needs no

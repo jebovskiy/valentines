@@ -90,6 +90,23 @@ type FallbackReason =
   | { kind: 'network'; message: string }
   | { kind: 'invalid_response'; message: string };
 
+/**
+ * Generic structured-JSON call for modules that need a fresh schema (e.g. the
+ * AI menu planner). Returns the raw model text on success, or null with the
+ * failure reason so the caller can fall back gracefully.
+ */
+export async function generateStructuredJson(
+  prompt: string,
+  schema: Record<string, unknown>,
+  timeoutMs: number = GEMINI_TIMEOUT_MS,
+  maxOutputTokens: number = 8192
+): Promise<{ text: string | null; error: FallbackReason | null }> {
+  const { body, error } = await callGemini(prompt, schema, timeoutMs, maxOutputTokens);
+  if (error) return { text: null, error };
+  const text = body.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  return { text, error: null };
+}
+
 export async function generateMovieInsights(
   movie: MovieInfoInput,
   reviews: [MovieReviewInput, MovieReviewInput]
@@ -176,7 +193,8 @@ interface GeminiResponse {
 async function callGemini(
   prompt: string,
   schema: Record<string, unknown>,
-  timeoutMs: number = GEMINI_TIMEOUT_MS
+  timeoutMs: number = GEMINI_TIMEOUT_MS,
+  maxOutputTokens: number = 8192
 ): Promise<{ body: GeminiResponse; error: FallbackReason | null }> {
   if (!config.GEMINI_API_KEY) {
     return { body: {}, error: { kind: 'no_config' } };
@@ -199,7 +217,7 @@ async function callGemini(
             responseMimeType: 'application/json',
             responseSchema: schema,
             temperature: 0.7,
-            maxOutputTokens: 8192,
+            maxOutputTokens,
           },
         }),
       }

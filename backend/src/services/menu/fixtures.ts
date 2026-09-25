@@ -21,9 +21,8 @@ import { normalizeName } from './allergens';
  *   never be presented as real current prices. Every offer carries
  *   isMock: true and source: 'mock'.
  * - Recipe fixtures are our own demo catalogue with dataKind: 'fixture'.
- *   They have no source URL; they are NOT scraped from RussianFood.com.
- *   Real imported recipes (via the RussianFoodRecipeProvider) are tagged
- *   dataKind 'russianfood_import' or 'live' and keep their sourceUrl.
+ *   They have no source URL. Imported snapshot recipes are tagged
+ *   dataKind 'russianfood_import' and keep their sourceUrl.
  * - The nutrition reference DB holds typical per-100g estimates compiled
  *   from public reference tables (USDA FoodData Central style averages).
  *   It is approximation, labelled as such, and extensible behind the
