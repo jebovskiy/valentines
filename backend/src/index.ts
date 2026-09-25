@@ -18,6 +18,8 @@ import { datesRoutes } from './routes/dates';
 import { integrationsRoutes } from './routes/integrations';
 import { gamesRoutes } from './routes/games';
 import { menuRoutes } from './routes/menu';
+import { botRoutes } from './routes/bot';
+import { registerBot } from './services/telegramBot';
 import { ensureStorageBucket } from './utils/storage';
 import { startNotificationScheduler } from './services/notificationScheduler';
 import { startUpdateBroadcast } from './services/updateBroadcaster';
@@ -50,18 +52,24 @@ async function start() {
 await app.register(gamesRoutes, { prefix: '/api/games' });
   await app.register(integrationsRoutes, { prefix: '/api/integrations' });
   await app.register(menuRoutes, { prefix: '/api/menu' });
+  await app.register(botRoutes, { prefix: '/telegram' });
 
   // Background notification delivery that doesn't depend on Supabase cron
   // settings: sends Telegram + companion pushes for due reminders and events.
   startNotificationScheduler();
   startUpdateBroadcast();
 
-  try {
+try {
     await app.listen({ port: config.PORT, host: '0.0.0.0' });
     console.log(`Server running on port ${config.PORT}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);
+  }
+
+  // Point the Telegram bot at this server so /start, /help, etc. work.
+  if (config.APP_URL && config.APP_URL.startsWith('http')) {
+    void registerBot(config.APP_URL);
   }
 }
 
