@@ -467,6 +467,11 @@ export interface MenuRecipeChoice {
   };
   servings: number;
   scale: number;
+  scaledIngredients?: {
+    ingredient: { id: string; name: string; unit: MenuUnit };
+    qty: number;
+    unit: MenuUnit;
+  }[];
   cost: number;
   costPerServing: number;
   priceMissing: { ingredientId: string; name: string }[];

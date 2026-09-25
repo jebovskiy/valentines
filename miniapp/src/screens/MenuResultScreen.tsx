@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { MENU_UNIT_LABEL } from '../types';
@@ -181,6 +181,46 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--ink)',
     flexShrink: 0,
   },
+  mealChevron: {
+    fontSize: 11,
+    color: 'var(--ash)',
+    flexShrink: 0,
+  },
+  mealDetails: {
+    borderTop: '1px solid var(--hairline)',
+    padding: '10px 2px 4px',
+  },
+  recipeSection: {
+    marginBottom: 10,
+  },
+  recipeSectionTitle: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: 'var(--ash)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 6,
+  },
+  recipeLine: {
+    fontSize: 13,
+    lineHeight: '19px',
+    color: 'var(--ink)',
+  },
+  recipeSteps: {
+    margin: 0,
+    paddingLeft: 18,
+  },
+  recipeStep: {
+    fontSize: 13,
+    lineHeight: '19px',
+    color: 'var(--ink)',
+    marginBottom: 4,
+  },
+  recipeSource: {
+    fontSize: 11,
+    color: 'var(--ash)',
+    marginTop: 2,
+  },
   linkBtn: {
     background: 'none',
     border: 'none',
@@ -234,27 +274,93 @@ function fmtQty(n: number): string {
   return n.toFixed(2).replace(/\.?0+$/, '');
 }
 
+function pkgNoun(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 14) return 'упаковок';
+  if (last === 1) return 'упаковка';
+  if (last >= 2 && last <= 4) return 'упаковки';
+  return 'упаковок';
+}
+
 function byName(a: MenuShoppingListItem, b: MenuShoppingListItem) {
   return a.name.localeCompare(b.name, 'ru');
 }
-
-function MealRow({ meal }: { meal: MenuMeal }) {
+function MealRow({
+  meal,
+  expanded,
+  onToggle,
+}: {
+  meal: MenuMeal;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
   const nutrition = meal.recipe.nutrition;
   const recipe = meal.recipe.recipe;
   const good = meal.recipe.servings;
+  const ingredients = meal.recipe.scaledIngredients ?? [];
+
   return (
-    <div style={styles.mealRow}>
-      <span style={styles.mealEmoji}>{MEAL_EMOJI[meal.meal] ?? '🍽'}</span>
-      <span style={styles.mealBody}>
-        <span style={styles.mealLabel}>{meal.title}</span>
-        <span style={styles.mealName}>{recipe.name}</span>
-        <span style={styles.mealMeta}>
-          {good.toFixed(1)} порц.
-          {nutrition && ` · ${Math.round(nutrition.perServing.calories)} ккал`}
+    <div>
+      <div style={{ ...styles.mealRow, cursor: 'pointer' }} onClick={onToggle}>
+        <span style={styles.mealEmoji}>{MEAL_EMOJI[meal.meal] ?? '🍽'}</span>
+        <span style={styles.mealBody}>
+          <span style={styles.mealLabel}>{meal.title}</span>
+          <span style={styles.mealName}>{recipe.name}</span>
+          <span style={styles.mealMeta}>
+            {good.toFixed(1)} порц.
+            {nutrition && ` · ${Math.round(nutrition.perServing.calories)} ккал`}
+          </span>
         </span>
-      </span>
-      {meal.recipe.cost != null && (
-        <span style={styles.mealCost}>{meal.recipe.cost.toFixed(2)} BYN</span>
+        {meal.recipe.cost != null && (
+          <span style={styles.mealCost}>{meal.recipe.cost.toFixed(2)} BYN</span>
+        )}
+        <span style={styles.mealChevron}>{expanded ? '⌃' : '⌄'}</span>
+      </div>
+      {expanded && (
+        <div style={styles.mealDetails}>
+          {ingredients.length > 0 && (
+            <div style={styles.recipeSection}>
+              <div style={styles.recipeSectionTitle}>Ингредиенты</div>
+              {ingredients.map((si) => (
+                <div key={`${si.ingredient.id}:${si.unit}`} style={styles.recipeLine}>
+                  {si.ingredient.name} — {fmtQty(si.qty)} {MENU_UNIT_LABEL[si.unit] ?? si.unit}
+                </div>
+              ))}
+            </div>
+          )}
+          {recipe.steps && recipe.steps.length > 0 && (
+            <div style={styles.recipeSection}>
+              <div style={styles.recipeSectionTitle}>Приготовление</div>
+              <ol style={styles.recipeSteps}>
+                {recipe.steps.map((step, i) => (
+                  <li key={i} style={styles.recipeStep}>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {nutrition && (
+            <div style={styles.recipeSection}>
+              <div style={styles.recipeSectionTitle}>На 1 порцию</div>
+              <div style={styles.recipeLine}>
+                {Math.round(nutrition.perServing.calories)} ккал · белки{' '}
+                {Math.round(nutrition.perServing.protein)} г · жиры{' '}
+                {Math.round(nutrition.perServing.fat)} г · углеводы{' '}
+                {Math.round(nutrition.perServing.carbs)} г
+              </div>
+            </div>
+          )}
+          {meal.recipe.cookwareLabels.length > 0 && (
+            <div style={styles.recipeLine}>
+              Утварь: {meal.recipe.cookwareLabels.join(' · ')}
+            </div>
+          )}
+          <div style={styles.recipeSource}>
+            {recipe.dataKind === 'ai' ? 'Сгенерировано ИИ' : `Источник: ${recipe.sourceLabel}`}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -264,6 +370,7 @@ export function MenuResultScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { menuResult, menuLoading } = useValentinesStore();
+  const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -378,10 +485,13 @@ export function MenuResultScreen() {
             </span>
           </div>
           <div style={styles.itemSub}>
-            Купить {fmtQty(item.purchaseQuantity)} {MENU_UNIT_LABEL[item.packageUnit]} ·{' '}
-            {item.price.toFixed(2)} BYN
-            {item.packageQuantity !== 1 &&
-              ` (упаковка ${item.packageQuantity} ${MENU_UNIT_LABEL[item.packageUnit]})`}
+            {item.missing ? (
+              `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]}`
+            ) : item.packageQuantity > 1 ? (
+              `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]} · купить ${fmtQty(item.purchaseQuantity)} ${pkgNoun(item.purchaseQuantity)} по ${fmtQty(item.packageQuantity)} ${MENU_UNIT_LABEL[item.packageUnit]} · ${item.price.toFixed(2)} BYN`
+            ) : (
+              `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]} · купить ${fmtQty(item.purchaseQuantity)} ${MENU_UNIT_LABEL[item.packageUnit]} · ${item.price.toFixed(2)} BYN`
+            )}
           </div>
         </div>
       ))}
@@ -400,7 +510,14 @@ export function MenuResultScreen() {
           </div>
           {d.meals.length === 0 && <div style={styles.itemSub}>Блюда не подобраны</div>}
           {d.meals.map((meal) => (
-            <MealRow key={`${d.day}-${meal.meal}`} meal={meal} />
+            <MealRow
+              key={`${d.day}-${meal.meal}`}
+              meal={meal}
+              expanded={expandedMeal === `${d.day}-${meal.meal}`}
+              onToggle={() =>
+                setExpandedMeal(expandedMeal === `${d.day}-${meal.meal}` ? null : `${d.day}-${meal.meal}`)
+              }
+            />
           ))}
         </div>
       ))}

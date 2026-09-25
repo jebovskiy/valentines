@@ -138,6 +138,15 @@ function fmtQty(n: number): string {
   return n.toFixed(2).replace(/\.?0+$/, '');
 }
 
+function pkgNoun(n: number): string {
+  const abs = Math.abs(n) % 100;
+  const last = abs % 10;
+  if (abs >= 11 && abs <= 14) return 'упаковок';
+  if (last === 1) return 'упаковка';
+  if (last >= 2 && last <= 4) return 'упаковки';
+  return 'упаковок';
+}
+
 export function ShoppingListScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -234,10 +243,13 @@ export function ShoppingListScreen() {
             </span>
           </div>
           <div style={styles.itemSub}>
-            Нужно {fmtQty(item.requiredQuantity)} {MENU_UNIT_LABEL[item.requiredUnit]} ·{' '}
-            купить {fmtQty(item.purchaseQuantity)} {MENU_UNIT_LABEL[item.packageUnit]} ×{' '}
-            {item.price.toFixed(2)} BYN
-            {item.packageQuantity !== 1 && ` (упаковка ${item.packageQuantity} ${MENU_UNIT_LABEL[item.packageUnit]})`}
+            {item.missing ? (
+              `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]}`
+            ) : item.packageQuantity > 1 ? (
+              `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]} · купить ${fmtQty(item.purchaseQuantity)} ${pkgNoun(item.purchaseQuantity)} по ${fmtQty(item.packageQuantity)} ${MENU_UNIT_LABEL[item.packageUnit]} · ${item.price.toFixed(2)} BYN`
+            ) : (
+              `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]} · купить ${fmtQty(item.purchaseQuantity)} ${MENU_UNIT_LABEL[item.packageUnit]} · ${item.price.toFixed(2)} BYN`
+            )}
           </div>
           <div style={styles.itemBottom}>
             <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

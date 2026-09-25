@@ -164,6 +164,62 @@ test('aiMenu: LLM unavailable (null answer) falls back to the deterministic plan
   assert.ok(!result.warnings.includes(MENU_AI_WARNING));
 });
 
+test('aiMenu: repeated dish names are rejected — a revision that diversifies wins', async () => {
+  // Same dish name in every slot, but within budget: the week must not be
+  // accepted as-is. The model is told to fix it; the second attempt returns a
+  // diversified cheap plan which is accepted.
+  const DUPLICATE_PLAN = planJson(() => ({
+    breakfast: dish('Яичница', [['Яйца', 6, 'pcs']]),
+    lunch: dish('Яичница', [['Яйца', 6, 'pcs']]),
+    dinner: dish('Яичница', [['Яйца', 6, 'pcs']]),
+  }));
+
+  const prompts: string[] = [];
+  const result = await generateMenuWithAi(baseRequest, {
+    providers: providersOf(),
+    now: NOW,
+    generatePlan: async (prompt) => {
+      prompts.push(prompt);
+      return prompt.includes('Блюда повторяются') ? CHEAP_PLAN : DUPLICATE_PLAN;
+    },
+  });
+
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+
+  assert.ok(prompts.length >= 2, 'duplicate names must trigger a revision');
+  assert.ok(prompts[1].includes('Блюда повторяются'), 'revision must report repeated dishes');
+
+  const names = result.recipes.map((r) => r.recipe.name);
+  assert.equal(new Set(names).size, names.length, 'all 21 dish names must be unique');
+  assert.equal(result.recipes.length, WEEK_SLOTS);
+  assert.ok(result.totalCost <= result.budget + 1e-9);
+  assert.ok(result.recipes.every((r) => r.recipe.dataKind === 'ai'));
+});
+
+test('aiMenu: degenerate quantities (5 g) and garnishes-only never reach the user', async () => {
+  // The fake model always emits a dish with a garnish-only recipe and absurd
+  // tiny quantities — both are rejected slot-by-slot, revisions retry the same
+  // broken plan, and the deterministic planner must produce the final menu.
+  const DEGENERATE_PLAN = planJson((d) => ({
+    breakfast: dish(`Завтрак ${d}`, [['Картофель', 5, 'g'], ['Морковь', 6, 'g']]),
+    lunch: dish('Жареный лук', [['Лук репчатый', 300, 'g']]),
+    dinner: dish('Отварной картофель', [['Картофель', 400, 'g']]),
+  }));
+
+  const result = await generateMenuWithAi(baseRequest, {
+    providers: providersOf(),
+    now: NOW,
+    generatePlan: async () => DEGENERATE_PLAN,
+  });
+
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+
+  assert.ok(result.warnings.some((w) => w.includes(MENU_AI_FALLBACK_WARNING)));
+  assert.ok(result.recipes.every((r) => r.recipe.dataKind !== 'ai'), 'degenerate AI dishes must not leak');
+});
+
 test('aiMenu: invalid JSON never leaks a partial/invalid plan to the user', async () => {
   const result = await generateMenuWithAi(baseRequest, {
     providers: providersOf(),

@@ -285,13 +285,14 @@ function baseRules(ctx: PromptContext): string {
 
 ПРАВИЛА:
 1. Бюджет — ${request.budget} BYN на всю неделю вместе с закупкой продуктов. Не превышай.
-2. Порции: 1 взрослый = 1.0 порции, 1 ребёнок = 0.7 порции. Меню для: ${request.adults} взрослый(ых) и ${request.children} ребёнок/ребёнка = ${ctx.effectiveServings} эффективных порций на приём пищи. Все количества ингредиентов указывай СРАЗУ НА ВСЮ СЕМЬЮ (на одно блюдо — ${ctx.effectiveServings} порций).
+2. Порции: 1 взрослый = 1.0 порции, 1 ребёнок = 0.7 порции. Меню для: ${request.adults} взрослый(ых) и ${request.children} ребёнок/ребёнка = ${ctx.effectiveServings} эффективных порций на приём пищи. Все количества ингредиентов указывай СРАЗУ НА ВСЮ СЕМЬЮ (на одно блюдо — ${ctx.effectiveServings} порций). Нормы на 1 порцию: крупы 60–100 г сухих, мясо/рыба 120–200 г, овощи 100–250 г, яйца 1–2 шт. Пересчитай на семью. «5 г», «10 г» или «0.1 шт» — нереальные количества, не используй их.
 3. Запрещённые аллергены — НЕ использовать: ${allergenTitles(request.allergens)}.
 4. Нелюбимые продукты — НЕ использовать: ${freeTerms(request.disliked)}.
-5. Подбирай все 21 блюдо, пока весь список не влезет в бюджет. Приоритет — разнообразие блюд и лёгкость приготовления. Пропусков быть не должно.
+5. Подбирай все 21 блюдо, пока весь список не влезет в бюджет. Названия ВСЕХ 21 блюда должны быть уникальными: ни один день и ни один приём пищи не должен повторяться, никаких одинаковых названий дважды за неделю. Приоритет — разнообразие блюд и лёгкость приготовления. Пропусков быть не должно.
 6. Утварь семьи: ${cookwareUserList(request.cookware ?? [])}. Используй только ту, что есть.
 7. Ингредиенты — ТОЛЬКО из «ДОСТУПНЫХ ПРОДУКТОВ» внизу (у каждого реальная цена магазина). Указывай названия ровно как в списке, ничего не придумывай. Цены в ответе НЕ указывай — их посчитает система.
-8. Для каждого блюда дай ПОЛНЫЕ пошаговые инструкции приготовления и примерную пищевую ценность на 1 порцию (ккал, белки, жиры, углеводы в г).`;
+8. Для каждого блюда дай ПОЛНЫЕ пошаговые инструкции приготовления и примерную пищевую ценность на 1 порцию (ккал, белки, жиры, углеводы в г).
+9. Каждое блюдо — полноценный приём пищи минимум из 2 ингредиентов (не только гарнир). Блюдо из одного продукта («отварной картофель», «жареный лук») недопустимо: добавь к нему белок, соус или овощи из списка. Яйца указывай в штуках ("pcs").`;
 }
 
 function jsonSpec(): string {
@@ -438,6 +439,42 @@ async function buildSlot(
   };
 
   const { scaledIngredients, unknownIngredients } = scaleForServings(recipe, servings);
+
+  // Quantity sanity: the model sometimes emits absurd amounts («3 г» of eggs,
+  // «5 г» of potatoes); those must not reach pricing.
+  for (const scaled of scaledIngredients) {
+    if (
+      (scaled.unit === 'g' && scaled.qty < 20) ||
+      (scaled.unit === 'ml' && scaled.qty < 20) ||
+      (scaled.unit === 'pcs' && scaled.qty < 1)
+    ) {
+      return reject(
+        `количество «${scaled.ingredient.name}» ${round1(scaled.qty)} ${UNIT_LABELS[scaled.unit]} — нереально мало для блюда на ${servings} порц.; укажи реальное количество`
+      );
+    }
+  }
+  // A dish made of a single garnish (potato, onion, cabbage…) is not a real
+  // meal — the observed degenerate output was e.g. «Жареный лук» as a dinner.
+  // Grains/eggs/dairy on their own (porridge, omelette) are valid meals.
+  const GARNISH_ONLY_IDS = new Set<string>([
+    'potatoes',
+    'carrots',
+    'onions',
+    'cabbage',
+    'cauliflower',
+    'bell_pepper',
+    'cucumber',
+    'tomato',
+    'mushroom',
+    'spinach',
+    'garlic',
+  ]);
+  if (scaledIngredients.length === 1 && GARNISH_ONLY_IDS.has(scaledIngredients[0].ingredient.id)) {
+    return reject(
+      `блюдо состоит из одного гарнира «${scaledIngredients[0].ingredient.name}» — это не полноценный приём пищи; добавь белок или второй продукт из списка`
+    );
+  }
+
   const explicitCookware = recipe.cookware ?? [];
   const requiredCookware = [
     ...new Set<CookwareId>([...explicitCookware, ...inferCookware(recipe)]),
@@ -719,8 +756,21 @@ export async function generateMenuWithAi(
       expensive: expensiveItems(shoppingList),
     };
 
-    if (receipt.filled === SLOTS_COUNT && receipt.totalCost <= effectiveBudget + EPS) {
+    const nameCount = new Map<string, number>();
+    for (const s of chosen) nameCount.set(s.dishName, (nameCount.get(s.dishName) ?? 0) + 1);
+    const duplicates = [...nameCount]
+      .filter(([, count]) => count > 1)
+      .map(([name, count]) => `«${name}» ×${count}`);
+
+    if (
+      receipt.filled === SLOTS_COUNT &&
+      receipt.totalCost <= effectiveBudget + EPS &&
+      duplicates.length === 0
+    ) {
       return assembleResult({ ...request, budget: effectiveBudget }, store, slots, shoppingList, providers, now, effectiveBudget);
+    }
+    if (duplicates.length > 0) {
+      note = `Блюда повторяются: ${duplicates.join(', ')}. ВСЕ 21 блюда должны быть разными — замени повторы на новые блюда.`;
     }
   }
 
