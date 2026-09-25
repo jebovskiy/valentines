@@ -30,18 +30,17 @@ import type {
   ProductOffer,
   Recipe,
   RecipeChoice,
-  ShoppingList,
   Store,
   Unit,
 } from './types';
 
 export interface GenerateMenuAiOptions extends GenerateMenuOptions {
   /**
-   * Injectable LLM for tests/backends: receives the full prompt, returns the
-   * raw JSON text (or null on failure). Defaults to Gemini via
-   * generateStructuredJson.
+   * Injectable per-day LLM for tests/backends: receives the day-scoped prompt
+   * and the day index (1..7), returns the raw day JSON text (or null on
+   * failure). Defaults to the configured provider via generateStructuredJson.
    */
-  generatePlan?: (prompt: string) => Promise<string | null>;
+  generatePlan?: (prompt: string, day: number) => Promise<string | null>;
 }
 
 interface AiIngredient {
@@ -60,6 +59,12 @@ export interface AiDishPlan {
 
 export interface AiWeekPlan {
   days: { breakfast: AiDishPlan | null; lunch: AiDishPlan | null; dinner: AiDishPlan | null }[];
+}
+
+export interface AiDayPlan {
+  breakfast: AiDishPlan | null;
+  lunch: AiDishPlan | null;
+  dinner: AiDishPlan | null;
 }
 
 const EPS = 1e-9;
@@ -102,30 +107,21 @@ const AI_DISH_SCHEMA = {
   required: ['name', 'ingredients', 'steps', 'cookware'],
 } as const;
 
-const AI_WEEK_SCHEMA = {
+const AI_DAY_SCHEMA = {
   type: 'object',
   properties: {
-    days: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          breakfast: AI_DISH_SCHEMA,
-          lunch: AI_DISH_SCHEMA,
-          dinner: AI_DISH_SCHEMA,
-        },
-        required: ['breakfast', 'lunch', 'dinner'],
-      },
-    },
+    breakfast: AI_DISH_SCHEMA,
+    lunch: AI_DISH_SCHEMA,
+    dinner: AI_DISH_SCHEMA,
   },
-  required: ['days'],
+  required: ['breakfast', 'lunch', 'dinner'],
 } as const;
 
 // ---------------------------------------------------------------------------
 // Parsing the LLM response
 // ---------------------------------------------------------------------------
 
-function parseAiWeekPlan(text: string): AiWeekPlan | null {
+function parseAiDay(text: string): AiDayPlan | null {
   const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/```$/, '').trim();
   let raw: unknown;
   try {
@@ -134,23 +130,12 @@ function parseAiWeekPlan(text: string): AiWeekPlan | null {
     return null;
   }
   if (!raw || typeof raw !== 'object') return null;
-  const daysRaw = (raw as Record<string, unknown>).days;
-  if (!Array.isArray(daysRaw) || daysRaw.length === 0) return null;
-
-  const days: AiWeekPlan['days'] = [];
-  for (const dayRaw of daysRaw.slice(0, MENU_WEEK_DAYS)) {
-    if (!dayRaw || typeof dayRaw !== 'object') {
-      days.push({ breakfast: null, lunch: null, dinner: null });
-      continue;
-    }
-    const o = dayRaw as Record<string, unknown>;
-    days.push({
-      breakfast: parseAiDish(o.breakfast),
-      lunch: parseAiDish(o.lunch),
-      dinner: parseAiDish(o.dinner),
-    });
-  }
-  return { days };
+  const o = raw as Record<string, unknown>;
+  return {
+    breakfast: parseAiDish(o.breakfast),
+    lunch: parseAiDish(o.lunch),
+    dinner: parseAiDish(o.dinner),
+  };
 }
 
 function parseAiDish(raw: unknown): AiDishPlan | null {
@@ -279,31 +264,44 @@ function freeTerms(terms?: string[]): string {
   return t.length ? t.join(', ') : 'нет';
 }
 
-function baseRules(ctx: PromptContext): string {
+type BaseRulesScope = { kind: 'week' } | { kind: 'day'; day: number; dayBudget: number };
+
+function baseRules(ctx: PromptContext, scope: BaseRulesScope): string {
   const { request } = ctx;
-  return `Ты — планировщик недельного меню для семьи. Собери меню на 7 дней × (завтрак, обед, ужин) = ровно 21 блюдо, строго под бюджет и ограничения ниже.
+  const isDay = scope.kind === 'day';
+  const intro =
+    scope.kind === 'week'
+      ? 'Ты — планировщик недельного меню для семьи. Собери меню на 7 дней × (завтрак, обед, ужин) = ровно 21 блюдо, строго под бюджет и ограничения ниже.'
+      : `Ты — планировщик недельного меню для семьи. Сейчас ты собираешь день ${scope.day} из ${MENU_WEEK_DAYS} (завтрак, обед, ужин = 3 блюда). Уложи блюда этого дня в дневной бюджет ${formatMoney(scope.dayBudget)} BYN из недельных ${formatMoney(request.budget)} BYN.`;
+  const budgetRule = isDay
+    ? `1. Дневной бюджет — ${formatMoney(scope.dayBudget)} BYN. Сумма этих 3 блюд (завтрак + обед + ужин) не должна превышать дневной бюджет.`
+    : `1. Бюджет — ${formatMoney(request.budget)} BYN на всю неделю вместе с закупкой продуктов. Не превышай.`;
+  const uniqueRule = isDay
+    ? '5. Названия всех блюд недели должны быть уникальными — не бери название, которое уже использовалось в другой день. Внутри дня все 3 блюда тоже разные.'
+    : '5. Подбирай все 21 блюдо, пока весь список не влезет в бюджет. Названия ВСЕХ 21 блюда должны быть уникальными: ни один день и ни один приём пищи не должен повторяться, никаких одинаковых названий дважды за неделю. Приоритет — разнообразие блюд и лёгкость приготовления. Пропусков быть не должно.';
+  return `${intro}
 
 ПРАВИЛА:
-1. Бюджет — ${request.budget} BYN на всю неделю вместе с закупкой продуктов. Не превышай.
+${budgetRule}
 2. Порции: 1 взрослый = 1.0 порции, 1 ребёнок = 0.7 порции. Меню для: ${request.adults} взрослый(ых) и ${request.children} ребёнок/ребёнка = ${ctx.effectiveServings} эффективных порций на приём пищи. Все количества ингредиентов указывай СРАЗУ НА ВСЮ СЕМЬЮ (на одно блюдо — ${ctx.effectiveServings} порций). Нормы на 1 порцию: крупы 60–100 г сухих, мясо/рыба 120–200 г, овощи 100–250 г, яйца 1–2 шт. Пересчитай на семью. «5 г», «10 г» или «0.1 шт» — нереальные количества, не используй их.
 3. Запрещённые аллергены — НЕ использовать: ${allergenTitles(request.allergens)}.
 4. Нелюбимые продукты — НЕ использовать: ${freeTerms(request.disliked)}.
-5. Подбирай все 21 блюдо, пока весь список не влезет в бюджет. Названия ВСЕХ 21 блюда должны быть уникальными: ни один день и ни один приём пищи не должен повторяться, никаких одинаковых названий дважды за неделю. Приоритет — разнообразие блюд и лёгкость приготовления. Пропусков быть не должно.
+${uniqueRule}
 6. Утварь семьи: ${cookwareUserList(request.cookware ?? [])}. Используй только ту, что есть.
 7. Ингредиенты — ТОЛЬКО из «ДОСТУПНЫХ ПРОДУКТОВ» внизу (у каждого реальная цена магазина). Указывай названия ровно как в списке, ничего не придумывай. Цены в ответе НЕ указывай — их посчитает система.
 8. Для каждого блюда дай ПОЛНЫЕ пошаговые инструкции приготовления и примерную пищевую ценность на 1 порцию (ккал, белки, жиры, углеводы в г).
 9. Каждое блюдо — полноценный приём пищи минимум из 2 ингредиентов (не только гарнир). Блюдо из одного продукта («отварной картофель», «жареный лук») недопустимо: добавь к нему белок, соус или овощи из списка. Яйца указывай в штуках ("pcs").`;
 }
 
-function jsonSpec(): string {
+function dayJsonSpec(): string {
   return `ОТВЕТ — СТРОГО ВАЛИДНЫЙ JSON без markdown-обёртки, по схеме:
-{ "days": [ { "breakfast": { "name": "Название блюда", "ingredients": [ { "name": "Куриное филе", "qty": 500, "unit": "g" } ], "steps": ["Шаг 1...", "Шаг 2..."], "cookware": ["skillet"], "nutritionPerServing": { "kcal": 260, "protein": 22, "fat": 10, "carbs": 20 } }, "lunch": { ... }, "dinner": { ... } }, ... ] }
-Единицы: "g", "ml", "pcs". Утварь — только id из списка выше. День 1 — первый элемент массива, день 7 — последний. Все 3 приёма пищи в каждый день обязательны.`;
+{ "breakfast": { "name": "Название блюда", "ingredients": [ { "name": "Куриное филе", "qty": 500, "unit": "g" } ], "steps": ["Шаг 1...", "Шаг 2..."], "cookware": ["skillet"], "nutritionPerServing": { "kcal": 260, "protein": 22, "fat": 10, "carbs": 20 } }, "lunch": { ... }, "dinner": { ... } }
+Единицы: "g", "ml", "pcs". Утварь — только id из списка выше. Все 3 приёма пищи этого дня обязательны.`;
 }
 
-function buildPlanPrompt(ctx: PromptContext, note: string): string {
+function buildDayPlanPrompt(ctx: PromptContext, day: number, dayBudget: number, note: string): string {
   const { request } = ctx;
-  const parts = [baseRules(ctx)];
+  const parts = [baseRules(ctx, { kind: 'day', day, dayBudget })];
   parts.push(`ДОСТУПНАЯ УТВАРЬ (id: «название»):
 ${MENU_COOKWARE.map((c: CookwareInfo) => `${c.id}: «${c.title}» — ${c.hint}`).join('\n')}`);
   if (request.customAllergens && request.customAllergens.length > 0) {
@@ -311,42 +309,39 @@ ${MENU_COOKWARE.map((c: CookwareInfo) => `${c.id}: «${c.title}» — ${c.hint}`
   }
   parts.push('ДОСТУПНЫЕ ПРОДУКТЫ (название — фасовка, примерная цена за упаковку):');
   parts.push(catalogLines(ctx.catalog));
-  parts.push(jsonSpec());
+  parts.push(dayJsonSpec());
   if (note) parts.push(note);
   return parts.join('\n\n');
 }
 
-interface RoundReceipt {
+interface DayReceipt {
   filled: number;
   totalCost: number;
   rejected: SlotBuild[];
-  expensive: string;
+  dayBudget: number;
 }
 
-function buildRevisionPrompt(ctx: PromptContext, receipt: RoundReceipt, note: string): string {
-  const { request } = ctx;
-  const overspend = receipt.totalCost > request.budget ? round2(receipt.totalCost - request.budget) : 0;
-  const remaining = request.budget > receipt.totalCost ? round2(request.budget - receipt.totalCost) : 0;
+function buildDayRevisionPrompt(ctx: PromptContext, day: number, receipt: DayReceipt, note: string): string {
+  const overspend = receipt.totalCost > receipt.dayBudget ? round2(receipt.totalCost - receipt.dayBudget) : 0;
+  const remaining = receipt.dayBudget > receipt.totalCost ? round2(receipt.dayBudget - receipt.totalCost) : 0;
 
-  const parts = [baseRules(ctx)];
-  parts.push('ПЕРЕСБОРКА НЕДЕЛИ:');
+  const parts = [baseRules(ctx, { kind: 'day', day, dayBudget: receipt.dayBudget })];
+  parts.push(`ПЕРЕСБОРКА ДНЯ ${day}:`);
   parts.push(
-    `Предыдущая попытка: заполнено ${receipt.filled} из ${SLOTS_COUNT} слотов. ` +
-      `Сумма закупки по реальным ценам магазина: ${formatMoney(receipt.totalCost)} BYN при бюджете ${formatMoney(request.budget)} BYN ` +
+    `Предыдущая попытка: заполнено ${receipt.filled} из ${MENU_DAILY_MEALS.length} слотов. ` +
+      `Стоимость блюд по реальным ценам магазина: ${formatMoney(receipt.totalCost)} BYN при дневном бюджете ${formatMoney(receipt.dayBudget)} BYN ` +
       `(${overspend > 0 ? `перерасход ${formatMoney(overspend)} BYN` : `остаток ${formatMoney(remaining)} BYN`}).`
   );
-  if (receipt.expensive) parts.push(`Самые дорогие позиции чека: ${receipt.expensive}.`);
   if (receipt.rejected.length > 0) {
     const reasons = receipt.rejected
-      .slice(0, 10)
-      .map((s) => `«${s.dishName}» (${MEAL_TITLES[s.meal]} · день ${s.day}): ${s.rejection}`)
+      .map((s) => `${MEAL_TITLES[s.meal]} («${s.dishName}»): ${s.rejection}`)
       .join('; ');
-    parts.push(`Отклонённые блюда: ${reasons}.`);
+    parts.push(`Отклонённые блюда дня: ${reasons}.`);
   }
   parts.push(
-    'Пересобери меню: замени самые дорогие блюда на более дешёвые (меньше дорогого мяса, рыбы, сыров и орехов; больше круп, картофеля, овощей), верни тот же JSON на все 21 блюдо. Выше бюджета не превышай. Приоритет — разнообразие и лёгкость приготовления.'
+    'Пересобери день: замени дорогие и отклонённые блюда на более дешёвые (меньше дорогого мяса, рыбы, сыров и орехов; больше круп, картофеля, овощей), верни JSON на 3 блюда. Дневной бюджет не превышай. Приоритет — разнообразие и лёгкость приготовления.'
   );
-  parts.push(jsonSpec());
+  parts.push(dayJsonSpec());
   if (note) parts.push(note);
   return parts.join('\n\n');
 }
@@ -609,15 +604,6 @@ function buildReceiptInputs(slots: SlotBuild[]): ShoppingListInput[] {
   return inputs;
 }
 
-function expensiveItems(list: ShoppingList): string {
-  const top = [...list.items]
-    .filter((i) => !i.missing)
-    .sort((a, b) => b.subtotal - a.subtotal)
-    .slice(0, 3);
-  if (top.length === 0) return '';
-  return top.map((i) => `«${i.name}» ${formatMoney(i.subtotal)} BYN`).join(', ');
-}
-
 // ---------------------------------------------------------------------------
 // Result assembly (same MenuResult shape as the deterministic planner)
 // ---------------------------------------------------------------------------
@@ -709,7 +695,7 @@ export async function generateMenuWithAi(
 
   const llm = opts.generatePlan ?? (async (prompt: string): Promise<string | null> => {
     const { generateStructuredJson: callGeminiJson } = await import('../gemini');
-    const { text } = await callGeminiJson(prompt, AI_WEEK_SCHEMA, MENU_AI_TIMEOUT_MS, 16_384);
+    const { text } = await callGeminiJson(prompt, AI_DAY_SCHEMA, MENU_AI_TIMEOUT_MS, 8_192);
     return text;
   });
 
@@ -727,62 +713,145 @@ export async function generateMenuWithAi(
     return result;
   };
 
-  let receipt: RoundReceipt | null = null;
-  let note = '';
+  // Days are generated in parallel — each call only composes «breakfast,
+  // lunch, dinner» for one day, so a single request is ~3-4K output tokens
+  // instead of up to 16K, and the 7 days run concurrently. Wall-clock per
+  // round is bounded by the slowest day, not by the whole week.
+  const dayBudget = Math.floor(effectiveBudget / MENU_WEEK_DAYS);
+  const plans = new Map<number, AiDayPlan | null>();
+  const dayReceipts = new Map<number, DayReceipt>();
+  let notes = new Map<number, string>();
+  let pending: number[] = Array.from({ length: MENU_WEEK_DAYS }, (_, i) => i + 1);
+  let anyParsed = false;
 
-  for (let round = 0; round < MENU_AI_MAX_REVISIONS; round += 1) {
-    const prompt = receipt
-      ? buildRevisionPrompt(ctx, receipt, note)
-      : buildPlanPrompt(ctx, note);
+  for (let round = 0; round < MENU_AI_MAX_REVISIONS && pending.length > 0; round += 1) {
+    const results = await Promise.all(
+      pending.map(async (day) => {
+        const prevPlan = plans.get(day) ?? null;
+        const dayReceipt = dayReceipts.get(day);
+        const prompt = prevPlan && dayReceipt
+          ? buildDayRevisionPrompt(ctx, day, dayReceipt, notes.get(day) ?? '')
+          : buildDayPlanPrompt(ctx, day, dayBudget, notes.get(day) ?? '');
+        let text: string | null;
+        try {
+          text = await llm(prompt, day);
+        } catch {
+          text = null;
+        }
+        return { day, text, prompt };
+      })
+    );
 
-    let text: string | null;
-    try {
-      text = await llm(prompt);
-    } catch {
-      text = null;
-    }
-    if (!text) {
+    if (plans.size === 0 && results.every((r) => r.text == null)) {
       console.warn('[aiMenu] LLM unavailable, falling back to the deterministic planner');
       return fallback(false);
     }
 
-    const plan = parseAiWeekPlan(text);
-    if (!plan) {
-      console.warn('[aiMenu] LLM returned invalid JSON');
-      note = 'Предыдущий ответ не прошёл валидацию (некорректный JSON). Верни корректный JSON по схеме ниже.';
-      continue;
+    let progressed = false;
+    const escalations = new Map<number, string>();
+    for (const { day, text } of results) {
+      if (text == null) {
+        if (!plans.has(day)) escalations.set(day, 'Сервис не ответил — повтори генерацию дня.');
+        continue;
+      }
+      const parsed = parseAiDay(text);
+      if (!parsed) {
+        if (!plans.has(day)) {
+          escalations.set(day, 'Предыдущий ответ не прошёл валидацию (некорректный JSON). Верни корректный JSON по схеме ниже.');
+        }
+        continue;
+      }
+      const prev = plans.get(day) ?? null;
+      if (JSON.stringify(parsed) !== JSON.stringify(prev)) progressed = true;
+      plans.set(day, parsed);
+      anyParsed = true;
     }
-    note = '';
 
-    const slots = await buildSlots(plan, { ...request, budget: effectiveBudget }, offers, providers, now);
+    const week: AiWeekPlan = { days: [] };
+    for (let d = 1; d <= MENU_WEEK_DAYS; d += 1) {
+      week.days.push(plans.get(d) ?? { breakfast: null, lunch: null, dinner: null });
+    }
+    const slots = await buildSlots(week, { ...request, budget: effectiveBudget }, offers, providers, now);
     const chosen = slots.filter((s) => s.choice);
     const shoppingList = buildShoppingList(buildReceiptInputs(slots), offers, request.storeId, now);
+    const totalOver = shoppingList.total > effectiveBudget + EPS;
 
-    receipt = {
-      filled: chosen.length,
-      totalCost: shoppingList.total,
-      rejected: slots.filter((s) => !s.choice && s.rejection),
-      expensive: expensiveItems(shoppingList),
-    };
+    dayReceipts.clear();
+    for (let d = 1; d <= MENU_WEEK_DAYS; d += 1) {
+      const daySlots = slots.filter((s) => s.day === d);
+      const dayChosen = daySlots.filter((s) => s.choice);
+      dayReceipts.set(d, {
+        filled: dayChosen.length,
+        totalCost: round2(dayChosen.reduce((sum, s) => sum + s.choice!.cost, 0)),
+        rejected: daySlots.filter((s) => !s.choice && s.rejection),
+        dayBudget,
+      });
+    }
 
     const nameCount = new Map<string, number>();
     for (const s of chosen) nameCount.set(s.dishName, (nameCount.get(s.dishName) ?? 0) + 1);
-    const duplicates = [...nameCount]
-      .filter(([, count]) => count > 1)
-      .map(([name, count]) => `«${name}» ×${count}`);
+    const duplicates = [...nameCount].filter(([, count]) => count > 1);
 
-    if (
-      receipt.filled === SLOTS_COUNT &&
-      receipt.totalCost <= effectiveBudget + EPS &&
-      duplicates.length === 0
-    ) {
+    const accepted = chosen.length === SLOTS_COUNT && !totalOver && duplicates.length === 0;
+    if (accepted) {
       return assembleResult({ ...request, budget: effectiveBudget }, store, slots, shoppingList, providers, now, effectiveBudget);
     }
-    if (duplicates.length > 0) {
-      note = `Блюда повторяются: ${duplicates.join(', ')}. ВСЕ 21 блюда должны быть разными — замени повторы на новые блюда.`;
+
+    // Compute the per-day problems that push the next round.
+    const nextPending: number[] = [];
+    const nextNotes = new Map<number, string>();
+    for (let d = 1; d <= MENU_WEEK_DAYS; d += 1) {
+      const daySlots = slots.filter((s) => s.day === d);
+      const reasons: string[] = [];
+      const escalation = escalations.get(d);
+      if (escalation) reasons.push(escalation);
+      const dayRejected = daySlots.filter((s) => !s.choice && s.rejection);
+      if (dayRejected.length > 0) {
+        reasons.push(
+          `Отклонено: ${dayRejected
+            .map((s) => `${MEAL_TITLES[s.meal]} («${s.dishName}»): ${s.rejection}`)
+            .join('; ')}`
+        );
+      }
+      const dayDups = duplicates.filter(([name]) => daySlots.some((s) => s.dishName === name));
+      if (dayDups.length > 0) {
+        reasons.push(
+          `Блюда повторяются: ${dayDups.map(([name, count]) => `«${name}» ×${count}`).join(', ')} — замени повторы на другие названия блюд.`
+        );
+      }
+      const dayCost = dayReceipts.get(d)?.totalCost ?? 0;
+      if (totalOver && dayCost > dayBudget + EPS) {
+        reasons.push(
+          `Перерасход по дню: ${formatMoney(dayCost)} BYN при дневном бюджете ${formatMoney(dayBudget)} BYN — замени дорогие блюда на более дешёвые (меньше мяса, рыбы, сыров и орехов; больше круп, картофеля, овощей).`
+        );
+      }
+      if (reasons.length > 0) {
+        nextPending.push(d);
+        nextNotes.set(d, reasons.join(' '));
+      }
+    }
+    if (nextPending.length === 0) {
+      // Only possible when the package-rounded receipt is over budget while no
+      // single day exceeds its share — make the most expensive day cheaper.
+      const mostExpensive = [...slots]
+        .filter((s) => s.choice)
+        .sort((a, b) => b.choice!.cost - a.choice!.cost);
+      if (mostExpensive.length > 0) {
+        const target = mostExpensive[0].day;
+        nextPending.push(target);
+        nextNotes.set(target, `Закупка недели не влезает в бюджет ${formatMoney(effectiveBudget)} BYN — удешеви день ${target}: замени дорогие блюда на более дешёвые.`);
+      }
+    }
+
+    pending = nextPending;
+    notes = nextNotes;
+
+    if (!progressed && (round > 0 || plans.size === 0)) {
+      console.warn('[aiMenu] LLM keeps repeating the same plan, falling back to the deterministic planner');
+      break;
     }
   }
 
   console.warn('[aiMenu] no full within-budget week from the LLM, falling back to the deterministic planner');
-  return fallback(receipt !== null);
+  return fallback(anyParsed);
 }

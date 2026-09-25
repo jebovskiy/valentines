@@ -51,8 +51,9 @@ export const MENU_ID_PREFIX = 'menu';
  */
 export const MENU_AI_MAX_REVISIONS = 4;
 
-/** Upper bound for one Gemini menu-generation call. */
-export const MENU_AI_TIMEOUT_MS = 90_000;
+/** Upper bound for one AI menu-generation call (OpenRouter/DeepSeek can take
+ * >2 min to emit the full 21-dish JSON non-streaming). */
+export const MENU_AI_TIMEOUT_MS = 180_000;
 
 /** Visible note that the meals are generated, not curated from the catalogue. */
 export const MENU_AI_WARNING =

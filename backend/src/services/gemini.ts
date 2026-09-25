@@ -208,7 +208,8 @@ async function callOpenAiCompatible(
   apiKey: string,
   model: string,
   reasoningControl: 'none' | 'deepseek-thinking' | 'openrouter-reasoning',
-  extraHeaders: Record<string, string> = {}
+  extraHeaders: Record<string, string> = {},
+  extraBody: Record<string, unknown> = {}
 ): Promise<{ body: GeminiResponse; error: FallbackReason | null }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -236,6 +237,7 @@ async function callOpenAiCompatible(
         response_format: { type: 'json_object' },
         ...(reasoningControl === 'deepseek-thinking' ? { thinking: { type: 'disabled' } } : {}),
         ...(reasoningControl === 'openrouter-reasoning' ? { reasoning: { enabled: false } } : {}),
+        ...extraBody,
       }),
     });
     if (!res.ok) {
@@ -275,20 +277,21 @@ async function callLlm(
 ): Promise<{ body: GeminiResponse; error: FallbackReason | null }> {
   const provider = config.AI_PROVIDER;
   if (provider !== 'gemini') {
-    const preset: { baseUrl: string; apiKey: string | undefined; model: string; reasoningControl: 'none' | 'deepseek-thinking' | 'openrouter-reasoning'; extraHeaders: Record<string, string> } =
+    const preset: { baseUrl: string; apiKey: string | undefined; model: string; reasoningControl: 'none' | 'deepseek-thinking' | 'openrouter-reasoning'; extraHeaders: Record<string, string>; extraBody: Record<string, unknown> } =
       provider === 'deepseek'
-        ? { baseUrl: DEEPSEEK_BASE_URL, apiKey: config.DEEPSEEK_API_KEY, model: config.DEEPSEEK_MODEL, reasoningControl: 'deepseek-thinking', extraHeaders: {} }
+        ? { baseUrl: DEEPSEEK_BASE_URL, apiKey: config.DEEPSEEK_API_KEY, model: config.DEEPSEEK_MODEL, reasoningControl: 'deepseek-thinking', extraHeaders: {}, extraBody: {} }
         : provider === 'groq'
-          ? { baseUrl: GROQ_BASE_URL, apiKey: config.GROQ_API_KEY, model: config.GROQ_MODEL, reasoningControl: 'none', extraHeaders: {} }
+          ? { baseUrl: GROQ_BASE_URL, apiKey: config.GROQ_API_KEY, model: config.GROQ_MODEL, reasoningControl: 'none', extraHeaders: {}, extraBody: {} }
           : {
               baseUrl: OPENROUTER_BASE_URL,
               apiKey: config.OPENROUTER_API_KEY,
               model: config.OPENROUTER_MODEL,
               reasoningControl: 'openrouter-reasoning',
               extraHeaders: { 'X-Title': 'Valentains' },
+              extraBody: { provider: { sort: 'throughput' } },
             };
     if (preset.apiKey) {
-      const primary = await callOpenAiCompatible(prompt, timeoutMs, maxOutputTokens, preset.baseUrl, preset.apiKey, preset.model, preset.reasoningControl, preset.extraHeaders);
+      const primary = await callOpenAiCompatible(prompt, timeoutMs, maxOutputTokens, preset.baseUrl, preset.apiKey, preset.model, preset.reasoningControl, preset.extraHeaders, preset.extraBody);
       if (!primary.error) return primary;
       if (config.GEMINI_API_KEY) {
         console.warn(`[llm] ${provider} failed (${primary.error.kind}), falling back to Gemini`);

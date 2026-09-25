@@ -55,61 +55,84 @@ function dish(name: string, ingredients: [string, number, string][]): DishJson {
   };
 }
 
-function planJson(
-  perDay: (day: number) => { breakfast: DishJson; lunch: DishJson; dinner: DishJson }
-): string {
-  const days = Array.from({ length: 7 }, (_, i) => perDay(i + 1));
-  return JSON.stringify({ days });
+/** Day-shaped JSON: one day = breakfast + lunch + dinner. */
+function dayJson(meals: { breakfast: DishJson; lunch: DishJson; dinner: DishJson }): string {
+  return JSON.stringify(meals);
 }
 
-/** Full 21-slot plan whose shopping receipt fits a 40 BYN budget. */
-const CHEAP_PLAN = planJson((d) => ({
-  breakfast: dish(`Каша день ${d}`, [['Овсяные хлопья', 30, 'g']]),
-  lunch: dish(`Обед день ${d}`, [
-    ['Картофель', 200, 'g'],
-    ['Морковь', 100, 'g'],
-  ]),
-  dinner: dish(`Ужин день ${d}`, [
-    ['Картофель', 200, 'g'],
-    ['Капуста белокочанная', 150, 'g'],
-  ]),
-}));
+/** Day with cheap, unique-per-day dishes that keep the whole week under 40 BYN. */
+function cheapDay(day: number): string {
+  return dayJson({
+    breakfast: dish(`Каша день ${day}`, [['Овсяные хлопья', 30, 'g']]),
+    lunch: dish(`Обед день ${day}`, [
+      ['Картофель', 200, 'g'],
+      ['Морковь', 100, 'g'],
+    ]),
+    dinner: dish(`Ужин день ${day}`, [
+      ['Картофель', 200, 'g'],
+      ['Капуста белокочанная', 150, 'g'],
+    ]),
+  });
+}
 
-/** Full 21-slot plan whose receipt is far above the 40 BYN budget. */
-const EXPENSIVE_PLAN = planJson((d) => ({
-  breakfast: dish(`Завтрак день ${d}`, [
-    ['Лосось', 150, 'g'],
-    ['Сыр твёрдый', 50, 'g'],
-  ]),
-  lunch: dish(`Обед день ${d}`, [
-    ['Лосось', 150, 'g'],
-    ['Сыр твёрдый', 50, 'g'],
-  ]),
-  dinner: dish(`Ужин день ${d}`, [
-    ['Лосось', 150, 'g'],
-    ['Сыр твёрдый', 50, 'g'],
-  ]),
-}));
+/** Day whose dishes are far above any single day's budget share. */
+function expensiveDay(day: number): string {
+  const m = {
+    breakfast: dish(`Завтрак день ${day}`, [
+      ['Лосось', 150, 'g'],
+      ['Сыр твёрдый', 50, 'g'],
+    ]),
+    lunch: dish(`Обед день ${day}`, [
+      ['Лосось', 150, 'g'],
+      ['Сыр твёрдый', 50, 'g'],
+    ]),
+    dinner: dish(`Ужин день ${day}`, [
+      ['Лосось', 150, 'g'],
+      ['Сыр твёрдый', 50, 'g'],
+    ]),
+  };
+  return dayJson(m);
+}
+
+/** A day where every meal is the same dish — guaranteed week-wide duplicates. */
+const DUPLICATE_DAY = dayJson({
+  breakfast: dish('Яичница', [['Яйца', 6, 'pcs']]),
+  lunch: dish('Яичница', [['Яйца', 6, 'pcs']]),
+  dinner: dish('Яичница', [['Яйца', 6, 'pcs']]),
+});
+
+/** Degenerate day: absurd quantities and garnish-only meals, always rejected. */
+function degenerateDay(day: number): string {
+  return dayJson({
+    breakfast: dish(`Завтрак день ${day}`, [
+      ['Картофель', 5, 'g'],
+      ['Морковь', 6, 'g'],
+    ]),
+    lunch: dish('Жареный лук', [['Лук репчатый', 300, 'g']]),
+    dinner: dish('Отварной картофель', [['Картофель', 400, 'g']]),
+  });
+}
 
 test('aiMenu: full 21-slot AI week priced within budget, no spending over the limit', async () => {
   const prompts: string[] = [];
   const result = await generateMenuWithAi(baseRequest, {
     providers: providersOf(),
     now: NOW,
-    generatePlan: async (prompt) => {
+    generatePlan: async (prompt, day) => {
       prompts.push(prompt);
-      // First call is the initial build, revisions happen once the budget is exceeded.
-      return prompt.includes('ПЕРЕСБОРКА') ? CHEAP_PLAN : EXPENSIVE_PLAN;
+      // First round builds all days lavishly; the budget revision replaces them.
+      return prompt.includes('ПЕРЕСБОРКА') ? cheapDay(day) : expensiveDay(day);
     },
   });
 
   assert.ok(!('code' in result));
   if ('code' in result) return;
 
-  assert.ok(prompts.length >= 2, 'expensive first attempt must trigger a budget revision');
+  const firstRev = prompts.findIndex((p) => p.includes('ПЕРЕСБОРКА'));
+  assert.ok(prompts.length >= WEEK_SLOTS / 3 + 1, 'expensive first attempt must trigger a day budget revision');
   assert.ok(!prompts[0].includes('ПЕРЕСБОРКА'));
-  assert.ok(prompts[1].includes('ПЕРЕСБОРКА'), 'revision prompt must ask to rebuild the week');
-  assert.ok(prompts[1].includes('перерасход'), 'revision prompt must report the overspend');
+  assert.ok(firstRev >= WEEK_SLOTS / 3, 'revision prompt must rebuild the days, not the initial ones');
+  assert.ok(prompts.slice(firstRev).some((p) => p.includes('перерасход')), 'revision prompt must report the overspend');
 
   assert.equal(result.days.length, 7);
   const meals = result.days.flatMap((d) => d.meals);
@@ -134,7 +157,7 @@ test('aiMenu: repeated violations of exclusions are never leaked — falls back 
   const result = await generateMenuWithAi(request, {
     providers: providersOf(),
     now: NOW,
-    generatePlan: async () => CHEAP_PLAN,
+    generatePlan: async (_prompt, day) => cheapDay(day),
   });
 
   assert.ok(!('code' in result));
@@ -168,27 +191,21 @@ test('aiMenu: repeated dish names are rejected — a revision that diversifies w
   // Same dish name in every slot, but within budget: the week must not be
   // accepted as-is. The model is told to fix it; the second attempt returns a
   // diversified cheap plan which is accepted.
-  const DUPLICATE_PLAN = planJson(() => ({
-    breakfast: dish('Яичница', [['Яйца', 6, 'pcs']]),
-    lunch: dish('Яичница', [['Яйца', 6, 'pcs']]),
-    dinner: dish('Яичница', [['Яйца', 6, 'pcs']]),
-  }));
-
   const prompts: string[] = [];
   const result = await generateMenuWithAi(baseRequest, {
     providers: providersOf(),
     now: NOW,
-    generatePlan: async (prompt) => {
+    generatePlan: async (prompt, day) => {
       prompts.push(prompt);
-      return prompt.includes('Блюда повторяются') ? CHEAP_PLAN : DUPLICATE_PLAN;
+      return prompt.includes('Блюда повторяются') ? cheapDay(day) : DUPLICATE_DAY;
     },
   });
 
   assert.ok(!('code' in result));
   if ('code' in result) return;
 
-  assert.ok(prompts.length >= 2, 'duplicate names must trigger a revision');
-  assert.ok(prompts[1].includes('Блюда повторяются'), 'revision must report repeated dishes');
+  assert.ok(prompts.length >= WEEK_SLOTS / 3 + 1, 'duplicate names must trigger a revision');
+  assert.ok(prompts.some((p) => p.includes('Блюда повторяются')), 'revision must report repeated dishes');
 
   const names = result.recipes.map((r) => r.recipe.name);
   assert.equal(new Set(names).size, names.length, 'all 21 dish names must be unique');
@@ -198,19 +215,13 @@ test('aiMenu: repeated dish names are rejected — a revision that diversifies w
 });
 
 test('aiMenu: degenerate quantities (5 g) and garnishes-only never reach the user', async () => {
-  // The fake model always emits a dish with a garnish-only recipe and absurd
+  // The fake model always emits days with a garnish-only recipe and absurd
   // tiny quantities — both are rejected slot-by-slot, revisions retry the same
   // broken plan, and the deterministic planner must produce the final menu.
-  const DEGENERATE_PLAN = planJson((d) => ({
-    breakfast: dish(`Завтрак ${d}`, [['Картофель', 5, 'g'], ['Морковь', 6, 'g']]),
-    lunch: dish('Жареный лук', [['Лук репчатый', 300, 'g']]),
-    dinner: dish('Отварной картофель', [['Картофель', 400, 'g']]),
-  }));
-
   const result = await generateMenuWithAi(baseRequest, {
     providers: providersOf(),
     now: NOW,
-    generatePlan: async () => DEGENERATE_PLAN,
+    generatePlan: async (_prompt, day) => degenerateDay(day),
   });
 
   assert.ok(!('code' in result));
