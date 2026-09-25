@@ -201,9 +201,13 @@ async function callGemini(
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const model = config.GEMINI_MODEL;
+  // Gemini 3.x no longer accepts temperature/top_p/top_k (deprecated); the
+  // older families (2.x, 1.5) require them to be omitted-safe either way.
+  const isGemini3 = model.startsWith('gemini-3');
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${config.GEMINI_MODEL}:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: 'POST',
         signal: controller.signal,
@@ -216,14 +220,14 @@ async function callGemini(
           generationConfig: {
             responseMimeType: 'application/json',
             responseSchema: schema,
-            temperature: 0.7,
             maxOutputTokens,
+            ...(isGemini3 ? {} : { temperature: 0.7 }),
           },
         }),
       }
     );
     if (!res.ok) {
-      console.error(`[gemini] HTTP ${res.status} from generateContent, body redacted`);
+      console.error(`[gemini] HTTP ${res.status} from generateContent for model ${model}, body redacted`);
       return { body: {}, error: { kind: 'http', status: res.status } };
     }
     const body = (await res.json()) as GeminiResponse;
