@@ -285,6 +285,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--text-faint)',
     fontSize: '12px',
     marginTop: '2px',
+    textAlign: 'center',
   },
   recipientRow: {
     display: 'flex',

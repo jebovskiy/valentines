@@ -199,6 +199,7 @@ async function callGemini(
             responseMimeType: 'application/json',
             responseSchema: schema,
             temperature: 0.7,
+            maxOutputTokens: 8192,
           },
         }),
       }
@@ -479,14 +480,14 @@ const AI_ROUNDS_SCHEMA = {
 } as const;
 
 const AI_GAME_CONFIGS: Record<AiGameRoundsInput['gameId'], AiGameConfig> = {
-  KNOW_ME: { count: 12, min: 8 },
-  CHOOSE_ONE: { count: 15, min: 10 },
+  KNOW_ME: { count: 10, min: 8 },
+  CHOOSE_ONE: { count: 12, min: 10 },
   ASSOCIATIONS: { count: 8, min: 6 },
   COMPLIMENTS: { count: 6, min: 4 },
   SPEED_FACTS: { count: 8, min: 6 },
 };
 
-const AI_GAME_TIMEOUT_MS = 12_000;
+const AI_GAME_TIMEOUT_MS = 25_000;
 
 function gameRoundsPrompt(input: AiGameRoundsInput): string {
   const { gameId, mood, names } = input;
@@ -499,7 +500,7 @@ function gameRoundsPrompt(input: AiGameRoundsInput): string {
     case 'KNOW_ME':
       return `Ты создаёшь карточки для игры для пар «Насколько ты меня знаешь?».${moodHint}
 Задача: сгенерировать ${AI_GAME_CONFIGS.KNOW_ME.count} раундов в строгом порядке:
-- первые 11 раундов — вопросы с 4 вариантами ответа, каждый вариант начинается с эмодзи и короткий (например «💬 Открытый диалог», «🎁 Подарки»). Вопросы могут давать короткий список вариантов или быть открытыми с вариантами.
+- первые ${AI_GAME_CONFIGS.KNOW_ME.count - 1} раундов — вопросы с 4 вариантами ответа, каждый вариант начинается с эмодзи и короткий (например «💬 Открытый диалог», «🎁 Подарки»). Вопросы могут давать короткий список вариантов или быть открытыми с вариантами.
 - последний раунд (${AI_GAME_CONFIGS.KNOW_ME.count}-й) — открытый вопрос без вариантов: options должен быть пустым списком [].
 
 Темы вопросов: вкусы и предпочтения, язык любви, привычки, мечты и планы на будущее, отношение к ссорам и сюрпризам, тёплые вопросы о партнёре (что его заводит, что бесит, какой поступок не забывается).
@@ -508,7 +509,7 @@ ${personal}
     case 'CHOOSE_ONE':
       return `Ты создаёшь карточки для игры для пар «Выбери одно».${moodHint}
 Задача: сгенерировать ${AI_GAME_CONFIGS.CHOOSE_ONE.count} раундов в строгом порядке:
-- первые 12 раундов — бинарные дуэли «или — или» ровно с 2 вариантами (например «☕ Кофе» / «🫖 Чай», «🏠 Дом» / «🏙️ Город»).
+- первые ${AI_GAME_CONFIGS.CHOOSE_ONE.count - 3} раундов — бинарные дуэли «или — или» ровно с 2 вариантами (например «☕ Кофе» / «🫖 Чай», «🏠 Дом» / «🏙️ Город»).
 - последние 3 раунда — сюрпризы ровно с 4 вариантами (неожиданный выбор: куда пойти, что подарить, какой отпуск и т.п.).
 
 Каждый вариант начинается с подходящего эмодзи и короткий. Вопросы лёгкие и весёлые, подходят для вечера вдвоём.
