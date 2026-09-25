@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../../hooks/useValentinesStore';
-import { MENU_COOKWARE } from '../../types';
+import { MENU_COOKWARE, MENU_MIN_BUDGET } from '../../types';
 import type { MenuAllergenId, MenuCookwareId, MenuRequest, MenuStoreId } from '../../types';
 import { setMainButton, setBackButton, hapticFeedback } from '../../utils/telegram';
 import { BackButton } from '../../components/BackButton';
@@ -430,6 +430,11 @@ export function MenuStoreStep() {
   const { menuStores, fetchMenuStoresAndAllergens, menuDraft, updateMenuDraft, clearMenu } =
     useValentinesStore();
 
+  const availableStores = useMemo(
+    () => menuStores.filter((s) => (s.available ?? true)),
+    [menuStores]
+  );
+
   useEffect(() => {
     void fetchMenuStoresAndAllergens();
     setMainButton({ isVisible: false });
@@ -439,10 +444,10 @@ export function MenuStoreStep() {
   }, [navigate, fetchMenuStoresAndAllergens, clearMenu]);
 
   useEffect(() => {
-    if (!menuDraft.storeId && menuStores.length > 0) {
-      updateMenuDraft({ storeId: menuStores[0].id });
+    if (!menuDraft.storeId && availableStores.length > 0) {
+      updateMenuDraft({ storeId: availableStores[0].id });
     }
-  }, [menuDraft.storeId, menuStores, updateMenuDraft]);
+  }, [menuDraft.storeId, availableStores, updateMenuDraft]);
 
   const pick = (id: MenuStoreId) => {
     hapticFeedback('selection');
@@ -450,26 +455,45 @@ export function MenuStoreStep() {
   };
 
   const selectedStore = menuStores.find((s) => s.id === menuDraft.storeId) ?? null;
+  const selectedAvailable = selectedStore ? (selectedStore.available ?? true) : false;
 
   return (
-    <StepFrame step={1} title="Магазин" footerDisabled={!menuDraft.storeId} footerLabel="Далее" onFooter={() => navigate('/menu/people')}>
+    <StepFrame step={1} title="Магазин" footerDisabled={!selectedAvailable} footerLabel="Далее" onFooter={() => navigate('/menu/people')}>
       <div style={styles.sectionTitle}>Где покупаем?</div>
-      <div style={styles.sectionHint}>Цены и наличие считаем по этому магазину</div>
+      <div style={styles.sectionHint}>
+        Цены и наличие считаем по этому магазину. Пока подбор работает только в «Евроопт» — там собраны реальные цены.
+      </div>
       <div style={styles.storeGrid}>
         {menuStores.map((store) => {
-          const selected = store.id === menuDraft.storeId;
+          const available = store.available ?? true;
+          const selected = store.id === menuDraft.storeId && available;
           return (
             <button
               key={store.id}
-              style={{ ...styles.storeCard, ...(selected ? styles.storeCardSelected : {}) }}
+              style={{
+                ...styles.storeCard,
+                ...(selected ? styles.storeCardSelected : {}),
+                ...(!available
+                  ? {
+                      opacity: 0.4,
+                      cursor: 'default',
+                      background: 'var(--surface-card)',
+                      pointerEvents: 'none',
+                    }
+                  : {}),
+              }}
               onClick={() => pick(store.id)}
-              title={store.description}
+              disabled={!available}
+              title={available ? store.description : 'Подбор в этом магазине пока недоступен'}
+              aria-disabled={!available}
             >
-              <span style={styles.storeName}>
+              <span style={{ ...styles.storeName, ...(!available ? { color: 'var(--ash)' } : {}) }}>
                 <span>{store.emoji}</span>
                 <span>{store.name}</span>
               </span>
-              <span style={styles.storeDesc}>{store.description}</span>
+              <span style={styles.storeDesc}>
+                {available ? store.description : 'Скоро — цены не подключены'}
+              </span>
             </button>
           );
         })}
@@ -567,23 +591,32 @@ export function MenuBudgetStep() {
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [menuDraft.budget]);
 
+  const belowMin = budgetNumber !== null && budgetNumber < MENU_MIN_BUDGET;
+
   return (
     <StepFrame
       step={3}
       title="Бюджет"
-      footerDisabled={budgetNumber === null}
+      footerDisabled={budgetNumber === null || belowMin}
       footerLabel="Далее"
       onFooter={() => navigate('/menu/cookware')}
     >
       <div style={styles.sectionTitle}>Сколько готовы потратить?</div>
-      <div style={styles.sectionHint}>Сумма на продукты в выбранном магазине, BYN</div>
+      <div style={styles.sectionHint}>
+        Сумма на продукты в выбранном магазине, BYN. Минимум для подбора — {MENU_MIN_BUDGET} BYN.
+      </div>
       <input
         style={styles.budgetInput}
         inputMode="decimal"
-        placeholder="например, 40"
+        placeholder={`например, ${MENU_MIN_BUDGET}`}
         value={menuDraft.budget}
         onChange={(e) => updateMenuDraft({ budget: e.target.value.replace(/[^\d.,]/g, '') })}
       />
+      {belowMin && (
+        <div style={styles.errorBox}>
+          Меню подбирается от {MENU_MIN_BUDGET} BYN в неделю.
+        </div>
+      )}
     </StepFrame>
   );
 }
@@ -674,11 +707,12 @@ export function MenuAllergensStep() {
     if (!menuDraft.storeId || menuLoading) return;
     hapticFeedback('impact', 'light');
     setScreenError(null);
+    const rawBudget = parseFloat(menuDraft.budget.replace(',', '.'));
     const request: MenuRequest = {
       storeId: menuDraft.storeId,
       adults: menuDraft.adults,
       children: menuDraft.children,
-      budget: parseFloat(menuDraft.budget.replace(',', '.')) || 0,
+      budget: Number.isFinite(rawBudget) ? Math.max(MENU_MIN_BUDGET, rawBudget) : MENU_MIN_BUDGET,
       currency: 'BYN',
       allergens: menuDraft.allergens,
       customAllergens: menuDraft.customAllergens,
@@ -692,9 +726,7 @@ export function MenuAllergensStep() {
     }
     if ('code' in result) {
       const issue = result;
-      if (issue.code === 'budget_too_low' && issue.minCost !== undefined) {
-        setScreenError(`Бюджет слишком мал: самое дешёвое блюдо — ${issue.minCost.toFixed(2)} BYN`);
-      } else if (issue.code === 'no_recipes') {
+      if (issue.code === 'no_recipes' || issue.code === 'empty_catalog' || issue.code === 'invalid_store') {
         setScreenError(issue.message || 'Нет подходящих рецептов по выбранным условиям');
       } else {
         setScreenError(issue.message || 'Не удалось подобрать меню');

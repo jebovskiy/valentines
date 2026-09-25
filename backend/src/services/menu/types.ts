@@ -24,7 +24,16 @@ export const MEAL_TITLES: Record<MealId, string> = {
 };
 
 /** Kitchen equipment the user declares to have; recipes needing the rest are filtered out. */
-export type CookwareId = 'skillet' | 'pot' | 'oven' | 'slow_cooker' | 'microwave';
+export type CookwareId =
+  | 'skillet'
+  | 'pot'
+  | 'oven'
+  | 'slow_cooker'
+  | 'microwave'
+  | 'blender'
+  | 'air_fryer'
+  | 'steamer'
+  | 'kettle';
 
 export interface AllergenInfo {
   id: AllergenId;
@@ -40,6 +49,11 @@ export interface Store {
   description: string;
   /** 'mock' means the current price catalogue is demo data, never real prices. */
   priceCatalog: 'mock' | 'live';
+  /**
+   * false when the store cannot be used for planning right now (no real price
+   * catalogue). The UI renders such stores greyed out and non-clickable.
+   */
+  available: boolean;
 }
 
 export interface Ingredient {
@@ -247,18 +261,7 @@ export interface MenuResult {
 export type MenuGenerationIssue =
   | { code: 'invalid_store'; message: string }
   | { code: 'no_recipes'; message: string }
-  | { code: 'budget_too_low'; message: string; minCost: number; budget: number }
-  | { code: 'empty_catalog'; message: string }
-  | {
-      code: 'menu_incomplete';
-      message: string;
-      /** How many of the wanted 21 slots could be filled. */
-      filledSlots: number;
-      totalSlots: number;
-      reason: 'budget' | 'recipes';
-      /** Names of the meals that could not be filled (e.g. «Завтрак · День 3»). */
-      missingSlots: string[];
-    };
+  | { code: 'empty_catalog'; message: string };
 
 export interface CostedRecipe {
   choice: RecipeChoice;

@@ -10,12 +10,17 @@
  *
  * Polite: respects robots.txt (once), throttles between requests, touches only
  * the /recipes/ tree. Run offline (not from the request path). Candidates can
- * come from collect-jobs.ts (job list) or an explicit rid list / scan window:
+ * come from collect-jobs.ts (job list), an explicit rid list / scan window, or
+ * a full walk of the site's recipe base:
  *
  *   node node_modules/tsx/dist/cli.mjs scripts/ingest-russianfood.ts \
  *     --jobs ../menu-data/jobs.json --max 60 --delay 350
  *   node node_modules/tsx/dist/cli.mjs scripts/ingest-russianfood.ts \
  *     --rids 179460,179514 --delay 600 --out ../menu-data/recipes.json
+ *   node node_modules/tsx/dist/cli.mjs scripts/ingest-russianfood.ts \
+ *     --whole --max 2000 --fetch-cap 2000 --delay 250
+ *   node node_modules/tsx/dist/cli.mjs scripts/ingest-russianfood.ts \
+ *     --categories --max 2000 --fetch-cap 2000 --delay 250
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -56,6 +61,8 @@ interface CliOptions {
   jobs: string | null;
   scanStart?: number;
   scanEnd?: number;
+  whole: boolean;
+  categories: boolean;
   delay: number;
   maxRecipes: number;
   fetchCap: number;
@@ -67,6 +74,8 @@ function parseArgs(argv: string[]): CliOptions {
   const opts: CliOptions = {
     rids: [],
     jobs: null,
+    whole: false,
+    categories: false,
     delay: 700,
     maxRecipes: 80,
     fetchCap: 400,
@@ -88,6 +97,8 @@ function parseArgs(argv: string[]): CliOptions {
       opts.scanEnd = Number(m[2]);
     }
   }
+  opts.whole = argv.includes('--whole');
+  opts.categories = argv.includes('--categories');
   opts.delay = Number(argVal('--delay') ?? '700');
   opts.maxRecipes = Number(argVal('--max') ?? '80');
   opts.fetchCap = Number(argVal('--fetch-cap') ?? '400');
@@ -122,12 +133,57 @@ function collectRids(opts: CliOptions): number[] {
     }
   }
   for (const rid of opts.rids) order.push({ rid, score: Number.MIN_SAFE_INTEGER });
+  if (opts.categories) {
+    for (const rid of categoryRids(opts)) order.push({ rid, score: Number.MIN_SAFE_INTEGER });
+  }
+  if (opts.whole) {
+    for (let r = 1; r <= 300_000; r++) order.push({ rid: r, score: Number.MIN_SAFE_INTEGER });
+  }
   if (opts.scanStart != null && opts.scanEnd != null) {
     for (let r = opts.scanStart; r <= opts.scanEnd; r++) order.push({ rid: r, score: Number.MIN_SAFE_INTEGER });
   }
   return [...order]
     .sort((a, b) => b.score - a.score || a.rid - b.rid)
     .map((o) => o.rid);
+}
+
+const CATEGORY_FIDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+
+/** True when the site index walker hit an empty category page (end of listing). */
+function isCategoryListHtml(html: string): boolean {
+  return /Страница|recipe\.php\?rid=\d+/i.test(html);
+}
+
+/**
+ * Best-effort scan of the whole recipe base via the site's category listing
+ * pages (robots-allowed /recipes/ tree). Collects rid links from every page of
+ * every category; stops early once `maxRecipes` candidates are gathered. If
+ * the listing markup changes, this simply yields fewer rids — never crashes.
+ */
+function categoryRids(opts: CliOptions): number[] {
+  const provider = new RussianFoodRecipeProvider({ politenessDelayMs: opts.delay });
+  const found = new Set<number>();
+  for (const fid of CATEGORY_FIDS) {
+    let page = 1;
+    for (;;) {
+      const url = `https://www.russianfood.com/recipes/bytype/?fid=${fid}&page=${page}`;
+      const res = awaitFetch(provider, url);
+      if (!res) break;
+      const rids = [...res.matchAll(/recipe\.php\?rid=(\d+)/g)].map((m) => Number(m[1]));
+      if (rids.length === 0 || !isCategoryListHtml(res)) break;
+      for (const rid of rids) found.add(rid);
+      if (found.size >= opts.maxRecipes) return [...found].sort((a, b) => a - b);
+      page += 1;
+      if (page > 500) break;
+    }
+  }
+  return [...found].sort((a, b) => a - b);
+}
+
+async function awaitFetch(provider: RussianFoodRecipeProvider, url: string): Promise<string | null> {
+  const res = await provider.fetchHtml(url);
+  await new Promise((r) => setTimeout(r, 0));
+  return res.ok && res.html ? res.html : null;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

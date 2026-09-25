@@ -3,6 +3,8 @@ import {
   MENU_GENERATION_ATTEMPTS,
   MENU_DAILY_MEALS,
   MENU_ID_PREFIX,
+  MENU_MAX_RECIPE_REPEATS,
+  MENU_MIN_BUDGET,
   MENU_WEEK_DAYS,
 } from './config';
 import { buildShoppingList, priceRecipe } from './costing';
@@ -48,9 +50,15 @@ export function slotLabel(meal: MealId, day: number): string {
  *   1. weight servings by adults/children coefficients
  *   2. hard filters: allergens (curated + free-text) ∧ disliked ∧ cookware ∧ fully priced
  *   3. classify every recipe into breakfast / lunch / dinner
- *   4. greedy-fill 7 days × 3 meals with unique recipes so that the final
- *      shopping receipt (whole packages) NEVER exceeds the budget
+ *   4. greedy-fill 7 days × 3 meals with unique recipes (repeats as a last
+ *      resort) so that the final shopping receipt (whole packages) NEVER
+ *      exceeds the budget
  *   5. build a merged shopping list, rounded up to whole packages
+ *
+ * The budget is floored at MENU_MIN_BUDGET (40 BYN) — a menu is always
+ * returned as long as at least one priced recipe exists; when the full 21
+ * slots cannot fit, the best possible partial week is returned with a warning
+ * instead of an error.
  */
 export async function generateMenu(
   request: MenuRequest,
@@ -64,6 +72,7 @@ export async function generateMenu(
     return { code: 'invalid_store', message: 'Выбранный магазин не найден' };
   }
 
+  const effectiveBudget = Math.max(MENU_MIN_BUDGET, request.budget);
   const recipes = await providers.recipes.getAllRecipes();
   const offers = await providers.prices.getOffers(request.storeId);
   const servings = servingsBreakdown(request.adults, request.children);
@@ -176,7 +185,7 @@ export async function generateMenu(
 
     // --- scoring (used only for ranking already-safe fully-priced recipes) ---
     const nutritionScore = nutritionMissing ? 0 : 1;
-    const costFit = pricing.cost > 0 ? Math.min(1, Math.max(0, request.budget / pricing.cost)) : 1;
+    const costFit = pricing.cost > 0 ? Math.min(1, Math.max(0, effectiveBudget / pricing.cost)) : 1;
     const dataCompleteness =
       (recipe.steps && recipe.steps.length > 0 ? 0.5 : 0) + (recipe.timeMin != null ? 0.5 : 0);
     const score =
@@ -214,7 +223,7 @@ export async function generateMenu(
 
   let best: FilledAttempt | null = null;
   for (let attempt = 0; attempt < MENU_GENERATION_ATTEMPTS; attempt += 1) {
-    const plan = fillWeek(byMeal, offers, request.storeId, now, request.budget, opts.randomize ?? true);
+    const plan = fillWeek(byMeal, offers, request.storeId, now, effectiveBudget, opts.randomize ?? true);
     if (!best || plan.filledSlots > best.filledSlots || (plan.filledSlots === best.filledSlots && plan.totalCost < best.totalCost)) {
       best = plan;
     }
@@ -224,29 +233,12 @@ export async function generateMenu(
     return { code: 'no_recipes', message: describeNoRecipes(counters, request) };
   }
 
-  if (best.filledSlots === 0) {
-    const minCost = Math.min(...usable.map((c) => c.choice.cost));
-    if (minCost > request.budget + EPS) {
-      return {
-        code: 'budget_too_low',
-        message: 'Бюджет слишком мал для самого дешёвого блюда',
-        minCost: Math.round(minCost * 100) / 100,
-        budget: request.budget,
-      };
-    }
-    return incompleteIssue(best, wantedSlots);
-  }
-
-  if (best.filledSlots < wantedSlots) {
-    return incompleteIssue(best, wantedSlots);
-  }
-
   const meals = best.slots.flatMap((s) => s);
   const picked = meals.map((m) => m.recipe);
   const shoppingList = buildReceipt(meals.map((m) => m.recipe), offers, request.storeId, now);
   const totalCost = shoppingList.total;
-  const remainingBudget = request.budget > totalCost ? round2Safe(request.budget - totalCost) : 0;
-  const overspend = totalCost > request.budget ? round2Safe(totalCost - request.budget) : 0;
+  const remainingBudget = effectiveBudget > totalCost ? round2Safe(effectiveBudget - totalCost) : 0;
+  const overspend = totalCost > effectiveBudget ? round2Safe(totalCost - effectiveBudget) : 0;
   const recipesCost = round2Safe(picked.reduce((s, p) => s + p.cost, 0));
 
   const days: MenuDay[] = [];
@@ -259,7 +251,8 @@ export async function generateMenu(
     days.push({ day, meals: dayMeals });
   }
 
-  const warnings = buildWarnings(counters, providers, picked, totalCost);
+  const warnings = buildWarnings(counters, providers, picked, totalCost, correctnessWarnings(best, wantedSlots, effectiveBudget, request.budget));
+  warnings.push(...repetitionWarnings(picked));
 
   const result: MenuResult = {
     id: `${MENU_ID_PREFIX}-${randomUUID()}`,
@@ -271,7 +264,7 @@ export async function generateMenu(
     recipesCost,
     totalCost,
     shoppingList,
-    budget: request.budget,
+    budget: round2Safe(effectiveBudget),
     remainingBudget,
     overspend,
     warnings,
@@ -279,6 +272,39 @@ export async function generateMenu(
     generatedAt: now.toISOString(),
   };
   return result;
+}
+
+/** User-facing notes about an imperfect week (clamped budget / missing slots). */
+function correctnessWarnings(
+  attempt: FilledAttempt,
+  wantedSlots: number,
+  effectiveBudget: number,
+  requestedBudget: number
+): string[] {
+  const warnings: string[] = [];
+  if (effectiveBudget > requestedBudget) {
+    warnings.push(`Минимальный бюджет для подбора — ${MENU_MIN_BUDGET} BYN. Ваш (${requestedBudget} BYN) увеличен до ${MENU_MIN_BUDGET} BYN.`);
+  }
+  if (attempt.filledSlots === 0) {
+    warnings.push(`Бюджета ${effectiveBudget} BYN не хватило даже на одно блюдо — увеличьте бюджет или упростите условия (аллергии, утварь).`);
+  } else if (attempt.filledSlots < wantedSlots) {
+    const missing = attempt.missingSlots.slice(0, 6).join(', ');
+    warnings.push(
+      `Бюджет ${effectiveBudget} BYN позволил подобрать ${attempt.filledSlots} из ${wantedSlots} приёмов пищи. Не удалось заполнить: ${missing}. Увеличьте бюджет или упростите условия.`
+    );
+  }
+  return warnings;
+}
+
+/** Warns when the thin recipe pool forced a dish to repeat within the week. */
+function repetitionWarnings(picked: RecipeChoice[]): string[] {
+  const usage = new Map<string, number>();
+  for (const p of picked) usage.set(p.recipe.id, (usage.get(p.recipe.id) ?? 0) + 1);
+  const repeated = [...usage.entries()].filter(([, n]) => n > 1);
+  if (repeated.length === 0) return [];
+  return [
+    `${repeated.length} блюдо(а) повторяются в течение недели — не хватило уникальных рецептов, подходящих под бюджет и условия.`,
+  ];
 }
 
 interface FilledSlot {
@@ -295,11 +321,12 @@ interface FilledAttempt {
 }
 
 /**
- * Greedy fill: 7 days × 3 meals in day-major order. Every recipe is used at
- * most once in the whole week. A meal slot keeps the cheapest available recipe
- * (low-cost, high-variety food is preferred) whose addition does NOT push the
- * receipt above the budget. shopping new cart is recomputed on each attempt so
- * that receipts are always guaranteed to stay within budget.
+ * Greedy fill: 7 days × 3 meals in day-major order. A meal slot keeps the
+ * cheapest fitting recipe whose addition does NOT push the receipt above the
+ * budget (the merged cart — whole packages — is recomputed on every trial, so
+ * a shared staple like rice is bought once and feeds several dishes). Recipes
+ * are unique by default; when the fully-priced pool is too thin, repeats are
+ * allowed only as a last resort so a minimal-budget menu still assembles.
  */
 function fillWeek(
   byMeal: Map<MealId, RecipeChoice[]>,
@@ -323,67 +350,47 @@ function fillWeek(
     pools.set(meal, kept);
   }
 
-  const used = new Set<string>();
+  const usedCount = new Map<string, number>();
   const slots: FilledSlot[] = [];
   const missingSlots: string[] = [];
-  let totalCost = 0;
+  const maxUses = MENU_MAX_RECIPE_REPEATS;
 
   for (let day = 1; day <= MENU_WEEK_DAYS; day += 1) {
     for (const meal of MENU_DAILY_MEALS) {
       const pool = pools.get(meal) ?? [];
       let chosen: RecipeChoice | null = null;
-      for (const candidate of pool) {
-        const id = candidate.recipe.id;
-        if (used.has(id)) continue;
-        const trialTotal = receiptTotal([...slots.map((s) => s.recipe), candidate], offers, storeId, now);
-        if (trialTotal > budget + EPS) continue;
-        chosen = candidate;
-        break;
+
+      // Pass 1: only not-yet-used recipes (keeps the default week unique).
+      // Pass 2: allow repeats when the pool is too thin to fill the slot.
+      for (const pass of [1, 2] as const) {
+        if (chosen) break;
+        for (const candidate of pool) {
+          const used = usedCount.get(candidate.recipe.id) ?? 0;
+          if (used > (pass === 1 ? 0 : maxUses - 1)) continue;
+          const trialTotal = receiptTotal([...slots.map((s) => s.recipe), candidate], offers, storeId, now);
+          if (trialTotal > budget + EPS) continue;
+          chosen = candidate;
+          break;
+        }
       }
+
       if (!chosen) {
         missingSlots.push(slotLabel(meal, day));
         continue;
       }
-      used.add(chosen.recipe.id);
+      usedCount.set(chosen.recipe.id, (usedCount.get(chosen.recipe.id) ?? 0) + 1);
       slots.push({ day, meal, recipe: chosen });
     }
   }
 
   const finalReceipt = buildReceipt(slots.map((s) => s.recipe), offers, storeId, now);
-  totalCost = finalReceipt.total;
+  const totalCost = finalReceipt.total;
 
   return {
     slots,
     filledSlots: slots.length,
     totalCost,
     missingSlots,
-  };
-}
-
-function incompleteIssue(attempt: FilledAttempt, wantedSlots: number): MenuGenerationIssue {
-  const reason: 'budget' | 'recipes' = attempt.missingSlots.length > 0 ? 'budget' : 'recipes';
-  if (attempt.filledSlots === 0) {
-    return {
-      code: 'menu_incomplete',
-      message: 'Бюджет слишком мал, чтобы набрать недельное меню. Увеличьте бюджет или ослабьте условия (аллергии, утварь).',
-      filledSlots: 0,
-      totalSlots: wantedSlots,
-      reason,
-      missingSlots: attempt.missingSlots.slice(0, 6),
-    };
-  }
-  const reasonText =
-    reason === 'budget'
-      ? `Бюджет пока позволяет покрыть ${attempt.filledSlots} из ${wantedSlots} приёмов пищи.`
-      : 'Не хватает подходящих рецептов для части приёмов (проверьте фильтры аллергий и кухонной утвари).';
-  const missing = attempt.missingSlots.slice(0, 6).join(', ');
-  return {
-    code: 'menu_incomplete',
-    message: `${reasonText} Не удалось заполнить: ${missing}. Увеличьте бюджет или упростите условия.`,
-    filledSlots: attempt.filledSlots,
-    totalSlots: wantedSlots,
-    reason,
-    missingSlots: attempt.missingSlots.slice(0, 6),
   };
 }
 
@@ -475,9 +482,11 @@ function buildWarnings(
   counters: PlannerCounters,
   providers: MenuProviders,
   picked: RecipeChoice[],
-  totalCost: number
+  totalCost: number,
+  extra?: string[]
 ): string[] {
   const warnings: string[] = [];
+  if (extra) warnings.push(...extra);
   if (providers.prices.isMock) {
     warnings.push('Демо-цены (не реальные): реальные каталоги магазинов пока не подключены');
   }

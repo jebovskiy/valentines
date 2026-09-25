@@ -32,10 +32,10 @@ import { normalizeName } from './allergens';
  */
 
 export const STORES: Store[] = [
-  { id: 'euroopt', name: 'Евроопт', emoji: '🛒', description: 'Сеть супермаркетов по всей Беларуси', priceCatalog: 'mock' },
-  { id: 'hippo', name: 'Гиппо', emoji: '🦛', description: 'Сеть магазинов в Беларуси', priceCatalog: 'mock' },
-  { id: 'green', name: 'Green', emoji: '🥬', description: 'Сеть «Green» в Беларуси', priceCatalog: 'mock' },
-  { id: 'korona', name: 'Корона', emoji: '👑', description: 'Сеть «Корона» в Беларуси', priceCatalog: 'mock' },
+  { id: 'euroopt', name: 'Евроопт', emoji: '🛒', description: 'Сеть супермаркетов по всей Беларуси', priceCatalog: 'mock', available: true },
+  { id: 'hippo', name: 'Гиппо', emoji: '🦛', description: 'Сеть магазинов в Беларуси', priceCatalog: 'mock', available: false },
+  { id: 'green', name: 'Green', emoji: '🥬', description: 'Сеть «Green» в Беларуси', priceCatalog: 'mock', available: false },
+  { id: 'korona', name: 'Корона', emoji: '👑', description: 'Сеть «Корона» в Беларуси', priceCatalog: 'mock', available: false },
 ];
 
 export const MOCK_STORE_IDS: StoreId[] = STORES.map((s) => s.id);

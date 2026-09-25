@@ -9,7 +9,17 @@ import { createStoredMenu, getLatestStoredMenuForPair, getStoredMenuForPair, upd
 
 const storeIdEnum = ['euroopt', 'hippo', 'green', 'korona'] as const;
 const allergenEnum = ['milk', 'egg', 'peanut', 'tree_nut', 'fish', 'seafood', 'soy', 'gluten'] as const;
-const cookwareEnum = ['skillet', 'pot', 'oven', 'slow_cooker', 'microwave'] as const;
+const cookwareEnum = [
+  'skillet',
+  'pot',
+  'oven',
+  'slow_cooker',
+  'microwave',
+  'blender',
+  'air_fryer',
+  'steamer',
+  'kettle',
+] as const;
 
 const menuRequestSchema = z
   .object({
@@ -21,7 +31,7 @@ const menuRequestSchema = z
     allergens: z.array(z.enum(allergenEnum)).max(8).default([]),
     customAllergens: z.array(z.string().min(1).max(60)).max(20).default([]),
     disliked: z.array(z.string().min(1).max(60)).max(20).default([]),
-    cookware: z.array(z.enum(cookwareEnum)).max(5).default([]),
+    cookware: z.array(z.enum(cookwareEnum)).max(9).default([]),
   })
   .refine((d) => d.adults + d.children >= 1, {
     message: 'Хотя бы один взрослый или ребёнок',
@@ -68,23 +78,6 @@ export async function menuRoutes(app: FastifyInstance) {
     const result = await generateMenu(parsed.data, { providers: defaultProviders(), randomize: true });
     if ('code' in result) {
       if (result.code === 'invalid_store') return reply.code(400).send({ error: result.message, code: result.code });
-      if (result.code === 'budget_too_low') {
-        return reply
-          .code(422)
-          .send({ error: result.message, code: result.code, minCost: result.minCost, budget: result.budget });
-      }
-      if (result.code === 'menu_incomplete') {
-        return reply
-          .code(422)
-          .send({
-            error: result.message,
-            code: result.code,
-            filledSlots: result.filledSlots,
-            totalSlots: result.totalSlots,
-            reason: result.reason,
-            missingSlots: result.missingSlots,
-          });
-      }
       return reply.code(422).send({ error: result.message, code: result.code });
     }
 

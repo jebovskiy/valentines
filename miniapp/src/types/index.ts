@@ -398,7 +398,16 @@ export interface GameSession {
 export type MenuAllergenId = 'milk' | 'egg' | 'peanut' | 'tree_nut' | 'fish' | 'seafood' | 'soy' | 'gluten';
 export type MenuStoreId = 'euroopt' | 'hippo' | 'green' | 'korona';
 export type MenuUnit = 'g' | 'ml' | 'pcs';
-export type MenuCookwareId = 'skillet' | 'pot' | 'oven' | 'slow_cooker' | 'microwave';
+export type MenuCookwareId =
+  | 'skillet'
+  | 'pot'
+  | 'oven'
+  | 'slow_cooker'
+  | 'microwave'
+  | 'blender'
+  | 'air_fryer'
+  | 'steamer'
+  | 'kettle';
 
 export interface MenuCookwareInfo {
   id: MenuCookwareId;
@@ -414,6 +423,10 @@ export const MENU_COOKWARE: MenuCookwareInfo[] = [
   { id: 'oven', title: 'Духовка', emoji: '🔥', hint: 'Запекание, выпечка' },
   { id: 'slow_cooker', title: 'Мультиварка', emoji: '🥣', hint: 'Плов, тушение, режимы' },
   { id: 'microwave', title: 'Микроволновка', emoji: '📡', hint: 'Быстрый разогрев и готовка' },
+  { id: 'blender', title: 'Блендер', emoji: '🥤', hint: 'Смузи, супы-пюре и соусы' },
+  { id: 'air_fryer', title: 'Аэрогриль', emoji: '🌬️', hint: 'Запекание горячим воздухом и фри' },
+  { id: 'steamer', title: 'Пароварка', emoji: '🫕', hint: 'Лёгкие блюда на пару' },
+  { id: 'kettle', title: 'Чайник', emoji: '🫖', hint: 'Кипяток для заваривания' },
 ];
 
 export interface MenuAllergenInfo {
@@ -429,6 +442,8 @@ export interface MenuStoreInfo {
   emoji: string;
   description: string;
   priceCatalog: 'mock' | 'live';
+  /** false = store shown greyed out and non-clickable (no price catalogue yet). */
+  available?: boolean;
 }
 
 export interface MenuNutrition {
@@ -516,6 +531,9 @@ export interface MenuRequest {
 }
 
 export type MenuMealId = 'breakfast' | 'lunch' | 'dinner';
+
+/** Weekly budget floor the menu planner guarantees (see backend config). */
+export const MENU_MIN_BUDGET = 40;
 
 export interface MenuMeal {
   meal: MenuMealId;

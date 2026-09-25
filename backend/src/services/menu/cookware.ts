@@ -23,6 +23,10 @@ export const MENU_COOKWARE: CookwareInfo[] = [
   { id: 'oven', title: 'Духовка', emoji: '🔥', hint: 'Запекание, выпечка' },
   { id: 'slow_cooker', title: 'Мультиварка', emoji: '🥣', hint: 'Плов, тушение, режимы' },
   { id: 'microwave', title: 'Микроволновка', emoji: '📡', hint: 'Быстрый разогрев и готовка' },
+  { id: 'blender', title: 'Блендер', emoji: '🥤', hint: 'Смузи, супы-пюре и соусы' },
+  { id: 'air_fryer', title: 'Аэрогриль', emoji: '🌬️', hint: 'Запекание горячим воздухом и фри' },
+  { id: 'steamer', title: 'Пароварка', emoji: '🫕', hint: 'Лёгкие блюда на пару' },
+  { id: 'kettle', title: 'Чайник', emoji: '🫖', hint: 'Кипяток для заваривания' },
 ];
 
 export function getCookwareInfo(id: CookwareId): CookwareInfo | undefined {
@@ -44,6 +48,10 @@ const STEP_HINTS: Array<{ pattern: RegExp; id: CookwareId }> = [
   { pattern: /сковород/i, id: 'skillet' },
   { pattern: /обжар|жар[а-я]*\b|жарь|поджар|пассер|грил/i, id: 'skillet' },
   { pattern: /кастрюл|варить|варите|кипятить|бульон|залить водой|отвари/i, id: 'pot' },
+  { pattern: /блендер/i, id: 'blender' },
+  { pattern: /аэрогрил|фритюрниц/i, id: 'air_fryer' },
+  { pattern: /пароварк|на пару/i, id: 'steamer' },
+  { pattern: /кипятком|кипяток|чайник/i, id: 'kettle' },
 ];
 
 const NAME_HINTS: Array<{ pattern: RegExp; id: CookwareId }> = [
@@ -62,6 +70,9 @@ const NAME_HINTS: Array<{ pattern: RegExp; id: CookwareId }> = [
       /запеканк|пирог|кулебяк|рулет|шарлотк|кекс|маффин|печень|булоч|хлеб|пицца|киш|слойк\b|завиван?ец|запеч/,
     id: 'oven',
   },
+  { pattern: /смузи|коктейл|блендер|суп-?пюре/, id: 'blender' },
+  { pattern: /фри\b|аэрогрил/, id: 'air_fryer' },
+  { pattern: /на пару|паровые/, id: 'steamer' },
 ];
 
 /**

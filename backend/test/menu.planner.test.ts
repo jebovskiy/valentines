@@ -215,31 +215,31 @@ test('generateMenu: milk allergen excludes milk-containing recipes', async () =>
   }
 });
 
-test('generateMenu: tiny budget returns budget_too_low', async () => {
+test('generateMenu: tiny budget is clamped to the 40 BYN minimum and still assembles', async () => {
   const result = await generateMenu(
     { ...baseRequest, budget: 0.01 },
     { providers: providersOf(), now: NOW }
   );
-  assert.ok('code' in result);
-  if (!('code' in result)) return;
-  assert.equal(result.code, 'budget_too_low');
-  if (result.code === 'budget_too_low') {
-    assert.ok(result.minCost > result.budget);
-  }
+  assert.ok(!('code' in result), 'a menu must be returned instead of budget_too_low');
+  if ('code' in result) return;
+  assert.equal(result.budget, 40);
+  assert.ok(result.totalCost <= result.budget + 1e-9);
+  assert.ok(result.days.flatMap((d) => d.meals).length >= 1, 'at least one meal is assembled');
 });
 
-test('generateMenu: moderate budget returns menu_incomplete instead of overspend', async () => {
+test('generateMenu: 40 BYN budget assembles a menu instead of menu_incomplete', async () => {
   const result = await generateMenu(
     { ...baseRequest, budget: 40 },
     { providers: providersOf(), now: NOW }
   );
-  assert.ok('code' in result);
-  if (!('code' in result)) return;
-  assert.equal(result.code, 'menu_incomplete');
-  if (result.code === 'menu_incomplete') {
-    assert.equal(result.reason, 'budget');
-    assert.ok(result.filledSlots < result.totalSlots);
-    assert.ok(result.missingSlots.length > 0);
+  assert.ok(!('code' in result), 'a menu must be returned instead of menu_incomplete');
+  if ('code' in result) return;
+  assert.equal(result.budget, 40);
+  assert.ok(result.totalCost <= result.budget + 1e-9);
+  const filled = result.days.flatMap((d) => d.meals).length;
+  assert.ok(filled >= 1 && filled <= WEEK_SLOTS);
+  if (filled < WEEK_SLOTS) {
+    assert.ok(result.warnings.some((w) => w.includes('приёмов пищи')), `partial week must be announced: ${result.warnings}`);
   }
 });
 
