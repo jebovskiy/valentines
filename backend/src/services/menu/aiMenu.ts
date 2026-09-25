@@ -290,7 +290,8 @@ ${uniqueRule}
 6. Утварь семьи: ${cookwareUserList(request.cookware ?? [])}. Используй только ту, что есть.
 7. Ингредиенты — ТОЛЬКО из «ДОСТУПНЫХ ПРОДУКТОВ» внизу (у каждого реальная цена магазина). Указывай названия ровно как в списке, ничего не придумывай. Цены в ответе НЕ указывай — их посчитает система.
 8. Для каждого блюда дай ПОЛНЫЕ пошаговые инструкции приготовления и примерную пищевую ценность на 1 порцию (ккал, белки, жиры, углеводы в г).
-9. Каждое блюдо — полноценный приём пищи минимум из 2 ингредиентов (не только гарнир). Блюдо из одного продукта («отварной картофель», «жареный лук») недопустимо: добавь к нему белок, соус или овощи из списка. Яйца указывай в штуках ("pcs").`;
+9. Каждое блюдо — полноценный приём пищи минимум из 2 ингредиентов (не только гарнир). Блюдо из одного продукта («отварной картофель», «жареный лук») недопустимо: добавь к нему белок, соус или овощи из списка. Яйца указывай в штуках ("pcs").
+10. Соль, перец, специи, сахар, растительное масло, уксус, вода и любые приправы в магазине ОТСУТСТВУЮТ — не включай их в "ingredients" вообще. В "ingredients" — только позиции из «ДОСТУПНЫХ ПРОДУКТОВ».`;
 }
 
 function dayJsonSpec(): string {
@@ -793,6 +794,9 @@ export async function generateMenuWithAi(
     const duplicates = [...nameCount].filter(([, count]) => count > 1);
 
     const accepted = chosen.length === SLOTS_COUNT && !totalOver && duplicates.length === 0;
+    console.warn(
+      `[aiMenu] round ${round}: filled=${chosen.length}/${SLOTS_COUNT}, total=${formatMoney(shoppingList.total)} BYN / budget ${formatMoney(effectiveBudget)} BYN, duplicates=${duplicates.length}, over=${totalOver}`
+    );
     if (accepted) {
       return assembleResult({ ...request, budget: effectiveBudget }, store, slots, shoppingList, providers, now, effectiveBudget);
     }
@@ -853,5 +857,12 @@ export async function generateMenuWithAi(
   }
 
   console.warn('[aiMenu] no full within-budget week from the LLM, falling back to the deterministic planner');
+  const lastRejections = [...dayReceipts.values()]
+    .flatMap((r) => r.rejected)
+    .slice(0, 6)
+    .map((s) => `${MEAL_TITLES[s.meal]} день ${s.day} «${s.dishName}»: ${s.rejection}`);
+  if (lastRejections.length > 0) {
+    console.warn(`[aiMenu] last-round rejection reasons: ${lastRejections.join(' ; ')}`);
+  }
   return fallback(anyParsed);
 }
