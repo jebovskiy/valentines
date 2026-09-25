@@ -105,12 +105,14 @@ export interface UserProfile {
   first_name: string | null;
   display_name: string | null;
   avatar_file_path: string | null;
+  /** Telegram profile photo URL from initData (public CDN link). */
+  photo_url: string | null;
   updated_at?: string;
 }
 
 export async function upsertUserProfile(
   profile: Pick<UserProfile, 'telegram_user_id'> &
-    Partial<Pick<UserProfile, 'username' | 'first_name' | 'display_name' | 'avatar_file_path'>> &
+    Partial<Pick<UserProfile, 'username' | 'first_name' | 'display_name' | 'avatar_file_path' | 'photo_url'>> &
     Partial<Pick<UserProfile, 'updated_at'>>,
   options: { refreshUpdatedAt?: boolean } = {}
 ): Promise<void> {

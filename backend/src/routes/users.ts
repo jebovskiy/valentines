@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getUserProfile, upsertUserProfile, updateUserDisplayName, updatePairUserName } from '../services/database';
-import { getAvatarFilePath, avatarProxyPath } from '../services/telegramAvatar';
+import { resolveAvatarSource, avatarProxyPath } from '../services/telegramAvatar';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { config } from '../config';
 
@@ -18,11 +18,13 @@ export async function usersRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(userId);
     const userProfile = await getUserProfile(userId).catch(() => null);
 
-    // Persist fresh Telegram identity on every open so partner can see latest nick/first name
+    // Persist fresh Telegram identity on every open so partner can see latest
+    // nick/first name and a working avatar URL (photo_url from initData).
     await upsertUserProfile({
       telegram_user_id: userId,
       username: request.telegramUser!.username ?? userProfile?.username ?? null,
       first_name: request.telegramUser!.first_name ?? userProfile?.first_name ?? null,
+      photo_url: request.telegramUser!.photo_url ?? userProfile?.photo_url ?? null,
     }).catch(() => {});
 
     const me = {
@@ -78,17 +80,20 @@ export async function usersRoutes(app: FastifyInstance) {
     const params = z.object({ id: z.coerce.number().int().positive() }).parse(request.params);
     const userId = params.id;
 
-    let filePath: string | null = null;
+    let source: { kind: 'botFile'; filePath: string } | { kind: 'photoUrl'; url: string } | null = null;
     try {
-      filePath = await getAvatarFilePath(userId);
+      source = await resolveAvatarSource(userId);
     } catch (error) {
       app.log.error({ msg: 'avatar resolve failed' });
     }
-    if (!filePath) {
+    if (!source) {
       return reply.code(404).send({ error: 'No avatar' });
     }
 
-    const fileUrl = `https://api.telegram.org/file/bot${config.TELEGRAM_BOT_TOKEN}/${filePath}`;
+    const fileUrl =
+      source.kind === 'botFile'
+        ? `https://api.telegram.org/file/bot${config.TELEGRAM_BOT_TOKEN}/${source.filePath}`
+        : source.url;
     try {
       const response = await fetch(fileUrl);
       if (!response.ok) {

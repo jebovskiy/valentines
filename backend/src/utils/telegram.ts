@@ -9,6 +9,7 @@ export interface TelegramInitData {
     username?: string;
     language_code?: string;
     is_premium?: boolean;
+    photo_url?: string;
   };
   auth_date: number;
   hash: string;

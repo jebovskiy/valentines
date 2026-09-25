@@ -46,16 +46,18 @@ async function callBot<T>(method: string, body: Record<string, unknown>): Promis
 
 const AVATAR_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
-export async function getAvatarFilePath(telegramUserId: number, forceRefresh = false): Promise<string | null> {
-  const existing = await getUserProfile(telegramUserId).catch(() => null);
+export type AvatarSource = { kind: 'botFile'; filePath: string } | { kind: 'photoUrl'; url: string };
 
-  const cachedAgeMs = existing?.updated_at
-    ? Date.now() - new Date(existing.updated_at).getTime()
-    : Number.POSITIVE_INFINITY;
-  if (!forceRefresh && existing?.avatar_file_path && cachedAgeMs < AVATAR_CACHE_TTL_MS) {
-    return existing.avatar_file_path;
-  }
-
+/**
+ * Resolve a user's current Telegram profile photo, preferring the cached Bot
+ * API file path, then a live Bot API lookup, then the public photo_url that
+ * the user supplied via initData (https://t.me/i/userpic/...).
+ *
+ * The Bot API only serves photos of users the bot has "seen" (i.e. who have
+ * chatted with the bot), so without the photo_url fallback the partner's
+ * avatar would stay empty for users who never opened the bot chat.
+ */
+async function fetchBotFile(telegramUserId: number): Promise<string | null> {
   const photosResult = await callBot<GetUserProfilePhotosResult>('getUserProfilePhotos', {
     user_id: telegramUserId,
     offset: 0,
@@ -76,6 +78,25 @@ export async function getAvatarFilePath(telegramUserId: number, forceRefresh = f
     { refreshUpdatedAt: true }
   ).catch(() => {});
   return filePath;
+}
+
+export async function resolveAvatarSource(telegramUserId: number): Promise<AvatarSource | null> {
+  const existing = await getUserProfile(telegramUserId).catch(() => null);
+
+  const cachedAgeMs = existing?.updated_at
+    ? Date.now() - new Date(existing.updated_at).getTime()
+    : Number.POSITIVE_INFINITY;
+  if (existing?.avatar_file_path && cachedAgeMs < AVATAR_CACHE_TTL_MS) {
+    return { kind: 'botFile', filePath: existing.avatar_file_path };
+  }
+
+  const filePath = await fetchBotFile(telegramUserId);
+  if (filePath) return { kind: 'botFile', filePath };
+
+  // Fallback: the user's own initData photo_url, refreshed each time the app opens.
+  if (existing?.photo_url) return { kind: 'photoUrl', url: existing.photo_url };
+
+  return null;
 }
 
 export function avatarProxyPath(telegramUserId: number): string {

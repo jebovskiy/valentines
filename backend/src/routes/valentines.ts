@@ -1,8 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId, createSelfPair, updatePairMaxStreak, setPairCurrentStreak, hasActivityToday } from '../services/database';
+import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId, updatePairMaxStreak, setPairCurrentStreak, hasActivityToday } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
-import { config, isKnownAnimationType, isTestUser } from '../config';
+import { config, isKnownAnimationType } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
 import { dispatchDirectValentinePushes, dispatchStreakPushes } from '../services/pushDispatcher';
 import { uploadValentinePhoto } from '../utils/storage';
@@ -59,10 +59,7 @@ export async function valentinesRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Unknown animation type' });
     }
 
-    let pair = await getPairByUser(request.telegramUser!.id);
-    if (!pair && isTestUser(request.telegramUser!.id)) {
-      pair = await createSelfPair(request.telegramUser!.id, request.telegramUser!.first_name);
-    }
+    const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) {
       return reply.code(404).send({ error: 'Pair not found' });
     }
@@ -107,7 +104,7 @@ export async function valentinesRoutes(app: FastifyInstance) {
       app.log.error('Direct push dispatch failed:', e);
     });
 
-    // Notify the recipient: partner by default, or the sender himself when testing (recipient === 'self')
+    // Notify the recipient: partner by default, or the sender himself (recipient === 'self')
     const recipientId =
       body.recipient === 'self' ? request.telegramUser!.id : await getPartnerTelegramId(pair.id, request.telegramUser!.id);
     if (recipientId) {

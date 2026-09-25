@@ -118,8 +118,6 @@ export interface ApiIssue {
   missingSlots?: string[];
 }
 
-export const TEST_TELEGRAM_ID = 461666389;
-
 export interface SendValentineRequest {
   animation_type: AnimationType;
   message?: string | null;

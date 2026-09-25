@@ -4,7 +4,7 @@ import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
 import { AppleEmoji } from '../components/AppleEmoji';
-import { ANIMATIONS, AnimationType, STREAK_LOCKED_ANIMATIONS, TEST_TELEGRAM_ID } from '../types';
+import { ANIMATIONS, AnimationType, STREAK_LOCKED_ANIMATIONS } from '../types';
 
 const MAX_MESSAGE_LENGTH = 500;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
@@ -28,13 +28,11 @@ export function SendScreen() {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [charCount, setCharCount] = useState(0);
-  const [recipient, setRecipient] = useState<'partner' | 'self'>('partner');
   const [lockHint, setLockHint] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const maxStreak = streak?.max ?? 0;
 
   const partner = partnerName(pair, currentUser?.id ?? null);
-  const isTestUser = currentUser?.id === TEST_TELEGRAM_ID;
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -89,7 +87,7 @@ export function SendScreen() {
     const valentine = await sendValentine(
       animationType,
       effectivePayload.message,
-      isTestUser ? recipient : 'partner',
+      'partner',
       effectivePayload.photo
     );
 
@@ -116,25 +114,6 @@ export function SendScreen() {
         <h1 style={styles.title}>Отправить {partner}</h1>
         <p style={styles.subtitle}>выбери анимацию и добавь фото или текст</p>
       </header>
-
-      {isTestUser && (
-        <div style={styles.recipientRow}>
-          {(['partner', 'self'] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRecipient(r)}
-              style={{
-                ...styles.recipientChip,
-                background: recipient === r ? 'var(--ink)' : 'var(--surface-card)',
-                color: recipient === r ? 'var(--on-dark)' : 'var(--ink)',
-                border: recipient === r ? '1px solid var(--ink)' : '1px solid var(--hairline)',
-              }}
-            >
-              {r === 'partner' ? 'Партнёру' : 'Себе ☝️'}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div style={styles.typeRow}>
         {ANIMATIONS.map((anim) => {
