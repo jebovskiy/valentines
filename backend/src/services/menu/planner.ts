@@ -260,8 +260,8 @@ export async function generateMenu(
   const picked = meals.map((m) => m.recipe);
   const shoppingList = buildReceipt(meals.map((m) => m.recipe), offers, request.storeId, now);
   const totalCost = shoppingList.total;
-  const remainingBudget = effectiveBudget > totalCost ? round2Safe(effectiveBudget - totalCost) : 0;
-  const overspend = totalCost > effectiveBudget ? round2Safe(totalCost - effectiveBudget) : 0;
+  const remainingBudget = request.budget > totalCost ? round2Safe(request.budget - totalCost) : 0;
+  const overspend = totalCost > request.budget ? round2Safe(totalCost - request.budget) : 0;
   const recipesCost = round2Safe(picked.reduce((s, p) => s + p.cost, 0));
 
   const days: MenuDay[] = [];
@@ -289,7 +289,7 @@ export async function generateMenu(
     recipesCost,
     totalCost,
     shoppingList,
-    budget: round2Safe(effectiveBudget),
+    budget: round2Safe(request.budget),
     remainingBudget,
     overspend,
     warnings,
@@ -308,7 +308,7 @@ function correctnessWarnings(
 ): string[] {
   const warnings: string[] = [];
   if (effectiveBudget > requestedBudget) {
-    warnings.push(`Минимальный бюджет для подбора при вашем составе семьи — ${effectiveBudget} BYN. Ваш (${requestedBudget} BYN) увеличен до ${effectiveBudget} BYN.`);
+    warnings.push(`Минимальный бюджет для подбора при вашем составе семьи — ${effectiveBudget} BYN. Подбор вёлся по нему, а в отчёте показан ваш бюджет ${requestedBudget} BYN — чек может превысить его.`);
   }
   if (attempt.filledSlots === 0) {
     warnings.push(`Бюджета ${effectiveBudget} BYN не хватило даже на одно блюдо — увеличьте бюджет или упростите условия (аллергии, утварь).`);

@@ -537,8 +537,16 @@ export interface MenuRequest {
 
 export type MenuMealId = 'breakfast' | 'lunch' | 'dinner';
 
-/** Weekly budget floor the menu planner guarantees (see backend config). */
-export const MENU_MIN_BUDGET = 40;
+/** Weekly budget floor the menu planner guarantees (see backend config). Portion
+ * coefficients and the per-serving minimum are mirrored from the backend so the
+ * hint matches what the planner actually does when the user's budget is low. */
+export const MENU_MIN_BUDGET_PER_SERVING = 50;
+export const MENU_MIN_BUDGET_FLOOR = 30;
+
+/** Minimum weekly budget for a given family size (adults + 0.7 * children). */
+export function menuMinBudgetFor(adults: number, children: number): number {
+  return Math.max(MENU_MIN_BUDGET_FLOOR, Math.round(MENU_MIN_BUDGET_PER_SERVING * (adults + 0.7 * children)));
+}
 
 export interface MenuMeal {
   meal: MenuMealId;

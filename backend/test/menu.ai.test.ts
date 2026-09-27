@@ -5,6 +5,7 @@ import { generateMenuWithAi } from '../src/services/menu/aiMenu';
 import { MENU_AI_FALLBACK_WARNING, MENU_AI_WARNING } from '../src/services/menu/config';
 import { buildMockOffers, STORES } from '../src/services/menu/fixtures';
 import { FixtureNutritionProvider, SnapshotRecipeProvider } from '../src/services/menu/providers';
+import { round2 } from '../src/services/menu/scaling';
 import type { MenuProviders, PriceProvider, RecipeProvider } from '../src/services/menu/providers';
 import type { MenuRequest, StoreId } from '../src/services/menu/types';
 
@@ -181,7 +182,9 @@ test('aiMenu: LLM unavailable (null answer) falls back to the deterministic plan
 
   assert.ok(!('code' in result), 'deterministic planner must still assemble a menu');
   if ('code' in result) return;
-  assert.ok(result.totalCost <= result.budget + 1e-9);
+  assert.equal(result.budget, 40, 'report keeps the user-specified budget');
+  assert.equal(round2(result.totalCost), round2(result.budget - result.remainingBudget + result.overspend));
+  assert.ok(result.warnings.some((w) => w.includes('Минимальный бюджет для подбора')), `floored budget must be announced: ${result.warnings}`);
   assert.ok(result.warnings.some((w) => w.includes('Демо-цены')));
   assert.ok(!result.warnings.some((w) => w.includes(MENU_AI_FALLBACK_WARNING)));
   assert.ok(!result.warnings.includes(MENU_AI_WARNING));
@@ -289,5 +292,5 @@ test('aiMenu: invalid JSON never leaks a partial/invalid plan to the user', asyn
   assert.ok(!('code' in result), 'fallback must return a planner result, not an error');
   if ('code' in result) return;
   assert.ok(result.days.length >= 1);
-  assert.ok(result.totalCost <= result.budget + 1e-9);
+  assert.equal(round2(result.totalCost), round2(result.budget - result.remainingBudget + result.overspend));
 });

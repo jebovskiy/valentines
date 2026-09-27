@@ -216,19 +216,25 @@ test('generateMenu: milk allergen excludes milk-containing recipes', async () =>
   }
 });
 
-test('generateMenu: tiny budget is clamped to the per-serving minimum and still assembles', async () => {
+test('generateMenu: tiny budget — picking uses the per-serving minimum, but the report shows the user\'s budget and the overspend', async () => {
   const result = await generateMenu(
     { ...baseRequest, budget: 0.01 },
     { providers: providersOf(), now: NOW }
   );
   assert.ok(!('code' in result), 'a menu must be returned instead of budget_too_low');
   if ('code' in result) return;
-  assert.equal(result.budget, minBudgetFor(servingsBreakdown(baseRequest.adults, baseRequest.children).effectiveServings));
-  assert.ok(result.totalCost <= result.budget + 1e-9);
+  assert.equal(result.budget, 0.01, 'the report keeps the user-specified budget');
+  assert.ok(result.totalCost >= result.overspend - 1e-9);
+  assert.equal(round2(result.totalCost), round2(result.budget - result.remainingBudget + result.overspend));
+  assert.ok(
+    result.warnings.some((w) => w.includes('Минимальный бюджет для подбора')),
+    `clamped budget must be announced: ${result.warnings}`
+  );
+  assert.ok(result.totalCost <= minBudgetFor(servingsBreakdown(baseRequest.adults, baseRequest.children).effectiveServings) + 1e-9);
   assert.ok(result.days.flatMap((d) => d.meals).length >= 1, 'at least one meal is assembled');
 });
 
-test('generateMenu: below-minimum budget is clamped up and still assembles a menu', async () => {
+test('generateMenu: below-minimum budget — picking is floored to the per-serving minimum, report keeps the user\'s budget', async () => {
   const minBudget = minBudgetFor(servingsBreakdown(baseRequest.adults, baseRequest.children).effectiveServings);
   const result = await generateMenu(
     { ...baseRequest, budget: minBudget - 10 },
@@ -236,8 +242,9 @@ test('generateMenu: below-minimum budget is clamped up and still assembles a men
   );
   assert.ok(!('code' in result), 'a menu must be returned instead of menu_incomplete');
   if ('code' in result) return;
-  assert.equal(result.budget, minBudget);
-  assert.ok(result.totalCost <= result.budget + 1e-9);
+  assert.equal(result.budget, minBudget - 10, 'the report keeps the user-specified budget');
+  assert.ok(result.totalCost <= minBudget + 1e-9, `picking is floored to the minimum: total ${result.totalCost}`);
+  assert.equal(round2(result.totalCost), round2(result.budget - result.remainingBudget + result.overspend));
   const filled = result.days.flatMap((d) => d.meals).length;
   assert.ok(filled >= 1 && filled <= WEEK_SLOTS);
   if (filled < WEEK_SLOTS) {

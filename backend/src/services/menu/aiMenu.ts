@@ -654,10 +654,14 @@ function assembleResult(
 
   const totalCost = shoppingList.total;
   const recipesCost = round2(recipes.reduce((sum, c) => sum + c.cost, 0));
-  const remainingBudget = effectiveBudget > totalCost ? round2(effectiveBudget - totalCost) : 0;
-  const overspend = totalCost > effectiveBudget ? round2(totalCost - effectiveBudget) : 0;
+  const budget = round2(request.budget);
+  const remainingBudget = budget > totalCost ? round2(budget - totalCost) : 0;
+  const overspend = totalCost > budget ? round2(totalCost - budget) : 0;
 
   const warnings: string[] = [MENU_AI_WARNING, ...extraWarnings];
+  if (effectiveBudget > request.budget) {
+    warnings.push(`Минимальный бюджет для подбора при вашем составе семьи — ${formatMoney(effectiveBudget)} BYN. Подбор вёлся по нему, а в отчёте показан ваш бюджет ${formatMoney(request.budget)} BYN — чек может превысить его.`);
+  }
   if (providers.prices.isMock) {
     warnings.push('Демо-цены (не реальные): реальные каталоги магазинов пока не подключены');
   }
@@ -686,7 +690,7 @@ function assembleResult(
     recipesCost,
     totalCost,
     shoppingList,
-    budget: round2(effectiveBudget),
+    budget: round2(request.budget),
     remainingBudget,
     overspend,
     warnings,
@@ -840,10 +844,10 @@ export async function generateMenuWithAi(
     );
     if (accepted) {
       const overshootWarnings =
-        hardOver && !totalOver
-          ? [`Чек недели ${formatMoney(shoppingList.total)} BYN чуть выше бюджета ${formatMoney(effectiveBudget)} BYN из-за округления на целые упаковки.`]
+        hardOver && !totalOver && shoppingList.total > request.budget
+          ? [`Чек недели ${formatMoney(shoppingList.total)} BYN чуть выше вашего бюджета ${formatMoney(request.budget)} BYN из-за округления на целые упаковки.`]
           : [];
-      return assembleResult({ ...request, budget: effectiveBudget }, store, slots, shoppingList, providers, now, effectiveBudget, overshootWarnings);
+      return assembleResult(request, store, slots, shoppingList, providers, now, effectiveBudget, overshootWarnings);
     }
 
     // Keep the best within-budget full week seen so far, so we can fall back
@@ -933,7 +937,7 @@ export async function generateMenuWithAi(
       `[aiMenu] no duplicate-free week from the LLM — returning the best within-budget week with ${best.duplicatesCount} repeated dish(es)`
     );
     return assembleResult(
-      { ...request, budget: effectiveBudget },
+      request,
       store,
       best.slots,
       best.shoppingList,
@@ -952,7 +956,7 @@ export async function generateMenuWithAi(
       ? [`${bestOverall.duplicatesCount} блюд(о) повторяется в течение недели.`]
       : [];
     return assembleResult(
-      { ...request, budget: effectiveBudget },
+      request,
       store,
       bestOverall.slots,
       bestOverall.shoppingList,
@@ -960,7 +964,7 @@ export async function generateMenuWithAi(
       now,
       effectiveBudget,
       [
-        `ИИ собрал полную неделю (21/21), но чек превышает бюджет на ${formatMoney(bestOverall.overshoot)} BYN — с этим каталогом и ценами уложиться точно в ${formatMoney(effectiveBudget)} BYN и заполнить все приёмы пищи не получилось.`,
+        `ИИ собрал полную неделю (21/21), но её стоимость превышает ваш бюджет ${formatMoney(request.budget)} BYN на ${formatMoney(round2(Math.max(0, bestOverall.shoppingList.total - request.budget)))} BYN — с этим каталогом и ценами уложиться в ваш бюджет и заполнить все приёмы пищи не получилось.`,
         ...dupWarning,
       ]
     );
