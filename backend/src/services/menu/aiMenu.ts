@@ -4,6 +4,7 @@ import {
   MENU_AI_MAX_REVISIONS,
   MENU_AI_TIMEOUT_MS,
   MENU_AI_WARNING,
+  MENU_BUDGET_OVERSHOOT_TOLERANCE,
   MENU_DAILY_MEALS,
   MENU_ID_PREFIX,
   MENU_MAX_RECIPE_REPEATS,
@@ -800,7 +801,8 @@ export async function generateMenuWithAi(
     const slots = await buildSlots(week, { ...request, budget: effectiveBudget }, offers, providers, now);
     const chosen = slots.filter((s) => s.choice);
     const shoppingList = buildShoppingList(buildReceiptInputs(slots), offers, request.storeId, now);
-    const totalOver = shoppingList.total > effectiveBudget + EPS;
+    const hardOver = shoppingList.total > effectiveBudget + EPS;
+    const totalOver = hardOver && shoppingList.total > effectiveBudget * (1 + MENU_BUDGET_OVERSHOOT_TOLERANCE) + EPS;
 
     dayReceipts.clear();
     for (let d = 1; d <= MENU_WEEK_DAYS; d += 1) {
@@ -826,7 +828,11 @@ export async function generateMenuWithAi(
       `[aiMenu] round ${round}: filled=${chosen.length}/${SLOTS_COUNT}, total=${formatMoney(shoppingList.total)} BYN / budget ${formatMoney(effectiveBudget)} BYN, duplicates=${duplicates.length}, over=${totalOver}`
     );
     if (accepted) {
-      return assembleResult({ ...request, budget: effectiveBudget }, store, slots, shoppingList, providers, now, effectiveBudget);
+      const overshootWarnings =
+        hardOver && !totalOver
+          ? [`Чек недели ${formatMoney(shoppingList.total)} BYN чуть выше бюджета ${formatMoney(effectiveBudget)} BYN из-за округления на целые упаковки.`]
+          : [];
+      return assembleResult({ ...request, budget: effectiveBudget }, store, slots, shoppingList, providers, now, effectiveBudget, overshootWarnings);
     }
 
     // Compute the per-day problems that push the next round.
