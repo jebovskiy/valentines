@@ -116,23 +116,26 @@ function BackCloseHandler() {
   const location = useLocation();
 
   useEffect(() => {
-    // Android system back / Telegram navigation goes through the browser history.
-    // On the entry screen (key === 'default') a back press should close the mini app.
+    const isHome = location.pathname === '/';
+    if (!isHome) return;
+
+    // На главном экране нажатие «назад» должно закрывать мини-апп, а не
+    // откатывать browser history (это выглядит как «отмена действия»).
+    if (window.history.length > 1) {
+      window.history.pushState(null, '', window.location.href);
+    }
+
     const onPopState = () => {
-      if (location.key === 'default') {
-        webApp?.close();
-        return;
-      }
+      window.history.pushState(null, '', window.location.href);
+      webApp?.close();
     };
     window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, [location.key]);
+    setBackButton(true, () => webApp?.close());
 
-  useEffect(() => {
-    // В главном меню показываем системную кнопку "назад" так, чтобы она закрывала мини-апп.
-    if (location.pathname === '/') {
-      setBackButton(true, () => webApp?.close());
-    }
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      setBackButton(false);
+    };
   }, [location.pathname]);
 
   return null;
