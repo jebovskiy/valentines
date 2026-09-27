@@ -21,7 +21,7 @@ const envSchema = z.object({
   GROQ_API_KEY: z.string().optional(),
   GROQ_MODEL: z.string().default('llama-3.3-70b-versatile'),
   OPENROUTER_API_KEY: z.string().optional(),
-  OPENROUTER_MODEL: z.string().default('deepseek/deepseek-v4.1-flash'),
+  OPENROUTER_MODEL: z.string().default('z-ai/glm-5.3-flash'),
   POISKKINO_API_KEY: z.string().optional(),
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 });

@@ -449,15 +449,24 @@ async function buildSlot(
   const { scaledIngredients, unknownIngredients } = scaleForServings(recipe, servings);
 
   // Quantity sanity: the model sometimes emits absurd amounts («3 г» of eggs,
-  // «5 г» of potatoes); those must not reach pricing.
+  // «5 г» of potatoes); those must not reach pricing. A tiny quantity is OK
+  // for seasoning («10 г» сахара/соли) as long as the dish itself has real
+  // mass — i.e. check per ~100 g of the dish, not just the absolute floor.
+  const gramsOf = (s: (typeof scaledIngredients)[number]): number => {
+    if (s.unit === 'g' || s.unit === 'ml') return s.qty;
+    const g = s.ingredient.gramsPerPcs;
+    return g && s.unit === 'pcs' ? s.qty * g : 0;
+  };
+  const dishGrams = scaledIngredients.reduce((sum, s) => sum + gramsOf(s), 0);
   for (const scaled of scaledIngredients) {
-    if (
-      (scaled.unit === 'g' && scaled.qty < 20) ||
-      (scaled.unit === 'ml' && scaled.qty < 20) ||
-      (scaled.unit === 'pcs' && scaled.qty < 1)
-    ) {
+    const grams = gramsOf(scaled);
+    const absurdSmall =
+      (grams > 0 && grams < 10) ||
+      (grams >= 10 && grams < 20 && dishGrams < 100) ||
+      (scaled.unit === 'pcs' && scaled.qty < 0.5);
+    if (absurdSmall) {
       return reject(
-        `количество «${scaled.ingredient.name}» ${round1(scaled.qty)} ${UNIT_LABELS[scaled.unit]} — нереально мало для блюда на ${servings} порц.; укажи реальное количество`
+        `количество «${scaled.ingredient.name}» ${round1(scaled.qty)} ${UNIT_LABELS[scaled.unit]} — нереально мало для блюда массой ~${round1(dishGrams)} г; укажи реальное количество`
       );
     }
   }
