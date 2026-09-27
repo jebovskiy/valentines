@@ -5,8 +5,8 @@ import {
   MENU_ID_PREFIX,
   MENU_MAX_RECIPE_REPEATS,
   MENU_MAX_UNPRICED_INGREDIENTS,
-  MENU_MIN_BUDGET,
   MENU_WEEK_DAYS,
+  minBudgetFor,
 } from './config';
 import { buildShoppingList, priceRecipe } from './costing';
 import { describeCookware, inferCookware } from './cookware';
@@ -65,10 +65,10 @@ export function slotLabel(meal: MealId, day: number): string {
  *      exceeds the budget
  *   5. build a merged shopping list, rounded up to whole packages
  *
- * The budget is floored at MENU_MIN_BUDGET (40 BYN) — a menu is always
- * returned as long as at least one priced recipe exists; when the full 21
- * slots cannot fit, the best possible partial week is returned with a warning
- * instead of an error.
+ * The budget is floored at minBudgetFor(effectiveServings) (calibrated per
+ * effective serving) — a menu is always returned as long as at least one
+ * priced recipe exists; when the full 21 slots cannot fit, the best possible
+ * partial week is returned with a warning instead of an error.
  */
 export async function generateMenu(
   request: MenuRequest,
@@ -82,11 +82,11 @@ export async function generateMenu(
     return { code: 'invalid_store', message: 'Выбранный магазин не найден' };
   }
 
-  const effectiveBudget = Math.max(MENU_MIN_BUDGET, request.budget);
-  const recipes = await providers.recipes.getAllRecipes();
-  const offers = await providers.prices.getOffers(request.storeId);
   const servings = servingsBreakdown(request.adults, request.children);
   const effectiveServings = servings.effectiveServings;
+  const effectiveBudget = Math.max(minBudgetFor(effectiveServings), request.budget);
+  const recipes = await providers.recipes.getAllRecipes();
+  const offers = await providers.prices.getOffers(request.storeId);
 
   const candidates: CostedRecipe[] = [];
   const counters: PlannerCounters = {
@@ -308,7 +308,7 @@ function correctnessWarnings(
 ): string[] {
   const warnings: string[] = [];
   if (effectiveBudget > requestedBudget) {
-    warnings.push(`Минимальный бюджет для подбора — ${MENU_MIN_BUDGET} BYN. Ваш (${requestedBudget} BYN) увеличен до ${MENU_MIN_BUDGET} BYN.`);
+    warnings.push(`Минимальный бюджет для подбора при вашем составе семьи — ${effectiveBudget} BYN. Ваш (${requestedBudget} BYN) увеличен до ${effectiveBudget} BYN.`);
   }
   if (attempt.filledSlots === 0) {
     warnings.push(`Бюджета ${effectiveBudget} BYN не хватило даже на одно блюдо — увеличьте бюджет или упростите условия (аллергии, утварь).`);

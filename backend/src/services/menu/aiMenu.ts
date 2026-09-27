@@ -9,8 +9,8 @@ import {
   MENU_ID_PREFIX,
   MENU_MAX_RECIPE_REPEATS,
   MENU_MAX_UNPRICED_INGREDIENTS,
-  MENU_MIN_BUDGET,
   MENU_WEEK_DAYS,
+  minBudgetFor,
 } from './config';
 import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe, type ShoppingListInput } from './costing';
 import { MENU_COOKWARE, describeCookware, inferCookware, type CookwareInfo } from './cookware';
@@ -711,8 +711,8 @@ export async function generateMenuWithAi(
     return { code: 'invalid_store', message: 'Выбранный магазин не найден' };
   }
 
-  const effectiveBudget = Math.max(MENU_MIN_BUDGET, request.budget);
   const servings = servingsBreakdown(request.adults, request.children);
+  const effectiveBudget = Math.max(minBudgetFor(servings.effectiveServings), request.budget);
   const offers = await providers.prices.getOffers(request.storeId);
   const catalog = buildCatalog(offers, now);
   if (catalog.length === 0) {
@@ -754,6 +754,12 @@ export async function generateMenuWithAi(
     slots: SlotBuild[];
     shoppingList: ReturnType<typeof buildShoppingList>;
     duplicatesCount: number;
+  } | null = null;
+  let bestOverall: {
+    slots: SlotBuild[];
+    shoppingList: ReturnType<typeof buildShoppingList>;
+    duplicatesCount: number;
+    overshoot: number;
   } | null = null;
 
   for (let round = 0; round < MENU_AI_MAX_REVISIONS && pending.length > 0; round += 1) {
@@ -847,6 +853,20 @@ export async function generateMenuWithAi(
       best = { slots, shoppingList, duplicatesCount: duplicates.length };
     }
 
+    // Full week regardless of budget: the closest to budget (fewest dupes,
+    // then lowest total) is our last-resort AI answer when the budget is simply
+    // unreachable with this catalogue/price snapshot.
+    if (chosen.length === SLOTS_COUNT) {
+      const overshoot = round2(Math.max(0, shoppingList.total - effectiveBudget));
+      if (
+        !bestOverall ||
+        duplicates.length < bestOverall.duplicatesCount ||
+        (duplicates.length === bestOverall.duplicatesCount && shoppingList.total < bestOverall.shoppingList.total)
+      ) {
+        bestOverall = { slots, shoppingList, duplicatesCount: duplicates.length, overshoot };
+      }
+    }
+
     // Compute the per-day problems that push the next round.
     const nextPending: number[] = [];
     const nextNotes = new Map<number, string>();
@@ -921,6 +941,28 @@ export async function generateMenuWithAi(
       now,
       effectiveBudget,
       [`${best.duplicatesCount} блюд(о) повторяется в течение недели — ИИ не подобрал уникальные названия в рамках бюджета.`]
+    );
+  }
+
+  if (bestOverall) {
+    console.warn(
+      `[aiMenu] no within-budget full week from the LLM — returning the closest full week, over budget by ${formatMoney(bestOverall.overshoot)} BYN`
+    );
+    const dupWarning = bestOverall.duplicatesCount > 0
+      ? [`${bestOverall.duplicatesCount} блюд(о) повторяется в течение недели.`]
+      : [];
+    return assembleResult(
+      { ...request, budget: effectiveBudget },
+      store,
+      bestOverall.slots,
+      bestOverall.shoppingList,
+      providers,
+      now,
+      effectiveBudget,
+      [
+        `ИИ собрал полную неделю (21/21), но чек превышает бюджет на ${formatMoney(bestOverall.overshoot)} BYN — с этим каталогом и ценами уложиться точно в ${formatMoney(effectiveBudget)} BYN и заполнить все приёмы пищи не получилось.`,
+        ...dupWarning,
+      ]
     );
   }
 

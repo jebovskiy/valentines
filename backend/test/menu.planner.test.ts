@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { servingsBreakdown, scaleForServings, round1, round2 } from '../src/services/menu/scaling';
+import { minBudgetFor } from '../src/services/menu/config';
 import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe } from '../src/services/menu/costing';
 import { generateMenu, rebuildMenuForSelection, type GenerateMenuOptions } from '../src/services/menu/planner';
 import { FixtureNutritionProvider, SnapshotRecipeProvider } from '../src/services/menu/providers';
@@ -215,26 +216,27 @@ test('generateMenu: milk allergen excludes milk-containing recipes', async () =>
   }
 });
 
-test('generateMenu: tiny budget is clamped to the 40 BYN minimum and still assembles', async () => {
+test('generateMenu: tiny budget is clamped to the per-serving minimum and still assembles', async () => {
   const result = await generateMenu(
     { ...baseRequest, budget: 0.01 },
     { providers: providersOf(), now: NOW }
   );
   assert.ok(!('code' in result), 'a menu must be returned instead of budget_too_low');
   if ('code' in result) return;
-  assert.equal(result.budget, 40);
+  assert.equal(result.budget, minBudgetFor(servingsBreakdown(baseRequest.adults, baseRequest.children).effectiveServings));
   assert.ok(result.totalCost <= result.budget + 1e-9);
   assert.ok(result.days.flatMap((d) => d.meals).length >= 1, 'at least one meal is assembled');
 });
 
-test('generateMenu: 40 BYN budget assembles a menu instead of menu_incomplete', async () => {
+test('generateMenu: below-minimum budget is clamped up and still assembles a menu', async () => {
+  const minBudget = minBudgetFor(servingsBreakdown(baseRequest.adults, baseRequest.children).effectiveServings);
   const result = await generateMenu(
-    { ...baseRequest, budget: 40 },
+    { ...baseRequest, budget: minBudget - 10 },
     { providers: providersOf(), now: NOW }
   );
   assert.ok(!('code' in result), 'a menu must be returned instead of menu_incomplete');
   if ('code' in result) return;
-  assert.equal(result.budget, 40);
+  assert.equal(result.budget, minBudget);
   assert.ok(result.totalCost <= result.budget + 1e-9);
   const filled = result.days.flatMap((d) => d.meals).length;
   assert.ok(filled >= 1 && filled <= WEEK_SLOTS);

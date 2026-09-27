@@ -25,10 +25,22 @@ export const MENU_DAILY_MEALS = ['breakfast', 'lunch', 'dinner'] as const;
 export const MENU_GENERATION_ATTEMPTS = 30;
 
 /**
- * Hard floor for a weekly budget. Any request below this is clamped up to it
- * so a menu always assembles («минимальный бюджет 40 BYN»).
+ * Эмпирически откалиброванный пол бюджета на одну эффективную порцию (BYN/неделя).
+ * Выведено прогоном детерминированного планировщика на реальном снапшоте цен
+ * euroopt: 2 взрослых (effectiveServings=2.0) требуют ~101 BYN на 21/21 слот,
+ * т.е. ~50 BYN на порцию. Это эвристика, не закон — она сдвигается при
+ * обновлении снапшота цен/каталога рецептов и требует периодической
+ * перекалибровки (см. scripts/calibrate-min-budget.ts — TODO).
  */
-export const MENU_MIN_BUDGET = 40;
+export const MENU_MIN_BUDGET_PER_SERVING = 50;
+
+/** Абсолютный пол независимо от числа едоков — не даёт бюджету для 1 персоны
+ * выродиться в нереалистично маленькое число. */
+export const MENU_MIN_BUDGET_FLOOR = 30;
+
+export function minBudgetFor(effectiveServings: number): number {
+  return Math.max(MENU_MIN_BUDGET_FLOOR, Math.round(MENU_MIN_BUDGET_PER_SERVING * effectiveServings));
+}
 
 /**
  * How many times a single recipe may fill different slots in the same week
