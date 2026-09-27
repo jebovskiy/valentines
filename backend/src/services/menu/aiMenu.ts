@@ -750,6 +750,11 @@ export async function generateMenuWithAi(
   let notes = new Map<number, string>();
   let pending: number[] = Array.from({ length: MENU_WEEK_DAYS }, (_, i) => i + 1);
   let anyParsed = false;
+  let best: {
+    slots: SlotBuild[];
+    shoppingList: ReturnType<typeof buildShoppingList>;
+    duplicatesCount: number;
+  } | null = null;
 
   for (let round = 0; round < MENU_AI_MAX_REVISIONS && pending.length > 0; round += 1) {
     const results = await Promise.all(
@@ -835,6 +840,13 @@ export async function generateMenuWithAi(
       return assembleResult({ ...request, budget: effectiveBudget }, store, slots, shoppingList, providers, now, effectiveBudget, overshootWarnings);
     }
 
+    // Keep the best within-budget full week seen so far, so we can fall back
+    // to it (with a "repeated dishes" note) instead of the whole deterministic
+    // planner when only the duplicates keep it from being perfect.
+    if (chosen.length === SLOTS_COUNT && !totalOver && (!best || duplicates.length < best.duplicatesCount)) {
+      best = { slots, shoppingList, duplicatesCount: duplicates.length };
+    }
+
     // Compute the per-day problems that push the next round.
     const nextPending: number[] = [];
     const nextNotes = new Map<number, string>();
@@ -894,6 +906,22 @@ export async function generateMenuWithAi(
       console.warn('[aiMenu] LLM keeps repeating the same plan, falling back to the deterministic planner');
       break;
     }
+  }
+
+  if (best) {
+    console.warn(
+      `[aiMenu] no duplicate-free week from the LLM — returning the best within-budget week with ${best.duplicatesCount} repeated dish(es)`
+    );
+    return assembleResult(
+      { ...request, budget: effectiveBudget },
+      store,
+      best.slots,
+      best.shoppingList,
+      providers,
+      now,
+      effectiveBudget,
+      [`${best.duplicatesCount} блюд(о) повторяется в течение недели — ИИ не подобрал уникальные названия в рамках бюджета.`]
+    );
   }
 
   console.warn('[aiMenu] no full within-budget week from the LLM, falling back to the deterministic planner');
