@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { servingsBreakdown, scaleForServings, round1, round2 } from '../src/services/menu/scaling';
 import { minBudgetFor } from '../src/services/menu/config';
 import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe } from '../src/services/menu/costing';
-import { generateMenu, rebuildMenuForSelection, type GenerateMenuOptions } from '../src/services/menu/planner';
+import { generateMenu, listSlotVariants, rebuildMenuForSelection, replaceMenuSlots, type GenerateMenuOptions } from '../src/services/menu/planner';
 import { FixtureNutritionProvider, SnapshotRecipeProvider } from '../src/services/menu/providers';
 import { buildFixtureRecipes, STORES, buildMockOffers, INGREDIENTS, getIngredientNutrition, searchIngredients, searchIngredientGroups } from '../src/services/menu/fixtures';
 import { inferCookware } from '../src/services/menu/cookware';
@@ -195,7 +195,7 @@ test('generateMenu: full week — 21 unique slots, deterministic and within budg
   assert.equal(a.days.length, 7);
   const meals = a.days.flatMap((d) => d.meals);
   assert.equal(meals.length, WEEK_SLOTS);
-  const ids = meals.map((m) => m.recipe.recipe.id);
+  const ids = meals.map((m) => m.components[0].recipe.recipe.id);
   assert.equal(new Set(ids).size, WEEK_SLOTS, 'every recipe must be unique in the week');
   assert.ok(a.recipes.length >= 1);
   assert.ok(a.recipes.length <= WEEK_SLOTS);
@@ -432,4 +432,149 @@ test('generateMenu: empty cookware list disables the filter', async () => {
 test('nutrition reference DB covers the whole ingredient catalogue', () => {
   const uncovered = INGREDIENTS.filter((i) => getIngredientNutrition(i.id) === null);
   assert.deepEqual(uncovered, []);
+});
+
+test('generateMenu: per-member meals drive per-meal servings (child skips breakfast)', async () => {
+  const request: MenuRequest = {
+    ...baseRequest,
+    adults: 1,
+    children: 1,
+    members: [
+      { id: 'a1', name: 'Взрослый 1', group: 'adult', meals: ['breakfast', 'lunch', 'dinner'], qty: 1 },
+      { id: 'c1', name: 'Ребёнок 1', group: 'child', meals: ['lunch', 'dinner'], qty: 1 },
+    ],
+    budget: 400,
+  };
+  const result = await generateMenu(request, { providers: providersOf(), now: NOW, randomize: false });
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+
+  assert.equal(result.servings.perMeal.breakfast, 1);
+  assert.equal(result.servings.perMeal.lunch, 1.7);
+  assert.equal(result.servings.perMeal.dinner, 1.7);
+  assert.equal(result.servings.effectiveServings, 1.7);
+
+  for (const day of result.days) {
+    const breakfast = day.meals.find((m) => m.meal === 'breakfast')!;
+    const lunch = day.meals.find((m) => m.meal === 'lunch')!;
+    const dinner = day.meals.find((m) => m.meal === 'dinner')!;
+    assert.equal(breakfast.components[0].recipe.servings, 1, 'breakfast scaled for 1 adult');
+    assert.equal(lunch.components[0].recipe.servings, 1.7, 'lunch scaled for adult + 0.7 child');
+    assert.equal(dinner.components[0].recipe.servings, 1.7, 'dinner scaled for adult + 0.7 child');
+  }
+  assert.equal(result.days.length, 7);
+  const meals = result.days.flatMap((d) => d.meals);
+  assert.equal(meals.length, 21, 'all three meals are attended');
+});
+
+test('generateMenu: unattended meal is skipped entirely', async () => {
+  const request: MenuRequest = {
+    ...baseRequest,
+    adults: 0,
+    children: 1,
+    members: [{ id: 'c1', name: 'Ребёнок 1', group: 'child', meals: ['lunch', 'dinner'], qty: 1 }],
+    budget: 400,
+  };
+  const result = await generateMenu(request, { providers: providersOf(), now: NOW, randomize: false });
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+
+  assert.equal(result.servings.perMeal.breakfast, 0);
+  const meals = result.days.flatMap((d) => d.meals);
+  assert.equal(meals.length, 14, 'no breakfast meals when nobody attends breakfast');
+  assert.ok(meals.every((m) => m.meal !== 'breakfast'));
+});
+
+test('generateMenu: multi-dish lunch (soup + main + salad) fills every component', async () => {
+  const request: MenuRequest = {
+    ...baseRequest,
+    budget: 800,
+    mealComponents: { lunch: ['soup', 'main', 'salad'], dinner: ['main'] },
+  };
+  const result = await generateMenu(request, { providers: providersOf(), now: NOW, randomize: false });
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+
+  // 7 days × (завтрак 1 + обед 3 + ужин 1) = 35 dishes
+  const meals = result.days.flatMap((d) => d.meals);
+  assert.equal(meals.length, 21, 'three meals per day');
+  const components = meals.flatMap((m) => m.components);
+  assert.equal(components.length, 35, 'all 35 dishes assembled');
+
+  for (const day of result.days) {
+    const lunch = day.meals.find((m) => m.meal === 'lunch')!;
+    assert.deepEqual(lunch.components.map((c) => c.role), ['soup', 'main', 'salad']);
+    assert.deepEqual(lunch.components.map((c) => c.title), ['Суп', 'Основное блюдо', 'Салат']);
+    const dinner = day.meals.find((m) => m.meal === 'dinner')!;
+    assert.deepEqual(dinner.components.map((c) => c.role), ['main']);
+    const breakfast = day.meals.find((m) => m.meal === 'breakfast')!;
+    assert.deepEqual(breakfast.components.map((c) => c.role), ['main']);
+    assert.equal(breakfast.components[0].title, 'Блюдо');
+  }
+  // every dish stayed within the effective budget
+  assert.ok(result.totalCost <= result.budget + 1e-9, `total ${result.totalCost} must fit ${result.budget}`);
+});
+
+test('generateMenu: recipe dishes expose per-100g nutrition', async () => {
+  const result = await generateMenu(baseRequest, { providers: providersOf(), now: NOW, randomize: false });
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+  const with100 = result.recipes.filter((r) => r.nutrition?.per100g);
+  assert.ok(with100.length >= 1, 'at least one recipe exposes per-100g nutrition');
+  for (const r of with100) {
+    assert.ok(r.nutrition!.per100g!.calories > 0);
+    assert.ok(r.nutrition!.per100g!.protein >= 0);
+  }
+});
+
+test('listSlotVariants: role-scoped candidates, cheapest first, excludes the current dish', async () => {
+  const result = await generateMenu(baseRequest, { providers: providersOf(), now: NOW, randomize: false });
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+
+  const day1 = result.days.find((d) => d.day === 1)!;
+  const breakfast = day1.meals.find((m) => m.meal === 'breakfast')!;
+  const currentId = breakfast.components[0].recipe.recipe.id;
+
+  const variants = await listSlotVariants(result, 'breakfast', 'main', currentId, { providers: providersOf(), now: NOW });
+  assert.ok(variants.length >= 1);
+  assert.ok(variants.every((v) => v.role === 'main'));
+  assert.ok(!variants.some((v) => v.recipeId === currentId));
+  const costs = variants.map((v) => v.cost);
+  assert.deepEqual(costs, [...costs].sort((a, b) => a - b), 'variants sorted by cost ascending');
+});
+
+test('replaceMenuSlots: swapping a breakfast slot updates the week and totals', async () => {
+  const result = await generateMenu(baseRequest, { providers: providersOf(), now: NOW, randomize: false });
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+
+  const day1 = result.days.find((d) => d.day === 1)!;
+  const breakfast = day1.meals.find((m) => m.meal === 'breakfast')!;
+  const currentId = breakfast.components[0].recipe.recipe.id;
+  const variants = await listSlotVariants(result, 'breakfast', 'main', currentId, { providers: providersOf(), now: NOW });
+  assert.ok(variants.length >= 1);
+
+  const replacementId = variants[0].recipeId;
+  const updated = await replaceMenuSlots(
+    result,
+    [{ day: 1, meal: 'breakfast', role: 'main', recipeId: replacementId }],
+    { providers: providersOf(), now: NOW }
+  );
+  assert.ok(updated);
+  if (!updated) return;
+
+  const newDay1 = updated.days.find((d) => d.day === 1)!;
+  const newBreakfast = newDay1.meals.find((m) => m.meal === 'breakfast')!;
+  assert.equal(newBreakfast.components[0].recipe.recipe.id, replacementId);
+  assert.equal(updated.recipes.length, result.recipes.length);
+  assert.ok(updated.warnings.some((w) => w.includes('заменено 1 блюдо')));
+  assert.equal(round2(updated.totalCost), round2(updated.budget - updated.remainingBudget + updated.overspend));
+
+  const invalid = await replaceMenuSlots(
+    result,
+    [{ day: 1, meal: 'breakfast', role: 'main', recipeId: 'nope' }],
+    { providers: providersOf(), now: NOW }
+  );
+  assert.equal(invalid, null);
 });

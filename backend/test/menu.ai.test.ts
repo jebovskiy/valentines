@@ -141,7 +141,7 @@ test('aiMenu: full 21-slot AI week priced within budget, no spending over the li
   assert.equal(result.recipes.length, WEEK_SLOTS);
   assert.ok(result.totalCost <= result.budget + 1e-9, `total ${result.totalCost} must fit ${result.budget}`);
   assert.equal(result.overspend, 0);
-  assert.ok(result.warnings.some((w) => w.includes('сгенерированы ИИ')));
+  assert.ok(result.warnings.some((w) => w.includes(MENU_AI_WARNING)));
   for (const r of result.recipes) {
     assert.equal(r.recipe.dataKind, 'ai');
     assert.ok(r.recipe.steps && r.recipe.steps.length > 0);

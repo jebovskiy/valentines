@@ -27,6 +27,23 @@ const cookwareEnum = [
   'kettle',
 ] as const;
 
+const mealEnum = z.enum(['breakfast', 'lunch', 'dinner']);
+
+const mealComponentEnum = z.enum(['soup', 'main', 'side', 'salad', 'dessert']);
+
+const memberSchema = z.object({
+  id: z.string().min(1).max(60),
+  name: z.string().min(1).max(60),
+  group: z.enum(['adult', 'child']),
+  meals: z.array(mealEnum).min(1).max(3),
+  qty: z.number().int().min(1).max(10),
+});
+
+const mealComponentsSchema = z.object({
+  lunch: z.array(mealComponentEnum).max(5),
+  dinner: z.array(mealComponentEnum).max(5),
+});
+
 const menuRequestShape = z
   .object({
     storeId: z.enum(storeIdEnum),
@@ -38,8 +55,10 @@ const menuRequestShape = z
     customAllergens: z.array(z.string().min(1).max(60)).max(60).default([]),
     disliked: z.array(z.string().min(1).max(60)).max(60).default([]),
     cookware: z.array(z.enum(cookwareEnum)).max(9).default([]),
+    members: z.array(memberSchema).max(20).optional().default([]),
+    mealComponents: mealComponentsSchema.optional(),
   })
-  .refine((d) => d.adults + d.children >= 1, {
+  .refine((d) => d.adults + d.children + d.members.reduce((s, m) => s + m.qty, 0) >= 1, {
     message: 'Хотя бы один взрослый или ребёнок',
   });
 
@@ -50,13 +69,13 @@ const pickSchema = z.object({
 });
 
 const saveSchema = z.object({
-  menu: z.object({
-    id: z.string().min(1).max(200),
-    request: menuRequestShape,
-  }),
+  menu: z
+    .object({
+      id: z.string().min(1).max(200),
+      request: menuRequestShape,
+    })
+    .passthrough(),
 });
-
-const mealEnum = z.enum(['breakfast', 'lunch', 'dinner']);
 
 const replaceSchema = z.object({
   replacements: z
@@ -64,6 +83,7 @@ const replaceSchema = z.object({
       z.object({
         day: z.number().int().min(1).max(7),
         meal: mealEnum,
+        role: mealComponentEnum,
         recipeId: z.string().min(1).max(200),
       })
     )
@@ -116,7 +136,12 @@ export async function menuRoutes(app: FastifyInstance) {
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
     const rows = await listStoredMenusForPair(pair.id);
     return {
-      menus: rows.map((row) => ({
+      menus: rows
+        .filter((row) => {
+          const r = row.result as { recipes?: unknown[] } | null | undefined;
+          return !!r && Array.isArray(r.recipes);
+        })
+        .map((row) => ({
         id: row.result.id,
         createdAt: row.created_at,
         store: row.result.store,
@@ -238,7 +263,7 @@ export async function menuRoutes(app: FastifyInstance) {
   app.get('/:id/variants', { preHandler: requireTelegramAuth }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const query = z
-      .object({ day: z.coerce.number().int().min(1).max(7), meal: mealEnum })
+      .object({ day: z.coerce.number().int().min(1).max(7), meal: mealEnum, role: mealComponentEnum })
       .safeParse(request.query);
     if (!query.success) return reply.code(400).send({ error: 'Invalid slot' });
 
@@ -251,10 +276,11 @@ export async function menuRoutes(app: FastifyInstance) {
     const menu = stored.result;
     const current = menu.days
       .find((d) => d.day === query.data.day)
-      ?.meals.find((m) => m.meal === query.data.meal)?.recipe.recipe.id;
+      ?.meals.find((m) => m.meal === query.data.meal)
+      ?.components.find((c) => c.role === query.data.role)?.recipe.recipe.id;
     if (!current) return reply.code(404).send({ error: 'Slot not found' });
 
-    const variants = await listSlotVariants(menu, query.data.meal, current, providersOptions());
+    const variants = await listSlotVariants(menu, query.data.meal, query.data.role, current, providersOptions());
     return { variants };
   });
 
@@ -271,7 +297,10 @@ export async function menuRoutes(app: FastifyInstance) {
 
     const menu = stored.result;
     const replacements = parsed.data.replacements.filter((r) => {
-      const slot = menu.days.find((d) => d.day === r.day)?.meals.find((m) => m.meal === r.meal);
+      const slot = menu.days
+        .find((d) => d.day === r.day)
+        ?.meals.find((m) => m.meal === r.meal)
+        ?.components.find((c) => c.role === r.role);
       return !!slot && slot.recipe.recipe.id !== r.recipeId;
     });
     if (replacements.length === 0) {

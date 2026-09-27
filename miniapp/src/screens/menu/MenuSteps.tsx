@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../../hooks/useValentinesStore';
-import { MENU_COOKWARE, menuMinBudgetFor } from '../../types';
-import type { MenuAllergenId, MenuCookwareId, MenuIngredientGroup, MenuRequest, MenuStoreId } from '../../types';
+import { MEAL_COMPONENT_TITLES, MEAL_ROLES, MENU_COOKWARE, menuMinBudgetFor } from '../../types';
+import type { MealComponentId, MenuAllergenId, MenuCookwareId, MenuIngredientGroup, MenuMealId, MenuMember, MenuRequest, MenuStoreId } from '../../types';
 import { setMainButton, setBackButton, hapticFeedback } from '../../utils/telegram';
 import { BackButton } from '../../components/BackButton';
 
@@ -396,9 +396,102 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 12,
     lineHeight: '16px',
   },
+  memberCard: {
+    background: 'var(--surface-card)',
+    borderRadius: 16,
+    padding: '14px',
+    border: '1px solid var(--hairline)',
+    marginBottom: 12,
+  },
+  memberTop: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  memberNameInput: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 12,
+    border: '1px solid var(--hairline)',
+    background: 'var(--surface-elevated)',
+    color: 'var(--ink)',
+    fontSize: 15,
+    fontWeight: 700,
+    padding: '10px 12px',
+    outline: 'none',
+    boxSizing: 'border-box',
+  },
+  memberRemove: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    border: '1px solid var(--hairline)',
+    background: 'var(--surface-elevated)',
+    color: 'var(--ash)',
+    fontSize: 15,
+    lineHeight: 1,
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  memberFieldLabel: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'var(--ash)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    margin: '0 0 6px',
+  },
+  chipRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  chipSmall: {
+    borderRadius: 999,
+    padding: '7px 12px',
+    border: '1px solid var(--hairline)',
+    background: 'var(--surface-elevated)',
+    color: 'var(--ink)',
+    fontSize: 13,
+    lineHeight: 1.2,
+    cursor: 'pointer',
+    transition: 'border-color 120ms ease',
+  },
+  chipSmallSelected: {
+    borderColor: 'var(--primary)',
+    background: 'var(--primary)',
+    color: '#fff',
+  },
+  addMemberBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 16,
+    border: '1px dashed var(--hairline)',
+    background: 'var(--surface-card)',
+    color: 'var(--primary)',
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
 };
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
+
+const MEAL_TITLES: Record<MenuMealId, string> = {
+  breakfast: 'Завтрак',
+  lunch: 'Обед',
+  dinner: 'Ужин',
+};
+
+const ROLE_EMOJI: Record<MealComponentId, string> = {
+  soup: '🍜',
+  main: '🍗',
+  side: '🥔',
+  salad: '🥗',
+  dessert: '🍰',
+};
 
 function ProductSearchInput(props: {
   value: string[];
@@ -682,11 +775,12 @@ export function MenuStoreStep() {
   );
 }
 
-// --- Шаг 2: персоны ----------------------------------------------------------
+// --- Шаг 2: члены семьи ------------------------------------------------------
 
 export function MenuPeopleStep() {
   const navigate = useNavigate();
-  const { menuDraft, updateMenuDraft } = useValentinesStore();
+  const { menuDraft, updateMenuMembers } = useValentinesStore();
+  const members = menuDraft.members;
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -694,52 +788,199 @@ export function MenuPeopleStep() {
     return () => setBackButton(false);
   }, [navigate]);
 
-  const setAdults = (next: number) => updateMenuDraft({ adults: Math.min(20, Math.max(0, next)) });
-  const setChildren = (next: number) => updateMenuDraft({ children: Math.min(20, Math.max(0, next)) });
+  const updateMember = (id: string, patch: Partial<MenuMember>) => {
+    updateMenuMembers(members.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+  };
 
-  const totalOk = menuDraft.adults + menuDraft.children >= 1;
+  const toggleMeal = (m: MenuMember, meal: MenuMealId) => {
+    hapticFeedback('selection');
+    const meals = m.meals.includes(meal) ? m.meals.filter((x) => x !== meal) : [...m.meals, meal];
+    updateMember(m.id, { meals });
+  };
+
+  const setQty = (m: MenuMember, next: number) => {
+    hapticFeedback('selection');
+    updateMember(m.id, { qty: Math.min(10, Math.max(1, next)) });
+  };
+
+  const addMember = () => {
+    if (members.length >= 20) return;
+    hapticFeedback('selection');
+    const count = members.length;
+    updateMenuMembers([
+      ...members,
+      {
+        id: `m${count + 1}`,
+        name: count === 0 ? 'Взрослый' : 'Ребёнок',
+        group: count === 0 ? 'adult' : 'child',
+        meals: ['breakfast', 'lunch', 'dinner'],
+        qty: 1,
+      },
+    ]);
+  };
+
+  const removeMember = (id: string) => {
+    if (members.length <= 1) return;
+    hapticFeedback('selection');
+    updateMenuMembers(members.filter((m) => m.id !== id));
+  };
+
+  const attending = members.filter((m) => m.meals.length > 0).length;
+  const totalOk = attending >= 1;
 
   return (
     <StepFrame
       step={2}
-      title="Кто будет есть"
+      title="Члены семьи"
       footerDisabled={!totalOk}
+      footerLabel="Далее"
+      onFooter={() => navigate('/menu/components')}
+    >
+      <div style={styles.sectionTitle}>Кто будет есть?</div>
+      <div style={styles.sectionHint}>
+        Отметьте приёмы пищи для каждого и число порций. От этого зависит количество еды и цена на неделю.
+      </div>
+      {members.map((member) => (
+        <div key={member.id} style={styles.memberCard}>
+          <div style={styles.memberTop}>
+            <input
+              style={styles.memberNameInput}
+              value={member.name}
+              onChange={(e) => updateMember(member.id, { name: e.target.value })}
+              placeholder="Имя"
+              maxLength={60}
+            />
+            {members.length > 1 && (
+              <button style={styles.memberRemove} onClick={() => removeMember(member.id)} aria-label="Убрать">
+                ×
+              </button>
+            )}
+          </div>
+          <div style={styles.memberFieldLabel}>Кто это</div>
+          <div style={styles.chipRow}>
+            {(['adult', 'child'] as const).map((g) => {
+              const selected = member.group === g;
+              return (
+                <button
+                  key={g}
+                  style={{ ...styles.chipSmall, ...(selected ? styles.chipSmallSelected : {}) }}
+                  onClick={() => { hapticFeedback('selection'); updateMember(member.id, { group: g }); }}
+                >
+                  {g === 'adult' ? '👤 Взрослый' : '🧒 Ребёнок'}
+                </button>
+              );
+            })}
+          </div>
+          <div style={styles.memberFieldLabel}>Ест на</div>
+          <div style={styles.chipRow}>
+            {(['breakfast', 'lunch', 'dinner'] as MenuMealId[]).map((meal) => {
+              const selected = member.meals.includes(meal);
+              return (
+                <button
+                  key={meal}
+                  style={{ ...styles.chipSmall, ...(selected ? styles.chipSmallSelected : {}) }}
+                  onClick={() => toggleMeal(member, meal)}
+                >
+                  {MEAL_TITLES[meal]}
+                </button>
+              );
+            })}
+          </div>
+          <div style={styles.memberFieldLabel}>Порций за приём</div>
+          <div style={styles.stepperRow}>
+            <span style={styles.stepperLabel}>
+              {member.group === 'child' ? '🧒 ' : '👤 '}{member.qty} {member.qty === 1 ? 'порция' : member.qty < 5 ? 'порции' : 'порций'}
+            </span>
+            <span style={styles.stepperControls}>
+              <button
+                style={{ ...styles.stepBtn, ...(member.qty === 1 ? styles.stepBtnDisabled : {}) }}
+                onClick={() => setQty(member, member.qty - 1)}
+                aria-label="Меньше"
+              >
+                −
+              </button>
+              <span style={styles.stepValue}>{member.qty}</span>
+              <button
+                style={{ ...styles.stepBtn, ...(member.qty >= 10 ? styles.stepBtnDisabled : {}) }}
+                onClick={() => setQty(member, member.qty + 1)}
+                aria-label="Больше"
+              >
+                +
+              </button>
+            </span>
+          </div>
+        </div>
+      ))}
+      <button style={styles.addMemberBtn} onClick={addMember}>
+        + Добавить члена семьи
+      </button>
+      {!totalOk && (
+        <div style={{ ...styles.errorBox, marginTop: 12 }}>
+          У каждого члена семьи должен быть отмечен хотя бы один приём пищи.
+        </div>
+      )}
+    </StepFrame>
+  );
+}
+
+// --- Шаг 3: составляющие приёмов -------------------------------------------------
+
+export function MenuComponentsStep() {
+  const navigate = useNavigate();
+  const { menuDraft, updateMenuDraft } = useValentinesStore();
+  const back = useStepBack('/menu/people');
+
+  useEffect(() => {
+    setMainButton({ isVisible: false });
+    setBackButton(true, back);
+    return () => setBackButton(false);
+  }, [back]);
+
+  const toggle = (meal: 'lunch' | 'dinner', role: MealComponentId) => {
+    hapticFeedback('selection');
+    const current = menuDraft.mealComponents[meal];
+    const next = current.includes(role) ? current.filter((r) => r !== role) : [...current, role];
+    updateMenuDraft({ mealComponents: { ...menuDraft.mealComponents, [meal]: next } });
+  };
+
+  const renderGroup = (meal: 'lunch' | 'dinner') => {
+    const selected = menuDraft.mealComponents[meal];
+    return (
+      <div>
+        <div style={styles.sectionTitle}>{meal === 'lunch' ? '🍲 Обед' : '🍛 Ужин'}</div>
+        <div style={styles.sectionHint}>
+          Выберите, из чего состоит {meal === 'lunch' ? 'обед' : 'ужин'}. Если ничего не отметить — приём будет из одного основного блюда.
+        </div>
+        <div style={styles.chipRow}>
+          {MEAL_ROLES[meal].map((role) => {
+            const on = selected.includes(role);
+            return (
+              <button
+                key={role}
+                style={{ ...styles.chipSmall, ...(on ? styles.chipSmallSelected : {}) }}
+                onClick={() => toggle(meal, role)}
+              >
+                {ROLE_EMOJI[role]} {MEAL_COMPONENT_TITLES[role]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <StepFrame
+      step={3}
+      title="Состав приёмов"
       footerLabel="Далее"
       onFooter={() => navigate('/menu/budget')}
     >
-      <div style={styles.sectionTitle}>Состав семьи</div>
-      <div style={styles.sectionHint}>Детские порции считаются меньше взрослых</div>
-      <div style={styles.stepperRow}>
-        <span style={styles.stepperLabel}>👤 Взрослые</span>
-        <span style={styles.stepperControls}>
-          <button
-            style={{ ...styles.stepBtn, ...(menuDraft.adults === 0 ? styles.stepBtnDisabled : {}) }}
-            onClick={() => { hapticFeedback('selection'); setAdults(menuDraft.adults - 1); }}
-            aria-label="Меньше"
-          >
-            −
-          </button>
-          <span style={styles.stepValue}>{menuDraft.adults}</span>
-          <button style={styles.stepBtn} onClick={() => { hapticFeedback('selection'); setAdults(menuDraft.adults + 1); }} aria-label="Больше">
-            +
-          </button>
-        </span>
-      </div>
-      <div style={styles.stepperRow}>
-        <span style={styles.stepperLabel}>🧒 Дети</span>
-        <span style={styles.stepperControls}>
-          <button
-            style={{ ...styles.stepBtn, ...(menuDraft.children === 0 ? styles.stepBtnDisabled : {}) }}
-            onClick={() => { hapticFeedback('selection'); setChildren(menuDraft.children - 1); }}
-            aria-label="Меньше"
-          >
-            −
-          </button>
-          <span style={styles.stepValue}>{menuDraft.children}</span>
-          <button style={styles.stepBtn} onClick={() => { hapticFeedback('selection'); setChildren(menuDraft.children + 1); }} aria-label="Больше">
-            +
-          </button>
-        </span>
+      {renderGroup('lunch')}
+      <div style={{ marginTop: 18 }}></div>
+      {renderGroup('dinner')}
+      <div style={styles.mockNote}>
+        Завтрак всегда состоит из одного блюда — выбор составляющих ему не нужен.
       </div>
     </StepFrame>
   );
@@ -750,7 +991,7 @@ export function MenuPeopleStep() {
 export function MenuBudgetStep() {
   const navigate = useNavigate();
   const { menuDraft, updateMenuDraft } = useValentinesStore();
-  const back = useStepBack('/menu/people');
+  const back = useStepBack('/menu/components');
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -768,7 +1009,7 @@ export function MenuBudgetStep() {
 
   return (
     <StepFrame
-      step={3}
+      step={4}
       title="Бюджет"
       footerDisabled={budgetNumber === null}
       footerLabel="Далее"
@@ -817,7 +1058,7 @@ export function MenuCookwareStep() {
 
   return (
     <StepFrame
-      step={4}
+      step={5}
       title="Что есть на кухне"
       footerLabel="Далее"
       onFooter={() => navigate('/menu/allergens')}
@@ -882,6 +1123,8 @@ export function MenuAllergensStep() {
     setScreenError(null);
     const rawBudget = parseFloat(menuDraft.budget.replace(',', '.'));
     const familyBudget = Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : menuMinBudgetFor(menuDraft.adults, menuDraft.children);
+    const hasComponents =
+      menuDraft.mealComponents.lunch.length > 0 || menuDraft.mealComponents.dinner.length > 0;
     const request: MenuRequest = {
       storeId: menuDraft.storeId,
       adults: menuDraft.adults,
@@ -892,6 +1135,19 @@ export function MenuAllergensStep() {
       customAllergens: menuDraft.customAllergens,
       disliked: menuDraft.disliked,
       cookware: menuDraft.cookware,
+      members: menuDraft.members.map((m) => ({
+        id: m.id,
+        name: m.name.trim() || (m.group === 'child' ? 'Ребёнок' : 'Взрослый'),
+        group: m.group,
+        meals: m.meals,
+        qty: m.qty,
+      })),
+      mealComponents: hasComponents
+        ? {
+            lunch: [...menuDraft.mealComponents.lunch],
+            dinner: [...menuDraft.mealComponents.dinner],
+          }
+        : undefined,
     };
     const result = await generateMenuPlan(request);
     if (!result) {
@@ -912,7 +1168,7 @@ export function MenuAllergensStep() {
 
   return (
     <StepFrame
-      step={5}
+      step={6}
       title="Аллергии"
       footerLabel="Подобрать меню"
       footerLoading={menuLoading}

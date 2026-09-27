@@ -4,6 +4,7 @@ import { useValentinesStore } from '../hooks/useValentinesStore';
 import { MENU_UNIT_LABEL, MenuResult, MenuShoppingListItem } from '../types';
 import { setMainButton, setBackButton } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
+import warningIcon from '../../Icons/icon.jfif';
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -225,7 +226,10 @@ export function ShoppingListScreen() {
       </div>
 
       {menu.warnings.map((w, i) => (
-        <div key={i} style={styles.warningBox}>⚠️ {w}</div>
+        <div key={i} style={styles.warningBox}>
+          <img src={warningIcon} alt="!" style={{ width: 14, height: 14, objectFit: 'contain', verticalAlign: -2, marginRight: 6 }} />
+          {w}
+        </div>
       ))}
 
       {list.missingItemsCount > 0 && (

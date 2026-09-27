@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { MENU_UNIT_LABEL } from '../types';
-import type { MenuDay, MenuMeal, MenuResult } from '../types';
+import type { MenuDay, MenuMeal, MenuMealComponent, MenuResult } from '../types';
 import { setMainButton, setBackButton } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
+import warningIcon from '../../Icons/icon.jfif';
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -232,6 +233,47 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontSize: 12,
   },
+  warningIcon: {
+    width: 14,
+    height: 14,
+    objectFit: 'contain' as const,
+    verticalAlign: -2,
+    marginRight: 6,
+  },
+  dishBlock: {
+    marginBottom: 12,
+  },
+  dishTop: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 2,
+  },
+  dishRole: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: 'var(--primary)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.4,
+  },
+  dishName: {
+    fontSize: 15,
+    fontWeight: 800,
+    color: 'var(--ink)',
+    lineHeight: 1.3,
+  },
+  dishMeta: {
+    fontSize: 11,
+    color: 'var(--ash)',
+    marginTop: 2,
+  },
+  dishCost: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'var(--ink)',
+    flexShrink: 0,
+  },
   disabled: {
     opacity: 0.45,
   },
@@ -260,10 +302,8 @@ function MealRow({
   onToggle: () => void;
   onReplace: () => void;
 }) {
-  const nutrition = meal.recipe.nutrition;
-  const recipe = meal.recipe.recipe;
-  const good = meal.recipe.servings;
-  const ingredients = meal.recipe.scaledIngredients ?? [];
+  const components = meal.components ?? [];
+  const totalCost = components.reduce((sum, c) => sum + (c.recipe.cost ?? 0), 0);
 
   return (
     <div>
@@ -271,65 +311,104 @@ function MealRow({
         <span style={styles.mealEmoji}>{MEAL_EMOJI[meal.meal] ?? '🍽'}</span>
         <span style={styles.mealBody}>
           <span style={styles.mealLabel}>{meal.title}</span>
-          <span style={styles.mealName}>{recipe.name}</span>
+          <span style={styles.mealName}>
+            {components.length === 1
+              ? components[0].recipe.recipe.name
+              : `${components.map((c) => c.title).join(' + ')} (${components.length} блюд)`}
+          </span>
           <span style={styles.mealMeta}>
-            {good.toFixed(1)} порц.
-            {nutrition && ` · ${Math.round(nutrition.perServing.calories)} ккал`}
+            {components[0]?.recipe.servings.toFixed(1)} порц.
           </span>
         </span>
-        {meal.recipe.cost != null && (
-          <span style={styles.mealCost}>{meal.recipe.cost.toFixed(2)} BYN</span>
-        )}
+        <span style={styles.mealCost}>{totalCost.toFixed(2)} BYN</span>
         <button style={styles.smallGhostBtn} onClick={(e) => { e.stopPropagation(); onReplace(); }}>
           Заменить
         </button>
         <span style={styles.mealChevron}>{expanded ? '⌃' : '⌄'}</span>
       </div>
-      {expanded && (
-        <div style={styles.mealDetails}>
-          {ingredients.length > 0 && (
-            <div style={styles.recipeSection}>
-              <div style={styles.recipeSectionTitle}>Ингредиенты</div>
-              {ingredients.map((si) => (
-                <div key={`${si.ingredient.id}:${si.unit}`} style={styles.recipeLine}>
-                  {si.ingredient.name} — {fmtQty(si.qty)} {MENU_UNIT_LABEL[si.unit] ?? si.unit}
-                </div>
-              ))}
+      {expanded &&
+        components.map((comp) => (
+          <div key={comp.role} style={styles.mealDetails}>
+            <ComponentDish comp={comp} />
+          </div>
+        ))}
+    </div>
+  );
+}
+
+function ComponentDish({ comp }: { comp: MenuMealComponent }) {
+  const nutrition = comp.recipe.nutrition;
+  const recipe = comp.recipe.recipe;
+  const ingredients = comp.recipe.scaledIngredients ?? [];
+
+  return (
+    <div style={styles.dishBlock}>
+      <div style={styles.dishTop}>
+        <span style={styles.dishRole}>{comp.title}</span>
+        {comp.recipe.cost != null && (
+          <span style={styles.dishCost}>{comp.recipe.cost.toFixed(2)} BYN</span>
+        )}
+      </div>
+      <div style={styles.dishName}>{recipe.name}</div>
+      <div style={styles.dishMeta}>
+        {comp.recipe.servings.toFixed(1)} порц.
+        {nutrition && (
+          <span>
+            {nutrition.per100g
+              ? ` · ${Math.round(nutrition.per100g.calories)} ккал/100 г`
+              : ` · ${Math.round(nutrition.perServing.calories)} ккал/порц.`}
+          </span>
+        )}
+      </div>
+      {ingredients.length > 0 && (
+        <div style={styles.recipeSection}>
+          <div style={styles.recipeSectionTitle}>Ингредиенты</div>
+          {ingredients.map((si) => (
+            <div key={`${si.ingredient.id}:${si.unit}`} style={styles.recipeLine}>
+              {si.ingredient.name} — {fmtQty(si.qty)} {MENU_UNIT_LABEL[si.unit] ?? si.unit}
             </div>
-          )}
-          {recipe.steps && recipe.steps.length > 0 && (
-            <div style={styles.recipeSection}>
-              <div style={styles.recipeSectionTitle}>Приготовление</div>
-              <ol style={styles.recipeSteps}>
-                {recipe.steps.map((step, i) => (
-                  <li key={i} style={styles.recipeStep}>
-                    {step}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-          {nutrition && (
-            <div style={styles.recipeSection}>
-              <div style={styles.recipeSectionTitle}>На 1 порцию</div>
-              <div style={styles.recipeLine}>
-                {Math.round(nutrition.perServing.calories)} ккал · белки{' '}
-                {Math.round(nutrition.perServing.protein)} г · жиры{' '}
-                {Math.round(nutrition.perServing.fat)} г · углеводы{' '}
-                {Math.round(nutrition.perServing.carbs)} г
-              </div>
-            </div>
-          )}
-          {meal.recipe.cookwareLabels.length > 0 && (
+          ))}
+        </div>
+      )}
+      {recipe.steps && recipe.steps.length > 0 && (
+        <div style={styles.recipeSection}>
+          <div style={styles.recipeSectionTitle}>Приготовление</div>
+          <ol style={styles.recipeSteps}>
+            {recipe.steps.map((step, i) => (
+              <li key={i} style={styles.recipeStep}>
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {nutrition && (
+        <div style={styles.recipeSection}>
+          <div style={styles.recipeSectionTitle}>Пищевая ценность</div>
+          {nutrition.per100g && (
             <div style={styles.recipeLine}>
-              Утварь: {meal.recipe.cookwareLabels.join(' · ')}
+              На 100 г: {Math.round(nutrition.per100g.calories)} ккал · белки{' '}
+              {Math.round(nutrition.per100g.protein)} г · жиры{' '}
+              {Math.round(nutrition.per100g.fat)} г · углеводы{' '}
+              {Math.round(nutrition.per100g.carbs)} г
             </div>
           )}
-          <div style={styles.recipeSource}>
-            {recipe.dataKind === 'ai' ? 'Сгенерировано ИИ' : `Источник: ${recipe.sourceLabel}`}
+          <div style={styles.recipeLine}>
+            На 1 порцию: {Math.round(nutrition.perServing.calories)} ккал · белки{' '}
+            {Math.round(nutrition.perServing.protein)} г · жиры{' '}
+            {Math.round(nutrition.perServing.fat)} г · углеводы{' '}
+            {Math.round(nutrition.perServing.carbs)} г
           </div>
         </div>
       )}
+      {comp.recipe.cookwareLabels.length > 0 && (
+        <div style={styles.recipeLine}>
+          Утварь: {comp.recipe.cookwareLabels.join(' · ')}
+        </div>
+      )}
+      <div style={styles.recipeSource}>
+        Источник: {recipe.sourceLabel}
+      </div>
     </div>
   );
 }
@@ -382,7 +461,8 @@ export function MenuResultScreen() {
     );
   }
 
-  const servings = `${menu.servings.adults + menu.servings.children} чел (${menu.servings.effectiveServings.toFixed(1)} порц.)`;
+  const memberCount = (menu.servings.members?.length ?? 0) || menu.servings.adults + menu.servings.children;
+  const servings = `${memberCount} чел (${menu.servings.effectiveServings.toFixed(1)} порц.)`;
   const inBudget = menu.totalCost <= menu.budget;
   const kcalTotal = menu.recipes.reduce((sum, r) => sum + (r.nutrition ? r.nutrition.perRecipe.calories : 0), 0);
 
@@ -439,7 +519,10 @@ export function MenuResultScreen() {
       </div>
 
       {menu.warnings.map((w, i) => (
-        <div key={i} style={styles.warningBox}>⚠️ {w}</div>
+        <div key={i} style={styles.warningBox}>
+          <img src={warningIcon} alt="!" style={styles.warningIcon} />
+          {w}
+        </div>
       ))}
 
       {menu.shoppingList.missingItemsCount > 0 && (
@@ -470,7 +553,7 @@ export function MenuResultScreen() {
             <span style={styles.dayName}>День {d.day} · {DAY_NAMES[(d.day - 1) % 7]}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={styles.dayTag}>
-                {d.meals.reduce((sum, m) => sum + (m.recipe.cost ?? 0), 0).toFixed(2)} BYN
+                {d.meals.reduce((sum, m) => sum + (m.components ?? []).reduce((s, c) => s + (c.recipe.cost ?? 0), 0), 0).toFixed(2)} BYN
               </span>
               <button onClick={() => navigate(`/menu/replace?id=${menu.id}&day=${d.day}&dayReplacement=1`)} style={styles.dayReplaceBtn}>
                 Заменить день

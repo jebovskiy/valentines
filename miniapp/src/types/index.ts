@@ -475,7 +475,7 @@ export interface MenuRecipeChoice {
   cost: number;
   costPerServing: number;
   priceMissing: { ingredientId: string; name: string }[];
-  nutrition: { perRecipe: MenuNutrition; perServing: MenuNutrition } | null;
+  nutrition: { perRecipe: MenuNutrition; perServing: MenuNutrition; per100g?: MenuNutrition } | null;
   nutritionMissing: boolean;
   allergens: MenuAllergenId[];
   allergenUnknown: string[];
@@ -514,12 +514,54 @@ export interface MenuShoppingList {
   currency: 'BYN';
 }
 
+export type MemberGroup = 'adult' | 'child';
+
+/** One eater in the family: which meals they take and how many portions. */
+export interface MenuMember {
+  id: string;
+  name: string;
+  group: MemberGroup;
+  /** Meals this member attends. At least one. */
+  meals: MenuMealId[];
+  /** How many portions of each attended meal this member eats (>= 1). */
+  qty: number;
+}
+
+/** A role a single dish plays inside a multi-dish meal. */
+export type MealComponentId = 'soup' | 'main' | 'side' | 'salad' | 'dessert';
+
+export const MEAL_COMPONENTS: MealComponentId[] = ['soup', 'main', 'side', 'salad', 'dessert'];
+
+export const MEAL_COMPONENT_TITLES: Record<MealComponentId, string> = {
+  soup: 'Суп',
+  main: 'Основное блюдо',
+  side: 'Гарнир',
+  salad: 'Салат',
+  dessert: 'Десерт',
+};
+
+/** Roles a meal can be assembled from. Breakfast stays a single dish. */
+export const MEAL_ROLES: Record<MenuMealId, MealComponentId[]> = {
+  breakfast: ['main'],
+  lunch: ['soup', 'salad', 'main', 'side', 'dessert'],
+  dinner: ['main', 'side', 'salad', 'dessert'],
+};
+
+/** Per-meal component selection for multi-dish meals. */
+export interface MealComponents {
+  lunch: MealComponentId[];
+  dinner: MealComponentId[];
+}
+
 export interface MenuServings {
   adults: number;
   children: number;
   adultCoefficient: number;
   childCoefficient: number;
   effectiveServings: number;
+  /** Effective servings per meal (coefficient × qty of attending members). */
+  perMeal: Record<MenuMealId, number>;
+  members: MenuMember[];
 }
 
 export interface MenuRequest {
@@ -535,6 +577,17 @@ export interface MenuRequest {
   disliked?: string[];
   /** Kitchen equipment the user has; empty/undefined disables the cookware filter. */
   cookware: MenuCookwareId[];
+  /**
+   * Per-member profiles. When present (non-empty) they drive the per-meal
+   * effective servings; otherwise legacy `adults`/`children` assume everybody
+   * eats every meal.
+   */
+  members?: MenuMember[];
+  /**
+   * Multi-dish composition of lunch/dinner. Absent/empty roles disable the
+   * component picker and every meal is a single dish.
+   */
+  mealComponents?: MealComponents;
 }
 
 export type MenuMealId = 'breakfast' | 'lunch' | 'dinner';
@@ -559,10 +612,18 @@ export function menuMinBudgetFor(adults: number, children: number): number {
   return Math.max(MENU_MIN_BUDGET_FLOOR, Math.round(MENU_MIN_BUDGET_PER_SERVING * (adults + 0.7 * children)));
 }
 
+export interface MenuMealComponent {
+  /** Dish role inside the meal (e.g. «Гарнир»). Breakfast uses 'main'. */
+  role: MealComponentId;
+  title: string;
+  recipe: MenuRecipeChoice;
+}
+
 export interface MenuMeal {
   meal: MenuMealId;
   title: string;
-  recipe: MenuRecipeChoice;
+  /** One dish per selected component; breakfast always has a single dish. */
+  components: MenuMealComponent[];
 }
 
 export interface MenuDay {
@@ -593,6 +654,7 @@ export interface MenuResult {
 export interface MenuSlotReplacement {
   day: number;
   meal: MenuMealId;
+  role: MealComponentId;
   recipeId: string;
 }
 
@@ -601,6 +663,7 @@ export interface MenuSlotVariant {
   recipeId: string;
   name: string;
   category: string;
+  role: MealComponentId;
   cost: number;
   costPerServing: number;
   servings: number;

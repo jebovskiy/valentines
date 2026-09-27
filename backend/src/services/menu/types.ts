@@ -23,6 +23,29 @@ export const MEAL_TITLES: Record<MealId, string> = {
   dinner: 'Ужин',
 };
 
+/** A role a single dish plays inside a multi-dish meal. */
+export type MealComponentId = 'soup' | 'main' | 'side' | 'salad' | 'dessert';
+
+export const MEAL_COMPONENTS: MealComponentId[] = ['soup', 'main', 'side', 'salad', 'dessert'];
+
+export const MEAL_COMPONENT_TITLES: Record<MealComponentId, string> = {
+  soup: 'Суп',
+  main: 'Основное блюдо',
+  side: 'Гарнир',
+  salad: 'Салат',
+  dessert: 'Десерт',
+};
+
+/** Roles a meal can be assembled from. Breakfast stays a single dish. */
+export const MEAL_ROLES: Record<MealId, MealComponentId[]> = {
+  breakfast: ['main'],
+  lunch: ['soup', 'salad', 'main', 'side', 'dessert'],
+  dinner: ['main', 'side', 'salad', 'dessert'],
+};
+
+/** @deprecated Breakfast is always a single dish. */
+export const BREAKFAST_ROLES: MealComponentId[] = ['main'];
+
 /** Kitchen equipment the user declares to have; recipes needing the rest are filtered out. */
 export type CookwareId =
   | 'skillet'
@@ -131,9 +154,30 @@ export interface ServingCoefficients {
   child: number;
 }
 
+export type MemberGroup = 'adult' | 'child';
+
+/** One eater in the family: which meals they take and how many portions. */
+export interface MenuMember {
+  id: string;
+  name: string;
+  group: MemberGroup;
+  /** Meals this member attends. At least one. */
+  meals: MealId[];
+  /** How many portions of each attended meal this member eats (≥ 1). */
+  qty: number;
+}
+
+/** Per-meal component selection for multi-dish meals. */
+export interface MealComponents {
+  lunch: MealComponentId[];
+  dinner: MealComponentId[];
+}
+
 export interface MenuRequest {
   storeId: StoreId;
+  /** Back-compat headcount denominator (total adult member cards). */
   adults: number;
+  /** Back-compat headcount denominator (total child member cards). */
   children: number;
   budget: number;
   currency: 'BYN';
@@ -153,6 +197,17 @@ export interface MenuRequest {
    * outside this set are excluded.
    */
   cookware?: CookwareId[];
+  /**
+   * Per-member profiles. When present (non-empty) they drive the per-meal
+   * effective servings; otherwise legacy `adults`/`children` assume everybody
+   * eats every meal.
+   */
+  members?: MenuMember[];
+  /**
+   * Multi-dish composition of lunch/dinner. Absent/empty roles disable the
+   * component picker and every meal is a single dish.
+   */
+  mealComponents?: MealComponents;
 }
 
 export interface ServingsBreakdown {
@@ -161,6 +216,13 @@ export interface ServingsBreakdown {
   adultCoefficient: number;
   childCoefficient: number;
   effectiveServings: number;
+}
+
+/** Servings breakdown enriched with the per-meal split when members drive it. */
+export interface MenuServings extends ServingsBreakdown {
+  /** Effective servings per meal (coefficient × qty of attending members). */
+  perMeal: Record<MealId, number>;
+  members: MenuMember[];
 }
 
 export interface RecipeIngredientScaled {
@@ -181,7 +243,7 @@ export interface RecipeChoice {
   costPerServing: number;
   /** Missing/unpriced ingredient ids and names for this recipe in the chosen store. */
   priceMissing: { ingredientId: string; name: string }[];
-  nutrition: { perRecipe: Nutrition; perServing: Nutrition } | null;
+  nutrition: { perRecipe: Nutrition; perServing: Nutrition; per100g?: Nutrition } | null;
   nutritionMissing: boolean;
   allergens: AllergenId[];
   /** Ingredient names whose allergenicity could not be determined confidently. */
@@ -227,10 +289,18 @@ export interface ShoppingList {
   currency: 'BYN';
 }
 
+export interface MenuMealComponent {
+  /** Dish role inside the meal (e.g. «Гарнир»). Breakfast uses 'main'. */
+  role: MealComponentId;
+  title: string;
+  recipe: RecipeChoice;
+}
+
 export interface MenuMeal {
   meal: MealId;
   title: string;
-  recipe: RecipeChoice;
+  /** One dish per selected component; breakfast always has a single dish. */
+  components: MenuMealComponent[];
 }
 
 export interface MenuDay {
@@ -242,8 +312,8 @@ export interface MenuResult {
   id: string;
   store: Store;
   request: MenuRequest;
-  servings: ServingsBreakdown;
-  /** The week plan: 7 days × breakfast/lunch/dinner. Also mirrored in `recipes`. */
+  servings: MenuServings;
+  /** The week plan: 7 days × breakfast/lunch/dinner, each with its components. Also mirrored in `recipes`. */
   days: MenuDay[];
   recipes: RecipeChoice[];
   /** Sum of proportional recipe costs (informational). */

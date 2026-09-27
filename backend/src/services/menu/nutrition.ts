@@ -61,6 +61,28 @@ export function perServing(nutrition: Nutrition, servings: number): Nutrition {
   };
 }
 
+/**
+ * Nutrition per 100 g of the prepared dish: the per-recipe totals divided by
+ * the dish's edible weight (1 ml ≈ 1 g, pieces via gramsPerPcs), scaled to 100 g.
+ * Returns null when any ingredient weight is unknown.
+ */
+export function per100g(perRecipe: Nutrition, scaledIngredients: RecipeIngredientScaled[]): Nutrition | null {
+  let totalGrams = 0;
+  for (const scaled of scaledIngredients) {
+    const grams = gramsEquivalent(scaled);
+    if (grams === null || grams < 0) return null;
+    totalGrams += grams;
+  }
+  if (totalGrams <= 0) return null;
+  const factor = 100 / totalGrams;
+  return {
+    calories: round1(perRecipe.calories * factor),
+    protein: round1(perRecipe.protein * factor),
+    fat: round1(perRecipe.fat * factor),
+    carbs: round1(perRecipe.carbs * factor),
+  };
+}
+
 export function emptyNutrition(): Nutrition {
   return { calories: 0, protein: 0, fat: 0, carbs: 0 };
 }

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
-import type { MenuMealId, MenuSlotReplacement, MenuSlotVariant } from '../types';
+import { MEAL_COMPONENT_TITLES } from '../types';
+import type { MealComponentId, MenuMealId, MenuResult, MenuSlotReplacement, MenuSlotVariant } from '../types';
 import { setMainButton, setBackButton } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
 
@@ -45,6 +46,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 800,
     color: 'var(--ink)',
     margin: '14px 0 8px',
+  },
+  roleTitle: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: 'var(--primary)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    margin: '10px 0 6px',
   },
   variant: {
     background: 'var(--surface-card)',
@@ -107,28 +116,42 @@ function fmtQty(n: number): string {
 
 const MEAL_TITLES: Record<MenuMealId, string> = { breakfast: 'Завтрак', lunch: 'Обед', dinner: 'Ужин' };
 const DAY_MEALS: MenuMealId[] = ['breakfast', 'lunch', 'dinner'];
+const slotKey = (meal: MenuMealId, role: MealComponentId) => `${meal}:${role}`;
 
 export function MenuReplaceScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { getSlotVariants, replaceMenuSlots, menuLoading } = useValentinesStore();
+  const { menuResult, getSlotVariants, replaceMenuSlots, menuLoading } = useValentinesStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [variantsByMeal, setVariantsByMeal] = useState<Record<MenuMealId, MenuSlotVariant[]>>({
-    breakfast: [],
-    lunch: [],
-    dinner: [],
-  });
-  const [selected, setSelected] = useState<Record<MenuMealId, string | null>>({
-    breakfast: null,
-    lunch: null,
-    dinner: null,
-  });
+  const [variants, setVariants] = useState<Record<string, MenuSlotVariant[]>>({});
+  const [selected, setSelected] = useState<Record<string, string | null>>({});
 
   const id = params.get('id') ?? '';
   const day = Number(params.get('day') ?? '1');
   const wholeDay = (params.get('dayReplacement') ?? '0') === '1';
   const meals: MenuMealId[] = useMemo(() => (wholeDay ? DAY_MEALS : [(params.get('meal') ?? 'breakfast') as MenuMealId]), [wholeDay, params]);
+
+  const menu = useMemo<MenuResult | null>(() => {
+    const mid = params.get('id');
+    if (mid && menuResult && menuResult.id !== mid) return null;
+    return menuResult;
+  }, [menuResult, params]);
+
+  const rolesByMeal: Record<MenuMealId, MealComponentId[]> = useMemo(() => {
+    const out: Record<MenuMealId, MealComponentId[]> = { breakfast: ['main'], lunch: ['main'], dinner: ['main'] };
+    if (menu) {
+      const dayObj = menu.days.find((d) => d.day === day);
+      if (dayObj) {
+        for (const m of dayObj.meals) {
+          if (m.components && m.components.length > 0) {
+            out[m.meal] = m.components.map((c) => c.role);
+          }
+        }
+      }
+    }
+    return out;
+  }, [menu, day]);
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -145,36 +168,33 @@ export function MenuReplaceScreen() {
         setLoading(false);
         return;
       }
-      if (!wholeDay) {
-        const meal = meals[0];
-        const list = await getSlotVariants(id, day, meal);
-        setVariantsByMeal((s) => ({ ...s, [meal]: list }));
-        setLoading(false);
-        if (list.length === 0) setError('Подходящих замен для этого слота не нашлось.');
-        return;
-      }
+      const slots = meals.flatMap((m) => (rolesByMeal[m] ?? ['main']).map((r) => ({ meal: m, role: r })));
       const entries = await Promise.all(
-        DAY_MEALS.map(async (m) => [m, await getSlotVariants(id, day, m)] as const)
+        slots.map(async (s) => [slotKey(s.meal, s.role), await getSlotVariants(id, day, s.meal, s.role)] as const)
       );
-      const next = { breakfast: [] as MenuSlotVariant[], lunch: [] as MenuSlotVariant[], dinner: [] as MenuSlotVariant[] };
-      let empty = 0;
-      for (const [m, list] of entries) {
-        next[m] = list;
-        if (list.length === 0) empty += 1;
+      const next: Record<string, MenuSlotVariant[]> = {};
+      let total = 0;
+      for (const [k, list] of entries) {
+        next[k] = list;
+        total += list.length;
       }
-      setVariantsByMeal(next);
+      setVariants(next);
       setLoading(false);
-      if (empty === DAY_MEALS.length) setError('Подходящих замен для этого дня не нашлось.');
+      if (total === 0) {
+        setError(meals.length > 1 ? 'Подходящих замен для этого дня не нашлось.' : 'Подходящих замен для этого слота не нашлось.');
+      }
     };
     void load();
-  }, [id, day, wholeDay, meals, getSlotVariants]);
+  }, [id, day, wholeDay, meals, rolesByMeal, getSlotVariants]);
 
   const hasSelection = Object.values(selected).some((v) => v !== null);
 
   const apply = async () => {
     const replacements: MenuSlotReplacement[] = [];
-    for (const m of meals) {
-      if (selected[m]) replacements.push({ day, meal: m, recipeId: selected[m]! });
+    for (const [key, recipeId] of Object.entries(selected)) {
+      if (!recipeId) continue;
+      const [meal, role] = key.split(':') as [MenuMealId, MealComponentId];
+      replacements.push({ day, meal, role, recipeId });
     }
     if (replacements.length === 0) return;
     const updated = await replaceMenuSlots(id, replacements);
@@ -199,30 +219,39 @@ export function MenuReplaceScreen() {
 
       {!loading &&
         meals.map((m) => {
-          const list = variantsByMeal[m];
-          if (list.length === 0) return null;
+          const roleList = rolesByMeal[m] ?? ['main'];
+          const groups = roleList.filter((r) => (variants[slotKey(m, r)]?.length ?? 0) > 0);
+          if (groups.length === 0) return null;
           return (
             <div key={m}>
               {wholeDay && <div style={styles.groupTitle}>{MEAL_TITLES[m]}</div>}
-              {list.map((v) => {
-                const isSel = selected[m] === v.recipeId;
+              {groups.map((r) => {
+                const key = slotKey(m, r);
                 return (
-                  <button
-                    key={v.recipeId}
-                    style={{ ...styles.variant, ...(isSel ? styles.variantSelected : {}) }}
-                    onClick={() => setSelected((s) => ({ ...s, [m]: isSel ? null : v.recipeId }))}
-                  >
-                    <span style={styles.variantBody}>
-                      <span style={styles.variantName}>{v.name}</span>
-                      <span style={styles.variantSub}>
-                        {v.costPerServing > 0 && `≈ ${fmtQty(v.costPerServing)} BYN/порц.`}
-                        {v.kcalPerServing != null && ` · ${v.kcalPerServing} ккал`}
-                        {v.timeMin != null && ` · ${v.timeMin} мин`}
-                        {v.priceMissing && ' · без цены'}
-                      </span>
-                    </span>
-                    <span style={styles.variantCost}>{v.cost.toFixed(2)} BYN</span>
-                  </button>
+                  <div key={r}>
+                    {roleList.length > 1 && <div style={styles.roleTitle}>{MEAL_COMPONENT_TITLES[r]}</div>}
+                    {variants[key].map((v) => {
+                      const isSel = selected[key] === v.recipeId;
+                      return (
+                        <button
+                          key={v.recipeId}
+                          style={{ ...styles.variant, ...(isSel ? styles.variantSelected : {}) }}
+                          onClick={() => setSelected((s) => ({ ...s, [key]: isSel ? null : v.recipeId }))}
+                        >
+                          <span style={styles.variantBody}>
+                            <span style={styles.variantName}>{v.name}</span>
+                            <span style={styles.variantSub}>
+                              {v.costPerServing > 0 && `≈ ${fmtQty(v.costPerServing)} BYN/порц.`}
+                              {v.kcalPerServing != null && ` · ${v.kcalPerServing} ккал`}
+                              {v.timeMin != null && ` · ${v.timeMin} мин`}
+                              {v.priceMissing && ' · без цены'}
+                            </span>
+                          </span>
+                          <span style={styles.variantCost}>{v.cost.toFixed(2)} BYN</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
               })}
             </div>

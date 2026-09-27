@@ -1,5 +1,5 @@
 ﻿import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuSlotReplacement, MenuSlotVariant, MenuLeftover, MenuLeftoverSuggestion, MenuIngredientGroup, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuSlotReplacement, MenuSlotVariant, MenuLeftover, MenuLeftoverSuggestion, MenuIngredientGroup, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId, MenuMember, MenuMealId, MealComponentId, MealComponents } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions, subscribeToGameSessions, unsubscribeFromGameSessions } from '../api/supabase';
 
@@ -134,7 +134,7 @@ interface ValentinesState {
   fetchMenuHistory: () => Promise<void>;
   fetchMenu: (id: string) => Promise<MenuResult | null>;
   pickMenuRecipes: (id: string, recipeIds: string[]) => Promise<MenuResult | null>;
-  getSlotVariants: (id: string, day: number, meal: string) => Promise<MenuSlotVariant[]>;
+  getSlotVariants: (id: string, day: number, meal: MenuMealId, role: MealComponentId) => Promise<MenuSlotVariant[]>;
   replaceMenuSlots: (id: string, replacements: MenuSlotReplacement[]) => Promise<MenuResult | null>;
   menuLeftovers: MenuLeftover[];
   menuLeftoversLoading: boolean;
@@ -144,6 +144,7 @@ interface ValentinesState {
   clearMenu: () => void;
   menuDraft: MenuDraft;
   updateMenuDraft: (patch: Partial<MenuDraft>) => void;
+  updateMenuMembers: (members: MenuMember[]) => void;
   resetMenuDraft: () => void;
 }
 
@@ -156,6 +157,10 @@ export interface MenuDraft {
   customAllergens: string[];
   disliked: string[];
   cookware: MenuCookwareId[];
+  /** Per-eater cards driving per-meal servings (legacy `adults`/`children` mirror them). */
+  members: MenuMember[];
+  /** Multi-dish composition of lunch/dinner; empty roles = single dish. */
+  mealComponents: MealComponents;
 }
 
 function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId: number): ValentineWithSender {
@@ -180,6 +185,63 @@ export function daysTogether(pair: Pair | null): number {
   if (!pair) return 0;
   const start = new Date(pair.created_at).getTime();
   return Math.max(1, Math.floor((Date.now() - start) / 86400000));
+}
+
+function menuMemberId(): string {
+  return `m_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function defaultMenuMembers(): MenuMember[] {
+  return [
+    {
+      id: menuMemberId(),
+      name: 'Взрослый',
+      group: 'adult',
+      meals: ['breakfast', 'lunch', 'dinner'],
+      qty: 1,
+    },
+  ];
+}
+
+function headcountOfMembers(members: MenuMember[]): { adults: number; children: number } {
+  return {
+    adults: members.filter((m) => m.group === 'adult').length,
+    children: members.filter((m) => m.group === 'child').length,
+  };
+}
+
+/**
+ * Mirrors a backend menu result onto the client shape, normalising any legacy
+ * saved menu (pre-components) that stores `meal.recipe` at the meal level.
+ */
+function normalizeMenuResult(menu: MenuResult): MenuResult {
+  const s = menu.servings ?? ({} as MenuResult['servings']);
+  return {
+    ...menu,
+    servings: {
+      adults: s.adults ?? 0,
+      children: s.children ?? 0,
+      adultCoefficient: s.adultCoefficient ?? 1,
+      childCoefficient: s.childCoefficient ?? 0.7,
+      effectiveServings: s.effectiveServings ?? s.adults + s.children,
+      perMeal: s.perMeal ?? {
+        breakfast: s.adults > 0 || s.children > 0 ? 1 : 0,
+        lunch: s.effectiveServings ?? 1,
+        dinner: s.effectiveServings ?? 1,
+      },
+      members: s.members ?? [],
+    },
+    days: (menu.days ?? []).map((d) => ({
+      ...d,
+      meals: (d.meals ?? []).map((m) => {
+        const legacy = (m as unknown as { recipe?: MenuResult['recipes'][number] }).recipe;
+        if (legacy) {
+          return { ...m, components: [{ role: 'main' as MealComponentId, title: m.title, recipe: legacy }] };
+        }
+        return m;
+      }),
+    })),
+  };
 }
 
 export const useValentinesStore = create<ValentinesState>((set, get) => ({
@@ -750,13 +812,15 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   menuHistoryLoading: false,
   menuDraft: {
     storeId: null,
-    adults: 2,
+    adults: 1,
     children: 0,
     budget: '',
     allergens: [],
     customAllergens: [],
     disliked: [],
     cookware: [],
+    members: defaultMenuMembers(),
+    mealComponents: { lunch: [], dinner: [] },
   },
 
   fetchMenuStoresAndAllergens: async () => {
@@ -798,8 +862,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     }
     const data = result.data;
     if ('menu' in data && data.menu) {
-      set({ menuResult: data.menu, menuLoading: false, menuSaved: false });
-      return data.menu;
+      const menu = normalizeMenuResult(data.menu);
+      set({ menuResult: menu, menuLoading: false, menuSaved: false });
+      return menu;
     }
     set({ menuLoading: false });
     return null;
@@ -822,8 +887,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       set({ menuLoading: false, error: result.error });
       return null;
     }
-    set({ menuResult: result.data.menu, menuLoading: false });
-    return result.data.menu;
+    const menu = result.data.menu ? normalizeMenuResult(result.data.menu) : null;
+    set({ menuResult: menu, menuLoading: false });
+    return menu;
   },
 
   fetchMenuHistory: async () => {
@@ -843,8 +909,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       set({ menuLoading: false, error: result.error });
       return null;
     }
-    set({ menuResult: result.data.menu, menuLoading: false, menuSaved: true });
-    return result.data.menu;
+    const menu = normalizeMenuResult(result.data.menu);
+    set({ menuResult: menu, menuLoading: false, menuSaved: true });
+    return menu;
   },
 
   pickMenuRecipes: async (id, recipeIds) => {
@@ -854,12 +921,13 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       set({ menuLoading: false, error: result.error });
       return null;
     }
-    set({ menuResult: result.data.menu, menuLoading: false, menuSaved: true });
-    return result.data.menu;
+    const menu = normalizeMenuResult(result.data.menu);
+    set({ menuResult: menu, menuLoading: false, menuSaved: true });
+    return menu;
   },
 
-  getSlotVariants: async (id, day, meal) => {
-    const result = await api.getSlotVariants(id, day, meal);
+  getSlotVariants: async (id, day, meal, role) => {
+    const result = await api.getSlotVariants(id, day, meal, role);
     if (result.error || !result.data) return [];
     return result.data.variants;
   },
@@ -871,8 +939,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       set({ menuLoading: false, error: result.error });
       return null;
     }
-    set({ menuResult: result.data.menu, menuLoading: false, menuSaved: true });
-    return result.data.menu;
+    const menu = normalizeMenuResult(result.data.menu);
+    set({ menuResult: menu, menuLoading: false, menuSaved: true });
+    return menu;
   },
 
   menuLeftovers: [],
@@ -908,9 +977,25 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
 
   updateMenuDraft: (patch) => set((state) => ({ menuDraft: { ...state.menuDraft, ...patch } })),
 
+  updateMenuMembers: (members) =>
+    set((state) => ({
+      menuDraft: { ...state.menuDraft, members, ...headcountOfMembers(members) },
+    })),
+
   resetMenuDraft: () =>
     set({
-      menuDraft: { storeId: null, adults: 2, children: 0, budget: '', allergens: [], customAllergens: [], disliked: [], cookware: [] },
+      menuDraft: {
+        storeId: null,
+        adults: 1,
+        children: 0,
+        budget: '',
+        allergens: [],
+        customAllergens: [],
+        disliked: [],
+        cookware: [],
+        members: defaultMenuMembers(),
+        mealComponents: { lunch: [], dinner: [] },
+      },
     }),
 }));
 

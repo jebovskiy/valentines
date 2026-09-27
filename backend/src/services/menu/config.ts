@@ -38,8 +38,9 @@ export const MENU_MIN_BUDGET_PER_SERVING = 50;
  * выродиться в нереалистично маленькое число. */
 export const MENU_MIN_BUDGET_FLOOR = 30;
 
-export function minBudgetFor(effectiveServings: number): number {
-  return Math.max(MENU_MIN_BUDGET_FLOOR, Math.round(MENU_MIN_BUDGET_PER_SERVING * effectiveServings));
+export function minBudgetFor(effectiveServings: number, dishesPerDay = 3): number {
+  const multiplier = Math.max(1, dishesPerDay / 3);
+  return Math.max(MENU_MIN_BUDGET_FLOOR, Math.round(MENU_MIN_BUDGET_PER_SERVING * effectiveServings * multiplier));
 }
 
 /**
@@ -87,11 +88,11 @@ export const MENU_AI_TIMEOUT_MS = 180_000;
 
 /** Visible note that the meals are generated, not curated from the catalogue. */
 export const MENU_AI_WARNING =
-  'Меню и рецепты сгенерированы ИИ; цены и БЖУ рассчитаны по базе магазина. Проверяйте состав на аллергены вручную.';
+  'Меню и рецепты составлены автоматически; цены и БЖУ рассчитаны по базе магазина. Проверяйте состав на аллергены вручную.';
 
 /** Visible note when the planner had to use the deterministic catalogue instead. */
 export const MENU_AI_FALLBACK_WARNING =
-  'ИИ-планировщик не смог собрать полное меню в бюджет — показан подбор из каталога рецептов';
+  'Составить полное меню автоматически не удалось — показан подбор из каталога рецептов';
 
 export function priceMaxAgeMs(): number {
   return PRICE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;

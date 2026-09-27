@@ -310,8 +310,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ recipe_ids: recipeIds }),
     }),
-  getSlotVariants: (id: string, day: number, meal: string) =>
-    fetchWithAuth<{ variants: MenuSlotVariant[] }>(`/api/menu/${id}/variants?day=${day}&meal=${meal}`),
+  getSlotVariants: (id: string, day: number, meal: string, role: string) =>
+    fetchWithAuth<{ variants: MenuSlotVariant[] }>(`/api/menu/${id}/variants?day=${day}&meal=${meal}&role=${role}`),
   replaceMenuSlots: (id: string, replacements: MenuSlotReplacement[]) =>
     fetchWithAuth<{ menu: MenuResult }>(`/api/menu/${id}/replace`, {
       method: 'POST',

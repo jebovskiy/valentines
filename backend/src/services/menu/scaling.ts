@@ -1,7 +1,7 @@
 import { getIngredient } from './fixtures';
 import { SERVING_COEFFICIENTS } from './config';
 import type {
-  Ingredient, Recipe, RecipeIngredientScaled, ServingsBreakdown,
+  Ingredient, MealId, MenuRequest, Recipe, RecipeIngredientScaled, ServingsBreakdown,
 } from './types';
 
 export function round1(n: number): number {
@@ -41,6 +41,30 @@ export function servingsBreakdown(
     childCoefficient: coefficients.child,
     effectiveServings: round1(effectiveServings),
   };
+}
+
+/**
+ * Effective servings per meal. When the request carries per-member profiles a
+ * member only contributes to the meals they attend (coefficient × their qty);
+ * otherwise legacy `adults`/`children` are assumed to attend every meal.
+ */
+export function mealServings(request: Pick<MenuRequest, 'members' | 'adults' | 'children'>): Record<MealId, number> {
+  const members = request.members ?? [];
+  if (members.length > 0) {
+    const out: Record<MealId, number> = { breakfast: 0, lunch: 0, dinner: 0 };
+    for (const m of members) {
+      const coef = SERVING_COEFFICIENTS[m.group] ?? 1;
+      for (const meal of m.meals) out[meal] = round1(out[meal] + coef * m.qty);
+    }
+    return out;
+  }
+  const eff = servingsBreakdown(request.adults, request.children).effectiveServings;
+  return { breakfast: eff, lunch: eff, dinner: eff };
+}
+
+/** Largest per-meal effective servings (drives budget floor and default scaling). */
+export function maxMealServings(perMeal: Record<MealId, number>): number {
+  return Math.max(perMeal.breakfast, perMeal.lunch, perMeal.dinner, 0);
 }
 
 /**
