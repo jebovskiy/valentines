@@ -40,6 +40,14 @@ export const MENU_MAX_RECIPE_REPEATS = 2;
 /** A price older than this many days is not considered fresh for selection. */
 export const PRICE_MAX_AGE_DAYS = 30;
 
+/**
+ * How many unpriced ingredients a recipe may still have and stay eligible for
+ * the menu. A dish missing «перец»/«томатная паста» in the store catalogue is
+ * still suggested; its cost then excludes those ingredients and the menu shows
+ * a note. Recipes with more unmatched ingredients than this are rejected.
+ */
+export const MENU_MAX_UNPRICED_INGREDIENTS = 2;
+
 /** Menu result ids are only ever generated once; prefix for human-readable ids. */
 export const MENU_ID_PREFIX = 'menu';
 

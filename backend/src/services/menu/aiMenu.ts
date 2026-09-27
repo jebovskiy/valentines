@@ -6,6 +6,7 @@ import {
   MENU_AI_WARNING,
   MENU_DAILY_MEALS,
   MENU_ID_PREFIX,
+  MENU_MAX_UNPRICED_INGREDIENTS,
   MENU_MIN_BUDGET,
   MENU_WEEK_DAYS,
 } from './config';
@@ -291,7 +292,8 @@ ${uniqueRule}
 7. Ингредиенты — ТОЛЬКО из «ДОСТУПНЫХ ПРОДУКТОВ» внизу (у каждого реальная цена магазина). Указывай названия ровно как в списке, ничего не придумывай. Цены в ответе НЕ указывай — их посчитает система.
 8. Для каждого блюда дай ПОЛНЫЕ пошаговые инструкции приготовления и примерную пищевую ценность на 1 порцию (ккал, белки, жиры, углеводы в г).
 9. Каждое блюдо — полноценный приём пищи минимум из 2 ингредиентов (не только гарнир). Блюдо из одного продукта («отварной картофель», «жареный лук») недопустимо: добавь к нему белок, соус или овощи из списка. Яйца указывай в штуках ("pcs").
-10. Соль, перец, специи, сахар, растительное масло, уксус, вода и любые приправы в магазине ОТСУТСТВУЮТ — не включай их в "ingredients" вообще. В "ingredients" — только позиции из «ДОСТУПНЫХ ПРОДУКТОВ».`;
+10. В "ingredients" — ТОЛЬКО позиции из «ДОСТУПНЫХ ПРОДУКТОВ» ниже, названия копируй из списка дословно. Соль, перец, специи, сахар, растительное масло, уксус, вода и приправы в магазине ОТСУТСТВУЮТ — не включай их в "ingredients" вообще.
+11. Если рецепту нужен продукт, которого НЕТ в списке (например, пшено, кабачок, банан, фарш, кабачки) — замени его похожим доступным продуктом из списка (крупа вместо пшена, морковь/овощи вместо кабачка, куриная голень или куриное филе вместо фарша, яблоко вместо банана). Никогда не выдумывай названия, которых нет в списке.`;
 }
 
 function dayJsonSpec(): string {
@@ -403,10 +405,12 @@ async function buildSlot(
   const reject = (reason: string): SlotBuild => ({ ...base, rejection: reason });
 
   const rawIngredients: { ingredientId: string; qty: number; unit: Unit }[] = [];
+  const unknownNames: string[] = [];
   for (const ai of plan.ingredients) {
     const ing = getIngredientByName(ai.name);
     if (!ing) {
-      return reject(`ингредиент «${ai.name}» не из списка допустимых`);
+      unknownNames.push(ai.name);
+      continue;
     }
     if (ai.unit === ing.unit) {
       rawIngredients.push({ ingredientId: ing.id, qty: ai.qty, unit: ing.unit });
@@ -417,6 +421,14 @@ async function buildSlot(
       return reject(`нельзя перевести единицы ингредиента «${ing.name}»`);
     }
     rawIngredients.push({ ingredientId: ing.id, qty: converted, unit: ing.unit });
+  }
+
+  if (rawIngredients.length === 0) {
+    return reject(
+      `ни один ингредиент не найден в списке допустимых (${
+        unknownNames.length > 0 ? unknownNames.join(', ') : 'пустой список ингредиентов'
+      })`
+    );
   }
 
   const ingredients = mergeIngredients(rawIngredients);
@@ -523,7 +535,8 @@ async function buildSlot(
   }
 
   const pricing = priceRecipe(scaledIngredients, offers, request.storeId, servings, now);
-  if (pricing.priceMissing.length > 0) {
+  const hasPricedBase = scaledIngredients.length - pricing.priceMissing.length > 0;
+  if (pricing.priceMissing.length > MENU_MAX_UNPRICED_INGREDIENTS || !hasPricedBase) {
     return reject(`нет цены в магазине: ${pricing.priceMissing.map((m) => m.name).join(', ')}`);
   }
 
@@ -648,6 +661,12 @@ function assembleResult(
       .map((s) => `${MEAL_TITLES[s.meal]} · день ${s.day} («${s.dishName}»): ${s.rejection}`)
       .join('; ');
     warnings.push(`Отклонено проверкой безопасности: ${reasons}.`);
+  }
+  const unpriced = new Set<string>();
+  for (const r of recipes) for (const m of r.priceMissing) unpriced.add(m.name);
+  if (unpriced.size > 0) {
+    const list = [...unpriced].slice(0, 6).join(', ');
+    warnings.push(`Цены нет для: ${list}. Эти блюда оставлены, но их стоимость и БЖУ приблизительны — эти продукты не входят в чек.`);
   }
 
   return {

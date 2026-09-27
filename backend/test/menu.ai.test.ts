@@ -231,6 +231,54 @@ test('aiMenu: degenerate quantities (5 g) and garnishes-only never reach the use
   assert.ok(result.recipes.every((r) => r.recipe.dataKind !== 'ai'), 'degenerate AI dishes must not leak');
 });
 
+test('aiMenu: ingredients outside the catalogue are skipped, not fatal to the dish', async () => {
+  // The real model keeps inventing items the store does not sell (it used to
+  // be «Пшено», «Кабачок», «Банан», «Фарш» until they landed in the
+  // catalogue). Rejecting the whole dish for one unknown ingredient starves
+  // fill; the accepted behaviour is to drop unknown ingredients and keep the
+  // rest of the meal. The invented names below are guaranteed to stay out of
+  // the catalogue forever, and the rest of the day is cheap enough to fit the
+  // 40 BYN budget even after unknown ingredients are dropped.
+  const unknownLabel = (day: number, kind: string) => `Экзотический ${kind} ${day}`;
+  const farDay = (day: number): string =>
+    dayJson({
+      breakfast: dish(`Каша день ${day}`, [
+        ['Овсяные хлопья', 30, 'g'],
+        [unknownLabel(day, 'злак'), 50, 'g'],
+      ]),
+      lunch: dish(`Обед день ${day}`, [
+        ['Картофель', 200, 'g'],
+        ['Морковь', 100, 'g'],
+        [unknownLabel(day, 'фарш'), 150, 'g'],
+      ]),
+      dinner: dish(`Ужин день ${day}`, [
+        ['Картофель', 200, 'g'],
+        ['Капуста белокочанная', 150, 'g'],
+        [unknownLabel(day, 'корнеплод'), 150, 'g'],
+      ]),
+    });
+
+  const result = await generateMenuWithAi(baseRequest, {
+    providers: providersOf(),
+    now: NOW,
+    generatePlan: async (_prompt, day) => farDay(day),
+  });
+
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+
+  assert.equal(result.days.length, 7);
+  const meals = result.days.flatMap((d) => d.meals);
+  assert.equal(meals.length, WEEK_SLOTS);
+  assert.ok(result.totalCost <= result.budget + 1e-9, `total ${result.totalCost} must fit ${result.budget}`);
+  assert.ok(!result.warnings.some((w) => w.includes(MENU_AI_FALLBACK_WARNING)), 'no fallback for partially-known dishes');
+  for (const r of result.recipes) {
+    for (const si of r.scaledIngredients) {
+      assert.ok(!/экзотический/.test(si.ingredient.name.toLowerCase()), `unknown ingredient leaked: ${si.ingredient.name}`);
+    }
+  }
+});
+
 test('aiMenu: invalid JSON never leaks a partial/invalid plan to the user', async () => {
   const result = await generateMenuWithAi(baseRequest, {
     providers: providersOf(),

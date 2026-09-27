@@ -4,6 +4,7 @@ import {
   MENU_DAILY_MEALS,
   MENU_ID_PREFIX,
   MENU_MAX_RECIPE_REPEATS,
+  MENU_MAX_UNPRICED_INGREDIENTS,
   MENU_MIN_BUDGET,
   MENU_WEEK_DAYS,
 } from './config';
@@ -39,6 +40,15 @@ export interface PlannerCounters {
 }
 
 const EPS = 1e-9;
+
+/** Warn user once when picked recipes contain ingredients without a live price. */
+function unpricedIngredientsWarning(picked: RecipeChoice[]): string | null {
+  const names = new Set<string>();
+  for (const p of picked) for (const m of p.priceMissing) names.add(m.name);
+  if (names.size === 0) return null;
+  const list = [...names].slice(0, 6).join(', ');
+  return `Цены нет для: ${list}. Эти блюда оставлены, но их стоимость и БЖУ приблизительны — эти продукты не входят в чек.`;
+}
 
 /** Slot label like «Завтрак · День 3» used in failure diagnostics. */
 export function slotLabel(meal: MealId, day: number): string {
@@ -164,8 +174,12 @@ export async function generateMenu(
     // --- pricing -------------------------------------------------------------
     const pricing = priceRecipe(scaledIngredients, offers, request.storeId, effectiveServings, now);
     const fullyPriced = pricing.priceMissing.length === 0;
+    // Softened pricing filter: tolerate a few unpriced «мелкие» items (перец,
+    // соль) as long as the bulk of the dish still has real prices.
+    const hasPricedBase = scaledIngredients.length - pricing.priceMissing.length > 0;
+    const pricedEnough = pricing.priceMissing.length <= MENU_MAX_UNPRICED_INGREDIENTS && hasPricedBase;
     counters.staleMissing += pricing.staleMissing;
-    if (!rejected && !fullyPriced) {
+    if (!rejected && !pricedEnough) {
       counters.priceMissingRecipes += 1;
       rejected = true;
       rejectedReason = 'price_missing';
@@ -208,7 +222,7 @@ export async function generateMenu(
     });
   }
 
-  const usable = candidates.filter((c) => !c.rejectedReason && c.fullyPriced);
+  const usable = candidates.filter((c) => !c.rejectedReason);
   if (usable.length === 0) {
     if (recipes.length === 0) {
       return { code: 'empty_catalog', message: 'Каталог рецептов пуст' };
@@ -262,6 +276,8 @@ export async function generateMenu(
 
   const warnings = buildWarnings(counters, providers, picked, totalCost, correctnessWarnings(best, wantedSlots, effectiveBudget, request.budget));
   warnings.push(...repetitionWarnings(picked));
+  const unpricedNote = unpricedIngredientsWarning(picked);
+  if (unpricedNote) warnings.push(unpricedNote);
 
   const result: MenuResult = {
     id: `${MENU_ID_PREFIX}-${randomUUID()}`,
