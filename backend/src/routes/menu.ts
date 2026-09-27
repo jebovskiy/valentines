@@ -225,11 +225,12 @@ export async function menuRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
-    const menu = (await getLatestStoredMenuForPair(pair.id))?.result;
-    if (!menu) return reply.code(200).send({ items: [] });
+const menu = (await getLatestStoredMenuForPair(pair.id))?.result;
+      const shoppingList = menu?.shoppingList;
+      if (!shoppingList || !Array.isArray(shoppingList.items)) return reply.code(200).send({ items: [] });
 
-    const items: { ingredientId: string; name: string; qty: number; unit: string }[] = [];
-    for (const item of menu.shoppingList.items) {
+      const items: { ingredientId: string; name: string; qty: number; unit: string }[] = [];
+      for (const item of shoppingList.items) {
       if (item.missing || item.stale || item.purchaseQuantity <= 0 || item.packageQuantity <= 0) continue;
       const bought = convertQuantity(
         item.purchaseQuantity * item.packageQuantity,
