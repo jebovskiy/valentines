@@ -1,5 +1,5 @@
 ﻿import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions, subscribeToGameSessions, unsubscribeFromGameSessions } from '../api/supabase';
 
@@ -121,6 +121,10 @@ interface ValentinesState {
   fetchMenuStoresAndAllergens: () => Promise<void>;
   generateMenuPlan: (request: MenuRequest) => Promise<MenuResult | MenuGenerationIssue | null>;
   fetchLatestMenu: () => Promise<MenuResult | null>;
+  menuHistory: MenuHistoryEntry[];
+  menuHistoryLoading: boolean;
+  fetchMenuHistory: () => Promise<void>;
+  fetchMenu: (id: string) => Promise<MenuResult | null>;
   pickMenuRecipes: (id: string, recipeIds: string[]) => Promise<MenuResult | null>;
   clearMenu: () => void;
   menuDraft: MenuDraft;
@@ -726,6 +730,8 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   menuAllergens: [],
   menuResult: null,
   menuLoading: false,
+  menuHistory: [],
+  menuHistoryLoading: false,
   menuDraft: {
     storeId: null,
     adults: 2,
@@ -778,6 +784,27 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   fetchLatestMenu: async () => {
     set({ menuLoading: true, error: null });
     const result = await api.getLatestMenu();
+    if (result.error || !result.data) {
+      set({ menuLoading: false, error: result.error });
+      return null;
+    }
+    set({ menuResult: result.data.menu, menuLoading: false });
+    return result.data.menu;
+  },
+
+  fetchMenuHistory: async () => {
+    set({ menuHistoryLoading: true, error: null });
+    const result = await api.getMenuHistory();
+    if (result.error || !result.data) {
+      set({ menuHistoryLoading: false, error: result.error });
+      return;
+    }
+    set({ menuHistory: result.data.menus, menuHistoryLoading: false });
+  },
+
+  fetchMenu: async (id) => {
+    set({ menuLoading: true, error: null });
+    const result = await api.getMenu(id);
     if (result.error || !result.data) {
       set({ menuLoading: false, error: result.error });
       return null;

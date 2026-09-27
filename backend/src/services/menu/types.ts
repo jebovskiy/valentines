@@ -246,7 +246,11 @@ export interface MenuResult {
   recipes: RecipeChoice[];
   /** Sum of proportional recipe costs (informational). */
   recipesCost: number;
-  /** Real purchase total based on packages — always ≤ budget. */
+  /**
+   * Real purchase total based on packages. When pickings were floored to the
+   * per-family minimum budget it may exceed the user's `budget`; the exact gap
+   * is `overspend`.
+   */
   totalCost: number;
   shoppingList: ShoppingList;
   budget: number;

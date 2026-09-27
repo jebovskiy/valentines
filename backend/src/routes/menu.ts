@@ -6,7 +6,7 @@ import { ALLERGENS } from '../services/menu/allergens';
 import { defaultProviders } from '../services/menu/providers';
 import { generateMenuWithAi, type GenerateMenuAiOptions } from '../services/menu/aiMenu';
 import { rebuildMenuForSelection } from '../services/menu/planner';
-import { createStoredMenu, getLatestStoredMenuForPair, getStoredMenuForPair, updateStoredMenuResult } from '../services/menu/persistence';
+import { createStoredMenu, getLatestStoredMenuForPair, getStoredMenuForPair, listStoredMenusForPair, updateStoredMenuResult } from '../services/menu/persistence';
 
 const storeIdEnum = ['euroopt', 'hippo', 'green', 'korona'] as const;
 const allergenEnum = ['milk', 'egg', 'peanut', 'tree_nut', 'fish', 'seafood', 'soy', 'gluten'] as const;
@@ -67,6 +67,24 @@ export async function menuRoutes(app: FastifyInstance) {
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
     const stored = await getLatestStoredMenuForPair(pair.id);
     return { menu: stored?.result ?? null, createdAt: stored?.created_at ?? null };
+  });
+
+  app.get('/history', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+    const rows = await listStoredMenusForPair(pair.id);
+    return {
+      menus: rows.map((row) => ({
+        id: row.result.id,
+        createdAt: row.created_at,
+        store: row.result.store,
+        params: row.params,
+        budget: row.result.budget,
+        totalCost: row.result.totalCost,
+        overspend: row.result.overspend,
+        recipesCount: row.result.recipes.length,
+      })),
+    };
   });
 
   app.post('/generate', { preHandler: requireTelegramAuth }, async (request, reply) => {

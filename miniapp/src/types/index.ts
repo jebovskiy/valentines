@@ -578,6 +578,18 @@ export interface MenuResult {
   generatedAt: string;
 }
 
+/** A saved weekly menu entry in the pair's history (newest first). */
+export interface MenuHistoryEntry {
+  id: string;
+  createdAt: string;
+  store: MenuStoreInfo;
+  params: MenuRequest;
+  budget: number;
+  totalCost: number;
+  overspend: number;
+  recipesCount: number;
+}
+
 export const MENU_UNIT_LABEL: Record<MenuUnit, string> = {
   g: 'г',
   ml: 'мл',

@@ -526,6 +526,10 @@ export function MenuResultScreen() {
         Список покупок с ценами
       </button>
 
+      <button onClick={() => navigate('/menu/history')} style={styles.ghostBtnBig}>
+        Сохранённые меню
+      </button>
+
       <button onClick={startNew} style={styles.ghostBtnBig}>
         Создать новый рацион
       </button>

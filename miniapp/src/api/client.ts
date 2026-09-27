@@ -33,6 +33,7 @@ import type {
   MenuAllergenInfo,
   MenuRequest,
   MenuResult,
+  MenuHistoryEntry,
   MenuServings,
   MenuShoppingList,
 } from '../types';
@@ -270,6 +271,7 @@ export const api = {
       body: JSON.stringify(request),
     }),
   getLatestMenu: () => fetchWithAuth<{ menu: MenuResult | null; createdAt: string | null }>('/api/menu'),
+  getMenuHistory: () => fetchWithAuth<{ menus: MenuHistoryEntry[] }>('/api/menu/history'),
   getMenu: (id: string) => fetchWithAuth<{ menu: MenuResult }>(`/api/menu/${id}`),
   getShoppingList: (id: string) =>
     fetchWithAuth<{

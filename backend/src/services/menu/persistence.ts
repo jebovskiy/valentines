@@ -48,6 +48,18 @@ export async function getLatestStoredMenuForPair(pairId: string): Promise<Stored
   return (data as StoredMenu) ?? null;
 }
 
+/** All stored menus for a pair, newest first — the per-week save history. */
+export async function listStoredMenusForPair(pairId: string, limit = 60): Promise<StoredMenu[]> {
+  const { data, error } = await supabase
+    .from('menus')
+    .select('*')
+    .eq('pair_id', pairId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as StoredMenu[]) ?? [];
+}
+
 /** Persists a refreshed result (e.g. after picking a subset of recipes). */
 export async function updateStoredMenuResult(menuId: string, pairId: string, result: MenuResult): Promise<void> {
   const { error } = await supabase
