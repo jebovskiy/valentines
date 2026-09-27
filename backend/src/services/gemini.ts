@@ -236,7 +236,7 @@ async function callOpenAiCompatible(
         max_tokens: maxOutputTokens,
         response_format: { type: 'json_object' },
         ...(reasoningControl === 'deepseek-thinking' ? { thinking: { type: 'disabled' } } : {}),
-        ...(reasoningControl === 'openrouter-reasoning' ? { reasoning: { enabled: false } } : {}),
+        ...(reasoningControl === 'openrouter-reasoning' && !/^(z-ai|glm)/.test(model) ? { reasoning: { enabled: false } } : {}),
         ...extraBody,
       }),
     });
