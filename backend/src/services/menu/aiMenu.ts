@@ -806,9 +806,12 @@ export async function generateMenuWithAi(
     for (let d = 1; d <= MENU_WEEK_DAYS; d += 1) {
       const daySlots = slots.filter((s) => s.day === d);
       const dayChosen = daySlots.filter((s) => s.choice);
+      // Report the WHOLE-PACKAGE cost of the day (what the user actually pays),
+      // not the proportional recipe cost, so the model sees the real overspend.
+      const dayPackageCost = buildShoppingList(buildReceiptInputs(daySlots), offers, request.storeId, now).total;
       dayReceipts.set(d, {
         filled: dayChosen.length,
-        totalCost: round2(dayChosen.reduce((sum, s) => sum + s.choice!.cost, 0)),
+        totalCost: dayPackageCost,
         rejected: daySlots.filter((s) => !s.choice && s.rejection),
         dayBudget,
       });
@@ -852,6 +855,12 @@ export async function generateMenuWithAi(
       if (totalOver && dayCost > dayBudget + EPS) {
         reasons.push(
           `Перерасход по дню: ${formatMoney(dayCost)} BYN при дневном бюджете ${formatMoney(dayBudget)} BYN — замени дорогие блюда на более дешёвые (меньше мяса, рыбы, сыров и орехов; больше круп, картофеля, овощей).`
+        );
+      }
+      if (totalOver) {
+        const overshoot = round2(shoppingList.total - effectiveBudget);
+        reasons.push(
+          `Вся неделя сейчас стоит ${formatMoney(shoppingList.total)} BYN, а бюджет ${formatMoney(effectiveBudget)} BYN — перерасход ${formatMoney(overshoot)} BYN. Сократи этот день ещё хотя бы на ${formatMoney(Math.max(1, overshoot / MENU_WEEK_DAYS))} BYN.`
         );
       }
       if (reasons.length > 0) {
