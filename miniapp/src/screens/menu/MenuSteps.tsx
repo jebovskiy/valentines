@@ -6,6 +6,25 @@ import type { MenuAllergenId, MenuCookwareId, MenuRequest, MenuStoreId } from '.
 import { setMainButton, setBackButton, hapticFeedback } from '../../utils/telegram';
 import { BackButton } from '../../components/BackButton';
 
+function normalizeBudgetInput(value: string): string {
+  const raw = value.replace(/[^\d.,]/g, '');
+  let sep = '';
+  let sepIndex = -1;
+  for (const ch of raw) {
+    if (ch === ',' || ch === '.') {
+      sep = ch;
+      sepIndex = raw.indexOf(ch);
+      break;
+    }
+  }
+  const intPart = sepIndex >= 0 ? raw.slice(0, sepIndex).replace(/[.,]/g, '') : raw.replace(/[.,]/g, '');
+  const decPart = sepIndex >= 0 ? raw.slice(sepIndex + 1).replace(/[.,]/g, '') : '';
+  if (!intPart && !decPart) return '';
+  const intClean = intPart.slice(0, 8);
+  const decClean = decPart.slice(0, 2);
+  return decClean ? `${intClean}${sep}${decClean}` : intClean;
+}
+
 const styles: Record<string, React.CSSProperties> = {
   container: {
     padding: '16px 16px calc(28px + env(safe-area-inset-bottom))',
@@ -282,6 +301,56 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     padding: 0,
   },
+  searchResults: {
+    marginTop: 6,
+    borderRadius: 14,
+    border: '1px solid var(--hairline)',
+    background: 'var(--surface-card)',
+    overflow: 'hidden',
+  },
+  searchRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    width: '100%',
+    textAlign: 'left',
+    background: 'none',
+    border: 'none',
+    borderBottom: '1px solid var(--hairline)',
+    padding: '10px 12px',
+    cursor: 'pointer',
+    fontSize: 13,
+    color: 'var(--ink)',
+  },
+  searchName: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    fontWeight: 600,
+    color: 'var(--ink)',
+  },
+  searchHint: {
+    fontSize: 11,
+    color: 'var(--ash)',
+    fontWeight: 400,
+  },
+  searchEmpty: {
+    padding: '10px 12px',
+    fontSize: 12,
+    color: 'var(--ash)',
+  },
+  alreadyAdded: {
+    fontSize: 11,
+    fontWeight: 400,
+    color: 'var(--ash)',
+  },
+  addBtn: {
+    color: 'var(--primary)',
+    fontSize: 16,
+    fontWeight: 800,
+    lineHeight: 1,
+  },
   errorBox: {
     background: 'var(--surface-card)',
     border: '1px solid var(--hairline)',
@@ -320,41 +389,87 @@ const styles: Record<string, React.CSSProperties> = {
 
 const TOTAL_STEPS = 5;
 
-function TagInput(props: {
+function ProductSearchInput(props: {
   value: string[];
   onChange: (tags: string[]) => void;
   placeholder: string;
 }) {
   const { value, onChange, placeholder } = props;
+  const { searchMenuIngredients } = useValentinesStore();
   const [text, setText] = useState('');
+  const [results, setResults] = useState<{ id: string; name: string; unit: string }[]>([]);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
 
-  const add = (raw: string) => {
-    const tag = raw.replace(/[0-9]/g, '').trim();
-    if (!tag) return;
-    onChange(value.includes(tag) ? value : [...value, tag]);
-  };
-
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
-      e.preventDefault();
-      add(text);
-      setText('');
+  const search = async (raw: string) => {
+    const q = raw.trim();
+    if (!q) {
+      setResults([]);
+      setSuggestion(null);
+      return;
     }
+    const res = await searchMenuIngredients(q);
+    setResults(res.results);
+    setSuggestion(res.suggestion);
   };
+
+  const add = (name: string) => {
+    if (!name) return;
+    const clean = name.trim();
+    if (!clean) return;
+    onChange(value.includes(clean) ? value : [...value, clean]);
+    setText('');
+    setResults([]);
+    setSuggestion(null);
+  };
+
+  const matched = results.some((r) => r.name.toLowerCase() === text.trim().toLowerCase() && text.trim().length > 0);
+  const canAddTyped = results.length === 1 && matched;
 
   return (
     <div>
       <input
         style={styles.tagInput}
         value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={onKeyDown}
-        onBlur={() => {
-          add(text);
-          setText('');
+        onChange={(e) => {
+          setText(e.target.value);
+          void search(e.target.value);
         }}
         placeholder={placeholder}
+        autoCapitalize="off"
+        autoCorrect="off"
       />
+      {text.trim().length >= 2 && (
+        <div style={styles.searchResults}>
+          {results.length === 0 && !suggestion && (
+            <div style={styles.searchEmpty}>Ничего не найдено в каталоге продуктов</div>
+          )}
+          {results.map((r) => (
+            <button key={r.id} style={styles.searchRow} onClick={() => add(r.name)}>
+              <span style={styles.searchName}>
+                {r.name}
+                {value.includes(r.name) && <span style={styles.alreadyAdded}>уже добавлено</span>}
+              </span>
+              <span style={styles.addBtn}>+</span>
+            </button>
+          ))}
+          {results.length > 0 && suggestion === null && !matched && (
+            <button style={styles.searchRow} onClick={() => canAddTyped && text.trim() && add(text.trim())} disabled={!canAddTyped}>
+              <span style={styles.searchName}>
+                {text.trim()}
+                <span style={styles.searchHint}>нет в каталоге</span>
+              </span>
+            </button>
+          )}
+          {suggestion && (
+            <button style={styles.searchRow} onClick={() => add(suggestion)}>
+              <span style={styles.searchName}>
+                Возможно вы имели в виду: <strong>{suggestion}</strong>
+              </span>
+              <span style={styles.addBtn}>+</span>
+            </button>
+          )}
+        </div>
+      )}
       {value.length > 0 && (
         <div style={styles.tagChips}>
           {value.map((tag) => (
@@ -611,7 +726,7 @@ export function MenuBudgetStep() {
         inputMode="decimal"
         placeholder={`например, ${familyMin}`}
         value={menuDraft.budget}
-        onChange={(e) => updateMenuDraft({ budget: e.target.value.replace(/[^\d.,]/g, '') })}
+        onChange={(e) => updateMenuDraft({ budget: normalizeBudgetInput(e.target.value) })}
       />
       {belowMin && (
         <div style={styles.errorBox}>
@@ -767,22 +882,22 @@ export function MenuAllergensStep() {
 
       <div style={styles.tagSectionTitle}>Свои аллергии</div>
       <div style={styles.tagSectionHint}>
-        Если аллергия не в списке — впишите продукт (например «курица», «консервы», «грибы»). Разделяйте слова пробелом или запятой.
+        Введите продукт (например «курица», «грибы») и выберите его из подсказок — в список попадают только продукты нашего каталога.
       </div>
-      <TagInput
+      <ProductSearchInput
         value={menuDraft.customAllergens}
         onChange={(tags) => updateMenuDraft({ customAllergens: tags })}
-        placeholder="Например: курица, грибы"
+        placeholder="Поиск: курица, грибы…"
       />
 
       <div style={styles.tagSectionTitle}>Что не нравится</div>
       <div style={styles.tagSectionHint}>
         Нелюбимые продукты тоже будут исключены из блюд на неделю.
       </div>
-      <TagInput
+      <ProductSearchInput
         value={menuDraft.disliked}
         onChange={(tags) => updateMenuDraft({ disliked: tags })}
-        placeholder="Например: печень, кабачки"
+        placeholder="Поиск: печень, кабачки…"
       />
     </StepFrame>
   );

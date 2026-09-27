@@ -5,10 +5,15 @@ import { getPairByUser } from '../services/database';
 import { ALLERGENS } from '../services/menu/allergens';
 import { defaultProviders } from '../services/menu/providers';
 import { generateMenuWithAi, type GenerateMenuAiOptions } from '../services/menu/aiMenu';
-import { rebuildMenuForSelection } from '../services/menu/planner';
+import { listSlotVariants, rebuildMenuForSelection, replaceMenuSlots } from '../services/menu/planner';
+import { searchIngredients, suggestIngredientName } from '../services/menu/fixtures';
+import { convertQuantity } from '../services/menu/costing';
+import { round2 } from '../services/menu/scaling';
+import { getExistingStockForPair, setLeftoversForPair } from '../services/menu/leftovers';
 import { createStoredMenu, getLatestStoredMenuForPair, getStoredMenuForPair, listStoredMenusForPair, updateStoredMenuResult } from '../services/menu/persistence';
 
 const storeIdEnum = ['euroopt', 'hippo', 'green', 'korona'] as const;
+const unitEnum = ['g', 'ml', 'pcs'] as const;
 const allergenEnum = ['milk', 'egg', 'peanut', 'tree_nut', 'fish', 'seafood', 'soy', 'gluten'] as const;
 const cookwareEnum = [
   'skillet',
@@ -22,7 +27,7 @@ const cookwareEnum = [
   'kettle',
 ] as const;
 
-const menuRequestSchema = z
+const menuRequestShape = z
   .object({
     storeId: z.enum(storeIdEnum),
     adults: z.number().int().min(0).max(20),
@@ -38,14 +43,41 @@ const menuRequestSchema = z
     message: 'Хотя бы один взрослый или ребёнок',
   });
 
+const menuRequestSchema = menuRequestShape;
+
 const pickSchema = z.object({
   recipe_ids: z.array(z.string().min(1).max(200)).min(1),
+});
+
+const saveSchema = z.object({
+  menu: z.object({
+    id: z.string().min(1).max(200),
+    request: menuRequestShape,
+  }),
+});
+
+const mealEnum = z.enum(['breakfast', 'lunch', 'dinner']);
+
+const replaceSchema = z.object({
+  replacements: z
+    .array(
+      z.object({
+        day: z.number().int().min(1).max(7),
+        meal: mealEnum,
+        recipeId: z.string().min(1).max(200),
+      })
+    )
+    .min(1)
+    .max(21),
 });
 
 export async function menuRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
-  const providersOptions = (): GenerateMenuAiOptions => ({ providers: defaultProviders() });
+  const providersOptions = (existingStock?: GenerateMenuAiOptions['existingStock']): GenerateMenuAiOptions => ({
+    providers: defaultProviders(),
+    ...(existingStock ? { existingStock } : {}),
+  });
 
   app.get('/stores', { preHandler: requireTelegramAuth }, async () => {
     const providers = defaultProviders();
@@ -61,6 +93,15 @@ export async function menuRoutes(app: FastifyInstance) {
     allergens: ALLERGENS,
     legalDisclaimer: 'Подбор исключает рецепты с указанными ингредиентами на основе курируемого каталога; данные не заменяют консультацию врача.',
   }));
+
+  app.get('/ingredients/search', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const query = z.object({ q: z.string().min(1).max(60) }).safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'Empty query' });
+    const q = query.data.q;
+    const results = searchIngredients(q);
+    const suggestion = results.length > 0 ? null : suggestIngredientName(q);
+    return { q, results, suggestion, exact: results.some((r) => r.name.toLowerCase() === q.toLowerCase()) };
+  });
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
     const pair = await getPairByUser(request.telegramUser!.id);
@@ -94,16 +135,93 @@ export async function menuRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
+    const existingStock = await getExistingStockForPair(pair.id);
+
     // AI-driven week: Gemini builds dishes within the budget (revising against
     // real store prices); any failure falls back to the deterministic planner.
-    const result = await generateMenuWithAi(parsed.data, { providers: defaultProviders(), randomize: true });
+    const result = await generateMenuWithAi(parsed.data, {
+      ...providersOptions(existingStock),
+      randomize: true,
+    });
     if ('code' in result) {
       if (result.code === 'invalid_store') return reply.code(400).send({ error: result.message, code: result.code });
       return reply.code(422).send({ error: result.message, code: result.code });
     }
 
-    await createStoredMenu(pair.id, parsed.data, result);
-    return reply.code(201).send({ menu: result });
+    return reply.code(200).send({ menu: result });
+  });
+
+  app.post('/save', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const parsed = saveSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid menu payload' });
+
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+
+    await createStoredMenu(pair.id, parsed.data.menu.request, parsed.data.menu as never);
+    return reply.code(201).send({ saved: true, id: parsed.data.menu.id });
+  });
+
+  const leftoverSchema = z.object({
+    items: z
+      .array(
+        z.object({
+          ingredientId: z.string().min(1).max(200),
+          qty: z.number().positive().max(1000000),
+          unit: z.enum(unitEnum),
+        })
+      )
+      .max(300),
+  });
+
+  app.get('/leftovers', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+    const leftovers = await getExistingStockForPair(pair.id);
+    return { leftovers };
+  });
+
+  app.put('/leftovers', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const parsed = leftoverSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid leftovers' });
+
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+
+    await setLeftoversForPair(
+      pair.id,
+      parsed.data.items.map((i) => ({ ingredientId: i.ingredientId, qty: i.qty, unit: i.unit }))
+    );
+    return reply.code(200).send({ saved: true });
+  });
+
+  app.post('/leftovers/suggest', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+
+    const menu = (await getLatestStoredMenuForPair(pair.id))?.result;
+    if (!menu) return reply.code(200).send({ items: [] });
+
+    const items: { ingredientId: string; name: string; qty: number; unit: string }[] = [];
+    for (const item of menu.shoppingList.items) {
+      if (item.missing || item.stale || item.purchaseQuantity <= 0 || item.packageQuantity <= 0) continue;
+      const bought = convertQuantity(
+        item.purchaseQuantity * item.packageQuantity,
+        item.packageUnit,
+        item.requiredUnit,
+        undefined
+      );
+      if (bought === null) continue;
+      const leftover = Math.max(0, bought - item.requiredQuantity);
+      if (leftover <= 0.001) continue;
+      items.push({
+        ingredientId: item.ingredientId,
+        name: item.name,
+        qty: round2(leftover),
+        unit: item.requiredUnit,
+      });
+    }
+    return { items };
   });
 
   app.get('/:id', { preHandler: requireTelegramAuth }, async (request, reply) => {
@@ -114,6 +232,56 @@ export async function menuRoutes(app: FastifyInstance) {
     const stored = await getStoredMenuForPair(id, pair.id);
     if (!stored) return reply.code(404).send({ error: 'Menu not found' });
     return { menu: stored.result };
+  });
+
+  app.get('/:id/variants', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const query = z
+      .object({ day: z.coerce.number().int().min(1).max(7), meal: mealEnum })
+      .safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: 'Invalid slot' });
+
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+
+    const stored = await getStoredMenuForPair(id, pair.id);
+    if (!stored) return reply.code(404).send({ error: 'Menu not found' });
+
+    const menu = stored.result;
+    const current = menu.days
+      .find((d) => d.day === query.data.day)
+      ?.meals.find((m) => m.meal === query.data.meal)?.recipe.recipe.id;
+    if (!current) return reply.code(404).send({ error: 'Slot not found' });
+
+    const variants = await listSlotVariants(menu, query.data.meal, current, providersOptions());
+    return { variants };
+  });
+
+  app.post('/:id/replace', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const parsed = replaceSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'Invalid replacement' });
+
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+
+    const stored = await getStoredMenuForPair(id, pair.id);
+    if (!stored) return reply.code(404).send({ error: 'Menu not found' });
+
+    const menu = stored.result;
+    const replacements = parsed.data.replacements.filter((r) => {
+      const slot = menu.days.find((d) => d.day === r.day)?.meals.find((m) => m.meal === r.meal);
+      return !!slot && slot.recipe.recipe.id !== r.recipeId;
+    });
+    if (replacements.length === 0) {
+      return reply.code(400).send({ error: 'Нечего заменять' });
+    }
+
+    const updated = await replaceMenuSlots(menu, replacements, providersOptions(await getExistingStockForPair(pair.id)));
+    if (!updated) return reply.code(400).send({ error: 'Один из заменяющих рецептов не подходит для этого слота' });
+
+    await updateStoredMenuResult(id, pair.id, updated);
+    return { menu: updated };
   });
 
   app.get('/:id/shopping-list', { preHandler: requireTelegramAuth }, async (request, reply) => {
@@ -162,7 +330,7 @@ export async function menuRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Не выбран ни один из рецептов меню' });
     }
 
-    const updated = await rebuildMenuForSelection(menu, picked, providersOptions());
+    const updated = await rebuildMenuForSelection(menu, picked, providersOptions(await getExistingStockForPair(pair.id)));
     await updateStoredMenuResult(id, pair.id, updated);
     return { menu: updated };
   });

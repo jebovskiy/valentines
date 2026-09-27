@@ -115,6 +115,54 @@ test('buildShoppingList: whole packages, merges quantities, deterministic order'
   assert.equal(list.missingItemsCount, 0);
 });
 
+test('buildShoppingList: existing stock is deducted from package purchases', () => {
+  const offers = buildMockOffers().filter((o) => o.storeId === 'euroopt');
+  const eggs = INGREDIENTS.find((i) => i.id === 'eggs')!;
+  const milk = INGREDIENTS.find((i) => i.id === 'milk')!;
+  const list = buildShoppingList(
+    [
+      { ingredient: eggs, qty: 7, unit: 'pcs' },
+      { ingredient: milk, qty: 1200, unit: 'ml' },
+    ],
+    offers,
+    'euroopt',
+    NOW,
+    [
+      { ingredientId: 'eggs', qty: 4, unit: 'pcs' },
+      { ingredientId: 'milk', qty: 1300, unit: 'ml' },
+    ]
+  );
+  const eggsItem = list.items.find((i) => i.ingredientId === 'eggs')!;
+  assert.equal(eggsItem.requiredQuantity, 7);
+  assert.equal(eggsItem.stockCovered, 4);
+  assert.equal(eggsItem.purchaseQuantity, 1); // 3 left -> still one 10-pk
+  assert.equal(eggsItem.subtotal, 4.79);
+
+  const milkItem = list.items.find((i) => i.ingredientId === 'milk')!;
+  assert.equal(milkItem.stockCovered, 1200);
+  assert.equal(milkItem.purchaseQuantity, 0); // fully covered by stock
+  assert.equal(milkItem.subtotal, 0);
+
+  assert.equal(list.total, round2(4.79));
+  assert.equal(list.missingItemsCount, 0);
+});
+
+test('buildShoppingList: stock is capped at the requirement', () => {
+  const offers = buildMockOffers().filter((o) => o.storeId === 'euroopt');
+  const eggs = INGREDIENTS.find((i) => i.id === 'eggs')!;
+  const list = buildShoppingList(
+    [{ ingredient: eggs, qty: 6, unit: 'pcs' }],
+    offers,
+    'euroopt',
+    NOW,
+    [{ ingredientId: 'eggs', qty: 99, unit: 'pcs' }]
+  );
+  const eggsItem = list.items.find((i) => i.ingredientId === 'eggs')!;
+  assert.equal(eggsItem.stockCovered, 6);
+  assert.equal(eggsItem.purchaseQuantity, 0);
+  assert.equal(list.total, 0);
+});
+
 test('priceRecipe reports missing and stale-priced ingredients', () => {
   const offers = buildMockOffers().filter((o) => o.storeId === 'euroopt');
   const fillet = INGREDIENTS.find((i) => i.id === 'chicken_fillet')!;

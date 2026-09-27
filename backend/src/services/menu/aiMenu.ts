@@ -12,7 +12,7 @@ import {
   MENU_WEEK_DAYS,
   minBudgetFor,
 } from './config';
-import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe, type ShoppingListInput } from './costing';
+import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe, type ExistingStock, type ShoppingListInput } from './costing';
 import { MENU_COOKWARE, describeCookware, inferCookware, type CookwareInfo } from './cookware';
 import { defaultProviders, type MenuProviders } from './providers';
 import { computeRecipeNutrition, perServing } from './nutrition';
@@ -815,7 +815,7 @@ export async function generateMenuWithAi(
     }
     const slots = await buildSlots(week, { ...request, budget: effectiveBudget }, offers, providers, now);
     const chosen = slots.filter((s) => s.choice);
-    const shoppingList = buildShoppingList(buildReceiptInputs(slots), offers, request.storeId, now);
+    const shoppingList = buildShoppingList(buildReceiptInputs(slots), offers, request.storeId, now, opts.existingStock);
     const hardOver = shoppingList.total > effectiveBudget + EPS;
     const totalOver = hardOver && shoppingList.total > effectiveBudget * (1 + MENU_BUDGET_OVERSHOOT_TOLERANCE) + EPS;
 

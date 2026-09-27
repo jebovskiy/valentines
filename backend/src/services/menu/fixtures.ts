@@ -467,6 +467,80 @@ export function ingredientByIdOrThrow(id: string): Ingredient {
   return ing;
 }
 
+export interface IngredientSearchResult {
+  id: string;
+  name: string;
+  unit: string;
+}
+
+/**
+ * Catalogue search used to validate and suggest free-text excludes (custom
+ * allergens / dislikes). Only products that exist in the curated catalogue are
+ * returned — the user can only add products we actually match inside recipes.
+ */
+export function searchIngredients(query: string, limit = 8): IngredientSearchResult[] {
+  const q = normalizeName(query);
+  if (!q) return [];
+  const words = q.split(' ').filter(Boolean);
+  if (words.length === 0) return [];
+
+  const scored: { ing: Ingredient; score: number }[] = [];
+  for (const ing of INGREDIENTS) {
+    const name = normalizeName(ing.name);
+    if (!name) continue;
+    let score = 0;
+    let matched = false;
+    if (name === q) {
+      score = 100;
+      matched = true;
+    } else if (name.startsWith(q)) {
+      score = 80;
+      matched = true;
+    } else if (words.every((w) => name.includes(w))) {
+      score = 60;
+      matched = true;
+    } else if (words.some((w) => name.includes(w))) {
+      score = 40;
+      matched = true;
+    }
+    if (!matched) continue;
+    scored.push({ ing, score });
+  }
+
+  scored.sort((a, b) => b.score - a.score || a.ing.name.localeCompare(b.ing.name, 'ru'));
+  return scored.slice(0, limit).map((s) => ({ id: s.ing.id, name: s.ing.name, unit: s.ing.unit }));
+}
+
+/** Best catalogue match for a typo'd query (spelling correction). */
+export function suggestIngredientName(query: string): string | null {
+  const q = normalizeName(query);
+  if (!q) return null;
+  const candidates = INGREDIENTS.map((ing) => ({ ing, name: normalizeName(ing.name) })).filter((c) => c.name);
+  let best: { name: string; dist: number } | null = null;
+  for (const c of candidates) {
+    const dist = levenshtein(q, c.name);
+    const cutoff = Math.max(2, Math.floor(q.length / 2));
+    if (dist <= cutoff && (!best || dist < best.dist)) {
+      best = { name: c.ing.name, dist };
+    }
+  }
+  return best?.name ?? null;
+}
+
+function levenshtein(a: string, b: string): number {
+  const prev = new Array(b.length + 1).fill(0).map((_, i) => i);
+  const curr = new Array(b.length + 1).fill(0);
+  for (let i = 0; i < a.length; i += 1) {
+    curr[0] = i + 1;
+    for (let j = 0; j < b.length; j += 1) {
+      const cost = a[i] === b[j] ? 0 : 1;
+      curr[j + 1] = Math.min(curr[j] + 1, prev[j + 1] + 1, prev[j] + cost);
+    }
+    for (let j = 0; j <= b.length; j += 1) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+
 // ---------------------------------------------------------------------------
 // Mock price catalogue: demo prices per store (NO real prices)
 // ---------------------------------------------------------------------------

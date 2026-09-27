@@ -251,6 +251,11 @@ export function ShoppingListScreen() {
               `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]} · купить ${fmtQty(item.purchaseQuantity)} ${MENU_UNIT_LABEL[item.packageUnit]} · ${item.price.toFixed(2)} BYN`
             )}
           </div>
+          {item.stockCovered > 0 && (
+            <div style={{ fontSize: 12, color: '#2e9e56', marginBottom: 6 }}>
+              ✓ Уже есть дома: {fmtQty(item.stockCovered)} {MENU_UNIT_LABEL[item.requiredUnit]}
+            </div>
+          )}
           <div style={styles.itemBottom}>
             <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {item.missing && <span style={{ ...styles.badge, ...styles.badgeMissing }}>нет цены</span>}

@@ -488,6 +488,8 @@ export interface MenuShoppingListItem {
   name: string;
   requiredQuantity: number;
   requiredUnit: MenuUnit;
+  /** How much of the requirement is already covered by stock at home. */
+  stockCovered: number;
   packageQuantity: number;
   packageUnit: MenuUnit;
   purchaseQuantity: number;
@@ -576,6 +578,38 @@ export interface MenuResult {
   warnings: string[];
   priceSourceLabel: string;
   generatedAt: string;
+}
+
+/** A single meal slot to swap out for a recipe (see MenuResult.replace). */
+export interface MenuSlotReplacement {
+  day: number;
+  meal: MenuMealId;
+  recipeId: string;
+}
+
+/** A candidate dish offered for a meal slot when replacing. */
+export interface MenuSlotVariant {
+  recipeId: string;
+  name: string;
+  category: string;
+  cost: number;
+  costPerServing: number;
+  servings: number;
+  timeMin: number | null;
+  priceMissing: boolean;
+  kcalPerServing: number | null;
+}
+
+/** An ingredient already at home (leftover) to deduct from the next shopping list. */
+export interface MenuLeftover {
+  ingredientId: string;
+  qty: number;
+  unit: MenuUnit;
+}
+
+/** A suggested leftover computed from the last saved menu (bought − required). */
+export interface MenuLeftoverSuggestion extends MenuLeftover {
+  name: string;
 }
 
 /** A saved weekly menu entry in the pair's history (newest first). */

@@ -124,11 +124,18 @@ export interface ShoppingListInput {
   unit: Unit;
 }
 
+export interface ExistingStock {
+  ingredientId: string;
+  qty: number;
+  unit: Unit;
+}
+
 export function buildShoppingList(
   inputs: ShoppingListInput[],
   offers: ProductOffer[],
   storeId: StoreId,
-  now: Date = new Date()
+  now: Date = new Date(),
+  existingStock: ExistingStock[] = []
 ): ShoppingList {
   const merged = new Map<string, ShoppingListInput>();
   for (const input of inputs) {
@@ -137,6 +144,16 @@ export function buildShoppingList(
       existing.qty = round1(existing.qty + input.qty);
     } else {
       merged.set(input.ingredient.id, { ...input });
+    }
+  }
+
+  const stockByIngredient = new Map<string, ExistingStock>();
+  for (const stock of existingStock) {
+    const current = stockByIngredient.get(stock.ingredientId);
+    if (current) {
+      current.qty = round1(current.qty + stock.qty);
+    } else {
+      stockByIngredient.set(stock.ingredientId, { ...stock });
     }
   }
 
@@ -154,6 +171,7 @@ export function buildShoppingList(
         name: input.ingredient.name,
         requiredQuantity: input.qty,
         requiredUnit: input.unit,
+        stockCovered: 0,
         packageQuantity: 0,
         packageUnit: input.unit,
         purchaseQuantity: 0,
@@ -172,16 +190,23 @@ export function buildShoppingList(
     }
 
     const offer = match.offer;
-    const purchaseQuantity = Math.max(
-      1,
-      Math.ceil(match.requiredInOfferUnit / offer.packageQuantity - 1e-9)
-    );
+    const stock = stockByIngredient.get(input.ingredient.id);
+    let stockCovered = 0;
+    if (stock) {
+      const conv = convertQuantity(stock.qty, stock.unit, input.unit, input.ingredient.gramsPerPcs);
+      if (conv !== null) stockCovered = Math.min(input.qty, Math.max(0, conv));
+    }
+    const remaining = Math.max(0, match.requiredInOfferUnit - convertQuantity(stockCovered, input.unit, offer.packageUnit, input.ingredient.gramsPerPcs)!);
+    const purchaseQuantity = remaining <= 1e-9
+      ? 0
+      : Math.max(1, Math.ceil(remaining / offer.packageQuantity - 1e-9));
     const subtotal = round2(purchaseQuantity * offer.price);
     items.push({
       ingredientId: input.ingredient.id,
       name: input.ingredient.name,
       requiredQuantity: input.qty,
       requiredUnit: input.unit,
+      stockCovered,
       packageQuantity: offer.packageQuantity,
       packageUnit: offer.packageUnit,
       purchaseQuantity,

@@ -36,6 +36,10 @@ import type {
   MenuHistoryEntry,
   MenuServings,
   MenuShoppingList,
+  MenuSlotReplacement,
+  MenuSlotVariant,
+  MenuLeftover,
+  MenuLeftoverSuggestion,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -265,6 +269,13 @@ export const api = {
     fetchWithAuth<{ stores: MenuStoreInfo[]; isMockPrices: boolean; priceSourceLabel: string }>('/api/menu/stores'),
   getAllergens: () =>
     fetchWithAuth<{ allergens: MenuAllergenInfo[]; legalDisclaimer: string }>('/api/menu/allergens'),
+  searchMenuIngredients: (q: string) =>
+    fetchWithAuth<{
+      q: string;
+      results: { id: string; name: string; unit: string }[];
+      suggestion: string | null;
+      exact: boolean;
+    }>(`/api/menu/ingredients/search?q=${encodeURIComponent(q)}`),
   generateMenu: (request: MenuRequest) =>
     fetchWithAuth<{ menu: MenuResult }>('/api/menu/generate', {
       method: 'POST',
@@ -273,6 +284,11 @@ export const api = {
   getLatestMenu: () => fetchWithAuth<{ menu: MenuResult | null; createdAt: string | null }>('/api/menu'),
   getMenuHistory: () => fetchWithAuth<{ menus: MenuHistoryEntry[] }>('/api/menu/history'),
   getMenu: (id: string) => fetchWithAuth<{ menu: MenuResult }>(`/api/menu/${id}`),
+  saveMenu: (menu: MenuResult) =>
+    fetchWithAuth<{ saved: boolean; id: string }>('/api/menu/save', {
+      method: 'POST',
+      body: JSON.stringify({ menu }),
+    }),
   getShoppingList: (id: string) =>
     fetchWithAuth<{
       menuId: string;
@@ -291,6 +307,24 @@ export const api = {
     fetchWithAuth<{ menu: MenuResult }>(`/api/menu/${id}/pick`, {
       method: 'POST',
       body: JSON.stringify({ recipe_ids: recipeIds }),
+    }),
+  getSlotVariants: (id: string, day: number, meal: string) =>
+    fetchWithAuth<{ variants: MenuSlotVariant[] }>(`/api/menu/${id}/variants?day=${day}&meal=${meal}`),
+  replaceMenuSlots: (id: string, replacements: MenuSlotReplacement[]) =>
+    fetchWithAuth<{ menu: MenuResult }>(`/api/menu/${id}/replace`, {
+      method: 'POST',
+      body: JSON.stringify({ replacements }),
+    }),
+  getLeftovers: () =>
+    fetchWithAuth<{ leftovers: MenuLeftover[] }>('/api/menu/leftovers'),
+  saveLeftovers: (items: MenuLeftover[]) =>
+    fetchWithAuth<{ saved: boolean }>('/api/menu/leftovers', {
+      method: 'PUT',
+      body: JSON.stringify({ items }),
+    }),
+  suggestLeftovers: () =>
+    fetchWithAuth<{ items: MenuLeftoverSuggestion[] }>('/api/menu/leftovers/suggest', {
+      method: 'POST',
     }),
 
   // Integrations

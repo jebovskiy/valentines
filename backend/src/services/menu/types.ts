@@ -196,10 +196,12 @@ export interface ShoppingListItem {
   /** Sum of scaled quantities required across the selected recipes. */
   requiredQuantity: number;
   requiredUnit: Unit;
+  /** How much of the requirement is already covered by stock at home (same unit as requiredQuantity). */
+  stockCovered: number;
   /** Package the store sells the product in. */
   packageQuantity: number;
   packageUnit: Unit;
-  /** Number of whole packages to buy (ceil of required/package). */
+  /** Number of whole packages to buy (ceil of remaining/package). */
   purchaseQuantity: number;
   /** Price for one package. */
   price: number;

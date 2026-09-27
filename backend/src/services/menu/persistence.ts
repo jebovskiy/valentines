@@ -17,7 +17,10 @@ export async function createStoredMenu(
 ): Promise<StoredMenu> {
   const { data, error } = await supabase
     .from('menus')
-    .insert({ id: result.id, pair_id: pairId, store_id: params.storeId, params, result })
+    .upsert(
+      { id: result.id, pair_id: pairId, store_id: params.storeId, params, result },
+      { onConflict: 'id' }
+    )
     .select()
     .single();
   if (error) throw error;

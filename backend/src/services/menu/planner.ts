@@ -8,7 +8,7 @@ import {
   MENU_WEEK_DAYS,
   minBudgetFor,
 } from './config';
-import { buildShoppingList, priceRecipe } from './costing';
+import { buildShoppingList, priceRecipe, type ExistingStock } from './costing';
 import { describeCookware, inferCookware } from './cookware';
 import { defaultProviders, type MenuProviders } from './providers';
 import { computeRecipeNutrition, perServing } from './nutrition';
@@ -18,7 +18,7 @@ import { ALLERGENS } from './allergens';
 import { MEAL_TITLES } from './types';
 import type {
   AllergenId, CostedRecipe, MealId, MenuDay, MenuGenerationIssue, MenuMeal, MenuRequest, MenuResult,
-  ProductOffer, RecipeChoice, StoreId,
+  ProductOffer, Recipe, RecipeChoice, StoreId,
 } from './types';
 
 export interface GenerateMenuOptions {
@@ -26,6 +26,8 @@ export interface GenerateMenuOptions {
   now?: Date;
   /** Shuffle candidate order so repeated generations rarely return the same menu. */
   randomize?: boolean;
+  /** Ingredients already at home to deduct from the shopping list. */
+  existingStock?: ExistingStock[];
 }
 
 export interface PlannerCounters {
@@ -246,7 +248,7 @@ export async function generateMenu(
 
   let best: FilledAttempt | null = null;
   for (let attempt = 0; attempt < MENU_GENERATION_ATTEMPTS; attempt += 1) {
-    const plan = fillWeek(byMeal, offers, request.storeId, now, effectiveBudget, opts.randomize ?? true);
+    const plan = fillWeek(byMeal, offers, request.storeId, now, effectiveBudget, opts.randomize ?? true, opts.existingStock);
     if (!best || plan.filledSlots > best.filledSlots || (plan.filledSlots === best.filledSlots && plan.totalCost < best.totalCost)) {
       best = plan;
     }
@@ -258,7 +260,7 @@ export async function generateMenu(
 
   const meals = best.slots.flatMap((s) => s);
   const picked = meals.map((m) => m.recipe);
-  const shoppingList = buildReceipt(meals.map((m) => m.recipe), offers, request.storeId, now);
+  const shoppingList = buildReceipt(meals.map((m) => m.recipe), offers, request.storeId, now, opts.existingStock);
   const totalCost = shoppingList.total;
   const remainingBudget = request.budget > totalCost ? round2Safe(request.budget - totalCost) : 0;
   const overspend = totalCost > request.budget ? round2Safe(totalCost - request.budget) : 0;
@@ -359,7 +361,8 @@ function fillWeek(
   storeId: StoreId,
   now: Date,
   budget: number,
-  randomize: boolean
+  randomize: boolean,
+  existingStock: ExistingStock[] = []
 ): FilledAttempt {
   const pools = new Map<MealId, RecipeChoice[]>();
   for (const meal of byMeal.keys()) {
@@ -392,7 +395,7 @@ function fillWeek(
         for (const candidate of pool) {
           const used = usedCount.get(candidate.recipe.id) ?? 0;
           if (used > (pass === 1 ? 0 : maxUses - 1)) continue;
-          const trialTotal = receiptTotal([...slots.map((s) => s.recipe), candidate], offers, storeId, now);
+          const trialTotal = receiptTotal([...slots.map((s) => s.recipe), candidate], offers, storeId, now, existingStock);
           if (trialTotal > budget + EPS) continue;
           chosen = candidate;
           break;
@@ -408,7 +411,7 @@ function fillWeek(
     }
   }
 
-  const finalReceipt = buildReceipt(slots.map((s) => s.recipe), offers, storeId, now);
+  const finalReceipt = buildReceipt(slots.map((s) => s.recipe), offers, storeId, now, existingStock);
   const totalCost = finalReceipt.total;
 
   return {
@@ -424,7 +427,8 @@ function buildReceipt(
   choices: RecipeChoice[],
   offers: Parameters<typeof buildShoppingList>[1],
   storeId: Parameters<typeof buildShoppingList>[2],
-  now: Date
+  now: Date,
+  existingStock: ExistingStock[] = []
 ) {
   const inputs = choices.flatMap((p) =>
     p.scaledIngredients.map((si) => ({
@@ -433,7 +437,7 @@ function buildReceipt(
       unit: si.unit,
     }))
   );
-  return buildShoppingList(inputs, offers, storeId, now);
+  return buildShoppingList(inputs, offers, storeId, now, existingStock);
 }
 
 /** Total receipt for the given recipes (used to keep the week within budget). */
@@ -441,9 +445,10 @@ function receiptTotal(
   choices: RecipeChoice[],
   offers: Parameters<typeof buildShoppingList>[1],
   storeId: Parameters<typeof buildShoppingList>[2],
-  now: Date
+  now: Date,
+  existingStock: ExistingStock[] = []
 ): number {
-  return buildReceipt(choices, offers, storeId, now).total;
+  return buildReceipt(choices, offers, storeId, now, existingStock).total;
 }
 
 /** Maps a recipe to the meal slot it can fill (or null for desserts/drinks). */
@@ -568,7 +573,7 @@ export async function rebuildMenuForSelection(
     }))
   );
   const offers = await providers.prices.getOffers(result.request.storeId);
-  const shoppingList = buildShoppingList(inputs, offers, result.request.storeId, now);
+  const shoppingList = buildShoppingList(inputs, offers, result.request.storeId, now, opts.existingStock);
 
   const totalCost = shoppingList.total;
   const remainingBudget = result.budget > totalCost ? round2Safe(result.budget - totalCost) : 0;
@@ -596,5 +601,218 @@ export async function rebuildMenuForSelection(
     shoppingList,
     remainingBudget,
     overspend,
+  };
+}
+
+/** One meal slot to swap out for a recipe that fits the menu's constraints. */
+export interface SlotReplacement {
+  day: number;
+  meal: MealId;
+  recipeId: string;
+}
+
+/** A candidate dish shown for a meal slot (user picks one to replace). */
+export interface SlotVariant {
+  recipeId: string;
+  name: string;
+  category: string;
+  cost: number;
+  costPerServing: number;
+  servings: number;
+  timeMin: number | null;
+  priceMissing: boolean;
+  kcalPerServing: number | null;
+}
+
+/**
+ * Candidate dishes that fit the menu's constraints (allergens, disliked,
+ * cookware, pricing) for one meal slot, cheapest first. The current dish of the
+ * slot is excluded so the user can only swap to something different.
+ */
+export async function listSlotVariants(
+  menu: MenuResult,
+  meal: MealId,
+  currentRecipeId: string,
+  opts: GenerateMenuOptions = {}
+): Promise<SlotVariant[]> {
+  const providers = opts.providers ?? defaultProviders();
+  const now = opts.now ?? new Date();
+  const request = menu.request;
+
+  const servings = servingsBreakdown(request.adults, request.children);
+  const effectiveServings = servings.effectiveServings;
+  const recipes = await providers.recipes.getAllRecipes();
+  const offers = await providers.prices.getOffers(request.storeId);
+
+  const customTerms = normalizeExclusions(request.customAllergens);
+  const dislikedTerms = normalizeExclusions(request.disliked);
+
+  const variants: SlotVariant[] = [];
+  for (const recipe of recipes) {
+    if (recipe.id === currentRecipeId) continue;
+    if (mealOfRecipe(recipe) !== meal) continue;
+
+    const { scale, scaledIngredients, unknownIngredients } = scaleForServings(recipe, effectiveServings);
+
+    const banned = new Set<AllergenId>();
+    for (const scaled of scaledIngredients) {
+      const catalogue = getIngredient(scaled.ingredient.id);
+      for (const a of catalogue?.allergens ?? []) banned.add(a);
+    }
+
+    let rejected = false;
+    if (request.allergens.some((a) => banned.has(a))) {
+      rejected = true;
+    } else if (unknownIngredients.length > 0) {
+      rejected = true;
+    } else {
+      const hitCustom = customTerms.some((t) => {
+        if (recipe.name.toLowerCase().includes(t)) return true;
+        return scaledIngredients.some((si) => si.ingredient.name.toLowerCase().includes(t));
+      });
+      const hitDisliked = dislikedTerms.some((t) => {
+        if (recipe.name.toLowerCase().includes(t)) return true;
+        return scaledIngredients.some((si) => si.ingredient.name.toLowerCase().includes(t));
+      });
+      if (hitCustom || hitDisliked) rejected = true;
+    }
+
+    if (request.cookware && request.cookware.length > 0 && !rejected) {
+      const cookware = [...new Set([...(recipe.cookware ?? []), ...inferCookware(recipe)])];
+      if (cookware.some((c) => !request.cookware!.includes(c))) rejected = true;
+    }
+
+    const pricing = priceRecipe(scaledIngredients, offers, request.storeId, effectiveServings, now);
+    const hasPricedBase = scaledIngredients.length - pricing.priceMissing.length > 0;
+    const pricedEnough = pricing.priceMissing.length <= MENU_MAX_UNPRICED_INGREDIENTS && hasPricedBase;
+    if (!rejected && !pricedEnough) rejected = true;
+    if (rejected) continue;
+
+    const nutritionRes = await computeRecipeNutrition(scaledIngredients, providers.nutrition);
+    variants.push({
+      recipeId: recipe.id,
+      name: recipe.name,
+      category: recipe.category ?? '',
+      cost: round2Safe(pricing.cost),
+      costPerServing: pricing.costPerServing,
+      servings: effectiveServings,
+      timeMin: recipe.timeMin ?? null,
+      priceMissing: pricing.priceMissing.length > 0,
+      kcalPerServing: nutritionRes.missing.length > 0
+        ? null
+        : Math.round(perServing(nutritionRes.perRecipe, effectiveServings).calories),
+    });
+    if (variants.length >= 30) break;
+  }
+
+  variants.sort((a, b) => a.cost - b.cost);
+  return variants;
+}
+
+/**
+ * Swaps one or more meal slots of a saved menu for other recipes and rebuilds
+ * totals and the shopping list. Returns null when a requested recipe is unknown
+ * or does not fit the slot.
+ */
+export async function replaceMenuSlots(
+  menu: MenuResult,
+  replacements: SlotReplacement[],
+  opts: GenerateMenuOptions = {}
+): Promise<MenuResult | null> {
+  const providers = opts.providers ?? defaultProviders();
+  const now = opts.now ?? new Date();
+  const request = menu.request;
+
+  const servings = servingsBreakdown(request.adults, request.children);
+  const effectiveServings = servings.effectiveServings;
+  const recipes = await providers.recipes.getAllRecipes();
+  const offers = await providers.prices.getOffers(request.storeId);
+
+  const byId = new Map(recipes.map((r) => [r.id, r]));
+  const chosenBySlot = new Map<string, RecipeChoice>();
+  for (const rep of replacements) {
+    const recipe = byId.get(rep.recipeId);
+    if (!recipe) return null;
+    if (mealOfRecipe(recipe) !== rep.meal) return null;
+    chosenBySlot.set(`${rep.day}:${rep.meal}`, await buildChoice(recipe, effectiveServings, request, offers, now, providers));
+  }
+
+  const days: MenuDay[] = [];
+  const allChoices: RecipeChoice[] = [];
+  for (let day = 1; day <= MENU_WEEK_DAYS; day += 1) {
+    const dayMeals: MenuMeal[] = [];
+    const sourceDay = menu.days.find((d) => d.day === day);
+    for (const meal of MENU_DAILY_MEALS) {
+      const replacement = chosenBySlot.get(`${day}:${meal}`);
+      let choice: RecipeChoice | undefined;
+      if (replacement) {
+        choice = replacement;
+      } else {
+        const existing = sourceDay?.meals.find((m) => m.meal === meal);
+        if (existing) choice = existing.recipe;
+      }
+      if (choice) {
+        dayMeals.push({ meal, title: MEAL_TITLES[meal], recipe: choice });
+        if (!allChoices.includes(choice)) allChoices.push(choice);
+      }
+    }
+    if (dayMeals.length > 0) days.push({ day, meals: dayMeals });
+  }
+
+  const inputs = allChoices.flatMap((p) =>
+    p.scaledIngredients.map((si) => ({
+      ingredient: si.ingredient,
+      qty: si.qty,
+      unit: si.unit,
+    }))
+  );
+  const shoppingList = buildShoppingList(inputs, offers, request.storeId, now, opts.existingStock);
+  const totalCost = shoppingList.total;
+  const recipesCost = round2Safe(allChoices.reduce((s, p) => s + p.cost, 0));
+  const remainingBudget = menu.budget > totalCost ? round2Safe(menu.budget - totalCost) : 0;
+  const overspend = totalCost > menu.budget ? round2Safe(totalCost - menu.budget) : 0;
+
+  return {
+    ...menu,
+    days,
+    recipes: allChoices,
+    recipesCost,
+    totalCost,
+    shoppingList,
+    remainingBudget,
+    overspend,
+    warnings: [
+      ...menu.warnings,
+      `Меню изменено вручную: заменено ${replacements.length} ${replacements.length === 1 ? 'блюдо' : 'блюда'}.`,
+    ],
+  };
+}
+
+async function buildChoice(
+  recipe: Recipe,
+  effectiveServings: number,
+  request: MenuRequest,
+  offers: ProductOffer[],
+  now: Date,
+  providers: MenuProviders
+): Promise<RecipeChoice> {
+  const { scale, scaledIngredients } = scaleForServings(recipe, effectiveServings);
+  const pricing = priceRecipe(scaledIngredients, offers, request.storeId, effectiveServings, now);
+  const nutritionRes = await computeRecipeNutrition(scaledIngredients, providers.nutrition);
+  return {
+    recipe,
+    servings: effectiveServings,
+    scale,
+    scaledIngredients,
+    cost: pricing.cost,
+    costPerServing: pricing.costPerServing,
+    priceMissing: pricing.priceMissing,
+    nutrition: nutritionRes.missing
+      ? null
+      : { perRecipe: nutritionRes.perRecipe, perServing: perServing(nutritionRes.perRecipe, effectiveServings) },
+    nutritionMissing: nutritionRes.missing.length > 0,
+    allergens: [],
+    allergenUnknown: [],
+    cookwareLabels: describeCookware([...(recipe.cookware ?? []), ...inferCookware(recipe)]),
   };
 }

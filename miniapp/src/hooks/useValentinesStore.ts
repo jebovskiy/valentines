@@ -1,5 +1,5 @@
 ﻿import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuSlotReplacement, MenuSlotVariant, MenuLeftover, MenuLeftoverSuggestion, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions, subscribeToGameSessions, unsubscribeFromGameSessions } from '../api/supabase';
 
@@ -118,14 +118,28 @@ interface ValentinesState {
   menuAllergens: MenuAllergenInfo[];
   menuResult: MenuResult | null;
   menuLoading: boolean;
+  menuSaved: boolean;
   fetchMenuStoresAndAllergens: () => Promise<void>;
+  searchMenuIngredients: (q: string) => Promise<{
+    results: { id: string; name: string; unit: string }[];
+    suggestion: string | null;
+    exact: boolean;
+  }>;
   generateMenuPlan: (request: MenuRequest) => Promise<MenuResult | MenuGenerationIssue | null>;
+  saveMenuPlan: (menu: MenuResult) => Promise<boolean>;
   fetchLatestMenu: () => Promise<MenuResult | null>;
   menuHistory: MenuHistoryEntry[];
   menuHistoryLoading: boolean;
   fetchMenuHistory: () => Promise<void>;
   fetchMenu: (id: string) => Promise<MenuResult | null>;
   pickMenuRecipes: (id: string, recipeIds: string[]) => Promise<MenuResult | null>;
+  getSlotVariants: (id: string, day: number, meal: string) => Promise<MenuSlotVariant[]>;
+  replaceMenuSlots: (id: string, replacements: MenuSlotReplacement[]) => Promise<MenuResult | null>;
+  menuLeftovers: MenuLeftover[];
+  menuLeftoversLoading: boolean;
+  fetchMenuLeftovers: () => Promise<void>;
+  saveMenuLeftovers: (items: MenuLeftover[]) => Promise<boolean>;
+  suggestMenuLeftovers: () => Promise<MenuLeftoverSuggestion[]>;
   clearMenu: () => void;
   menuDraft: MenuDraft;
   updateMenuDraft: (patch: Partial<MenuDraft>) => void;
@@ -730,6 +744,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   menuAllergens: [],
   menuResult: null,
   menuLoading: false,
+  menuSaved: false,
   menuHistory: [],
   menuHistoryLoading: false,
   menuDraft: {
@@ -753,8 +768,16 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     }
   },
 
+  searchMenuIngredients: async (q) => {
+    const res = await api.searchMenuIngredients(q);
+    if (res.error || !res.data) {
+      return { results: [], suggestion: null, exact: false };
+    }
+    return res.data;
+  },
+
   generateMenuPlan: async (request) => {
-    set({ menuLoading: true, error: null });
+    set({ menuLoading: true, error: null, menuSaved: false });
     const result = await api.generateMenu(request);
     if (result.error || !result.data) {
       set({ menuLoading: false, error: result.error });
@@ -774,11 +797,21 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     }
     const data = result.data;
     if ('menu' in data && data.menu) {
-      set({ menuResult: data.menu, menuLoading: false });
+      set({ menuResult: data.menu, menuLoading: false, menuSaved: false });
       return data.menu;
     }
     set({ menuLoading: false });
     return null;
+  },
+
+  saveMenuPlan: async (menu) => {
+    const result = await api.saveMenu(menu);
+    if (result.error || !result.data) {
+      set({ error: result.error });
+      return false;
+    }
+    set({ menuSaved: true, error: null });
+    return true;
   },
 
   fetchLatestMenu: async () => {
@@ -809,7 +842,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       set({ menuLoading: false, error: result.error });
       return null;
     }
-    set({ menuResult: result.data.menu, menuLoading: false });
+    set({ menuResult: result.data.menu, menuLoading: false, menuSaved: true });
     return result.data.menu;
   },
 
@@ -820,11 +853,57 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       set({ menuLoading: false, error: result.error });
       return null;
     }
-    set({ menuResult: result.data.menu, menuLoading: false });
+    set({ menuResult: result.data.menu, menuLoading: false, menuSaved: true });
     return result.data.menu;
   },
 
-  clearMenu: () => set({ menuResult: null, error: null }),
+  getSlotVariants: async (id, day, meal) => {
+    const result = await api.getSlotVariants(id, day, meal);
+    if (result.error || !result.data) return [];
+    return result.data.variants;
+  },
+
+  replaceMenuSlots: async (id, replacements) => {
+    set({ menuLoading: true, error: null });
+    const result = await api.replaceMenuSlots(id, replacements);
+    if (result.error || !result.data) {
+      set({ menuLoading: false, error: result.error });
+      return null;
+    }
+    set({ menuResult: result.data.menu, menuLoading: false, menuSaved: true });
+    return result.data.menu;
+  },
+
+  menuLeftovers: [],
+  menuLeftoversLoading: false,
+
+  fetchMenuLeftovers: async () => {
+    set({ menuLeftoversLoading: true, error: null });
+    const result = await api.getLeftovers();
+    if (result.error || !result.data) {
+      set({ menuLeftoversLoading: false, error: result.error });
+      return;
+    }
+    set({ menuLeftovers: result.data.leftovers, menuLeftoversLoading: false });
+  },
+
+  saveMenuLeftovers: async (items) => {
+    const result = await api.saveLeftovers(items);
+    if (result.error || !result.data) {
+      set({ error: result.error });
+      return false;
+    }
+    set({ menuLeftovers: items });
+    return true;
+  },
+
+  suggestMenuLeftovers: async () => {
+    const result = await api.suggestLeftovers();
+    if (result.error || !result.data) return [];
+    return result.data.items;
+  },
+
+  clearMenu: () => set({ menuResult: null, menuSaved: false, error: null }),
 
   updateMenuDraft: (patch) => set((state) => ({ menuDraft: { ...state.menuDraft, ...patch } })),
 

@@ -116,17 +116,17 @@ function russianPlural(n: number, one: string, few: string, many: string): strin
   return many;
 }
 
-export function MenuHistoryScreen() {
+export function MenuHistoryScreen({ root = false }: { root?: boolean }) {
   const navigate = useNavigate();
   const { menuHistory, menuHistoryLoading, menuLoading, fetchMenuHistory, fetchMenu } = useValentinesStore();
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
     setMainButton({ isVisible: false });
-    const onBackClick = () => navigate('/menu');
+    const onBackClick = () => navigate(root ? '/' : '/menu');
     setBackButton(true, onBackClick);
     return () => setBackButton(false);
-  }, [navigate]);
+  }, [navigate, root]);
 
   useEffect(() => {
     void fetchMenuHistory();
@@ -147,7 +147,7 @@ export function MenuHistoryScreen() {
     <div style={styles.container}>
       <div style={styles.topBar}>
         <BackButton />
-        <span style={styles.title}>Сохранённые меню</span>
+        <span style={styles.title}>{root ? 'Меню' : 'Сохранённые меню'}</span>
       </div>
 
       {menuHistoryLoading && !menuHistory.length && (
@@ -157,9 +157,9 @@ export function MenuHistoryScreen() {
       {!menuHistoryLoading && menuHistory.length === 0 && (
         <>
           <div style={styles.infoBox}>
-            Пока нет сохранённых подборов. Создайте рацион — он сохранится здесь автоматически.
+            Пока нет сохранённых подборов. Создайте рацион и нажмите «Сохранить рацион» на экране результата — он появится здесь.
           </div>
-          <button onClick={() => navigate('/menu')} style={styles.primaryBtnBig}>
+          <button onClick={() => navigate(root ? '/menu/store' : '/menu')} style={styles.primaryBtnBig}>
             К подбору
           </button>
         </>
@@ -202,11 +202,15 @@ export function MenuHistoryScreen() {
         );
       })}
 
-      {menuHistory.length > 0 && (
-        <button onClick={() => navigate('/menu')} style={styles.ghostBtnBig} disabled={menuLoading || openingId !== null}>
-          Создать новый рацион
+      {root && (
+        <button onClick={() => navigate('/menu/leftovers')} style={styles.ghostBtnBig}>
+          Мои запасы · вычесть из чека
         </button>
       )}
+
+      <button onClick={() => navigate('/menu/store')} style={styles.ghostBtnBig} disabled={menuLoading || openingId !== null}>
+        Создать новый рацион
+      </button>
     </div>
   );
 }

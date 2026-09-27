@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { MENU_UNIT_LABEL } from '../types';
-import type { MenuDay, MenuMeal, MenuResult, MenuShoppingListItem } from '../types';
+import type { MenuDay, MenuMeal, MenuResult } from '../types';
 import { setMainButton, setBackButton } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
 
@@ -74,42 +74,9 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--ink)',
     margin: '18px 0 10px',
   },
-  item: {
-    background: 'var(--surface-card)',
-    borderRadius: 16,
-    padding: '12px 14px',
-    border: '1px solid var(--hairline)',
-    marginBottom: 8,
-  },
-  itemTop: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 4,
-  },
-  itemName: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: 'var(--ink)',
-  },
   itemSub: {
     fontSize: 12,
     color: 'var(--ash)',
-  },
-  subtotal: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: 'var(--ink)',
-  },
-  badge: {
-    borderRadius: 999,
-    padding: '2px 7px',
-    fontSize: 10,
-    fontWeight: 600,
-    marginLeft: 6,
-    background: '#ffe3e6',
-    color: '#c0392b',
   },
   dayCard: {
     background: 'var(--surface-card)',
@@ -221,17 +188,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: 'var(--ash)',
     marginTop: 2,
   },
-  linkBtn: {
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    color: 'var(--primary)',
-    fontWeight: 600,
-    fontSize: 13,
-    alignSelf: 'flex-end',
-    marginBottom: 4,
-  },
   primaryBtnBig: {
     width: '100%',
     height: 48,
@@ -257,6 +213,25 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     marginTop: 10,
   },
+  smallGhostBtn: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    color: 'var(--primary)',
+    fontWeight: 600,
+    fontSize: 12,
+    flexShrink: 0,
+  },
+  dayReplaceBtn: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    color: 'var(--primary)',
+    fontWeight: 600,
+    fontSize: 12,
+  },
   disabled: {
     opacity: 0.45,
   },
@@ -274,26 +249,16 @@ function fmtQty(n: number): string {
   return n.toFixed(2).replace(/\.?0+$/, '');
 }
 
-function pkgNoun(n: number): string {
-  const abs = Math.abs(n) % 100;
-  const last = abs % 10;
-  if (abs >= 11 && abs <= 14) return 'упаковок';
-  if (last === 1) return 'упаковка';
-  if (last >= 2 && last <= 4) return 'упаковки';
-  return 'упаковок';
-}
-
-function byName(a: MenuShoppingListItem, b: MenuShoppingListItem) {
-  return a.name.localeCompare(b.name, 'ru');
-}
 function MealRow({
   meal,
   expanded,
   onToggle,
+  onReplace,
 }: {
   meal: MenuMeal;
   expanded: boolean;
   onToggle: () => void;
+  onReplace: () => void;
 }) {
   const nutrition = meal.recipe.nutrition;
   const recipe = meal.recipe.recipe;
@@ -315,6 +280,9 @@ function MealRow({
         {meal.recipe.cost != null && (
           <span style={styles.mealCost}>{meal.recipe.cost.toFixed(2)} BYN</span>
         )}
+        <button style={styles.smallGhostBtn} onClick={(e) => { e.stopPropagation(); onReplace(); }}>
+          Заменить
+        </button>
         <span style={styles.mealChevron}>{expanded ? '⌃' : '⌄'}</span>
       </div>
       {expanded && (
@@ -369,8 +337,16 @@ function MealRow({
 export function MenuResultScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { menuResult, menuLoading } = useValentinesStore();
+  const { menuResult, menuLoading, menuSaved, saveMenuPlan } = useValentinesStore();
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
+  const [savingError, setSavingError] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!menu) return;
+    setSavingError(null);
+    const ok = await saveMenuPlan(menu);
+    if (!ok) setSavingError('Не удалось сохранить меню. Попробуйте ещё раз.');
+  };
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -409,7 +385,6 @@ export function MenuResultScreen() {
   const servings = `${menu.servings.adults + menu.servings.children} чел (${menu.servings.effectiveServings.toFixed(1)} порц.)`;
   const inBudget = menu.totalCost <= menu.budget;
   const kcalTotal = menu.recipes.reduce((sum, r) => sum + (r.nutrition ? r.nutrition.perRecipe.calories : 0), 0);
-  const items = menu.shoppingList.items;
 
   const days: MenuDay[] =
     menu.days && menu.days.length > 0
@@ -467,45 +442,39 @@ export function MenuResultScreen() {
         <div key={i} style={styles.warningBox}>⚠️ {w}</div>
       ))}
 
-      <div style={styles.sectionTitle}>🛒 Список покупок</div>
       {menu.shoppingList.missingItemsCount > 0 && (
         <div style={{ ...styles.warningBox, color: '#c0392b' }}>
           {menu.shoppingList.missingItemsCount} продукт(ов) без цены в каталоге магазина — в итог «по чеку» они не входят.
         </div>
       )}
-      {[...items].sort(byName).map((item) => (
-        <div key={item.ingredientId} style={{ ...styles.item, ...(item.missing ? { opacity: 0.6 } : {}) }}>
-          <div style={styles.itemTop}>
-            <span style={styles.itemName}>
-              {item.name}
-              {item.missing && <span style={styles.badge}>нет цены</span>}
-            </span>
-            <span style={styles.subtotal}>
-              {item.missing ? '—' : `${item.subtotal.toFixed(2)} BYN`}
-            </span>
-          </div>
-          <div style={styles.itemSub}>
-            {item.missing ? (
-              `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]}`
-            ) : item.packageQuantity > 1 ? (
-              `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]} · купить ${fmtQty(item.purchaseQuantity)} ${pkgNoun(item.purchaseQuantity)} по ${fmtQty(item.packageQuantity)} ${MENU_UNIT_LABEL[item.packageUnit]} · ${item.price.toFixed(2)} BYN`
-            ) : (
-              `Нужно ${fmtQty(item.requiredQuantity)} ${MENU_UNIT_LABEL[item.requiredUnit]} · купить ${fmtQty(item.purchaseQuantity)} ${MENU_UNIT_LABEL[item.packageUnit]} · ${item.price.toFixed(2)} BYN`
-            )}
-          </div>
-        </div>
-      ))}
-      <button onClick={() => navigate(`/menu/shopping?id=${menu.id}`)} style={styles.linkBtn}>
-        Подробный список покупок →
+      <button onClick={() => navigate(`/menu/shopping?id=${menu.id}`)} style={styles.primaryBtnBig}>
+        🛒 Список покупок
       </button>
+      {menuSaved ? (
+        <div style={{ ...styles.warningBox, marginTop: 10, color: '#2e9e56' }}>
+          ✓ Меню сохранено в «Сохранённых меню»
+        </div>
+      ) : (
+        <>
+          <button onClick={save} style={styles.ghostBtnBig}>
+            Сохранить рацион
+          </button>
+          {savingError && <div style={{ ...styles.warningBox, marginTop: 10 }}>{savingError}</div>}
+        </>
+      )}
 
       <div style={styles.sectionTitle}>🍽 Меню на неделю</div>
       {days.map((d) => (
         <div key={d.day} style={styles.dayCard}>
           <div style={styles.dayHeader}>
             <span style={styles.dayName}>День {d.day} · {DAY_NAMES[(d.day - 1) % 7]}</span>
-            <span style={styles.dayTag}>
-              {d.meals.reduce((sum, m) => sum + (m.recipe.cost ?? 0), 0).toFixed(2)} BYN
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={styles.dayTag}>
+                {d.meals.reduce((sum, m) => sum + (m.recipe.cost ?? 0), 0).toFixed(2)} BYN
+              </span>
+              <button onClick={() => navigate(`/menu/replace?id=${menu.id}&day=${d.day}&dayReplacement=1`)} style={styles.dayReplaceBtn}>
+                Заменить день
+              </button>
             </span>
           </div>
           {d.meals.length === 0 && <div style={styles.itemSub}>Блюда не подобраны</div>}
@@ -517,14 +486,13 @@ export function MenuResultScreen() {
               onToggle={() =>
                 setExpandedMeal(expandedMeal === `${d.day}-${meal.meal}` ? null : `${d.day}-${meal.meal}`)
               }
+              onReplace={() =>
+                navigate(`/menu/replace?id=${menu.id}&day=${d.day}&meal=${meal.meal}`)
+              }
             />
           ))}
         </div>
       ))}
-
-      <button onClick={() => navigate(`/menu/shopping?id=${menu.id}`)} style={styles.primaryBtnBig}>
-        Список покупок с ценами
-      </button>
 
       <button onClick={() => navigate('/menu/history')} style={styles.ghostBtnBig}>
         Сохранённые меню
