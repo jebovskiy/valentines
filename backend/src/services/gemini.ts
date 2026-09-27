@@ -237,6 +237,7 @@ async function callOpenAiCompatible(
         response_format: { type: 'json_object' },
         ...(reasoningControl === 'deepseek-thinking' ? { thinking: { type: 'disabled' } } : {}),
         ...(reasoningControl === 'openrouter-reasoning' && !/^(z-ai|glm)/.test(model) ? { reasoning: { enabled: false } } : {}),
+        ...(reasoningControl === 'openrouter-reasoning' && /^(z-ai|glm)/.test(model) ? { reasoning_effort: 'low' } : {}),
         ...extraBody,
       }),
     });
@@ -245,9 +246,21 @@ async function callOpenAiCompatible(
       console.error(`[llm] HTTP ${res.status} from chat/completions for model ${model}: ${detail.slice(0, 300)}`);
       return { body: {}, error: { kind: 'http', status: res.status } };
     }
-    const raw = (await res.json()) as OpenAiCompatibleResponse;
-    const text = raw.choices?.[0]?.message?.content;
+    const raw = (await res.json()) as OpenAiCompatibleResponse & {
+      choices?: { message?: { content?: string | unknown[]; reasoning?: string; reasoning_content?: string } }[];
+    };
+    const msg = raw.choices?.[0]?.message;
+    let text: string | null = null;
+    if (typeof msg?.content === 'string' && msg.content.trim()) {
+      text = msg.content;
+    } else if (Array.isArray(msg?.content)) {
+      // Some reasoning models return content as an array of parts.
+      text = msg.content
+        .map((p) => (p && typeof p === 'object' && 'text' in (p as Record<string, unknown>) ? String((p as Record<string, unknown>).text) : ''))
+        .join('');
+    }
     if (!text) {
+      console.error(`[llm] invalid_response from model ${model}: ${JSON.stringify(raw).slice(0, 500)}`);
       return { body: {}, error: { kind: 'invalid_response', message: 'empty choices[0].message.content' } };
     }
     return { body: { candidates: [{ content: { parts: [{ text }] } }] }, error: null };
