@@ -40,11 +40,12 @@ export const MENU_MAX_RECIPE_REPEATS = 2;
 /**
  * Fraction of the weekly budget the deterministic/AI menu may overshoot and
  * still be accepted. Whole-package rounding (buying a 1 kg bag for 120 g of
- * flour) inflates the receipt beyond the "ideal" ingredient cost, so without
- * this tolerance the AI planner keeps revising and ends up falling back.
- * The overshoot is surfaced to the user as a soft warning, not hidden.
+ * flour) inflates the receipt ~20% beyond the "ideal" ingredient cost, so a
+ * tolerance below that keeps triggering the fallback. 0.10 lets a typical
+ * rounded receipt through; the overshoot is surfaced as a soft warning, not
+ * hidden.
  */
-export const MENU_BUDGET_OVERSHOOT_TOLERANCE = 0.05;
+export const MENU_BUDGET_OVERSHOOT_TOLERANCE = 0.10;
 
 /** A price older than this many days is not considered fresh for selection. */
 export const PRICE_MAX_AGE_DAYS = 30;
