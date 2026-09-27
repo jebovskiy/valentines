@@ -6,7 +6,7 @@ import { ALLERGENS } from '../services/menu/allergens';
 import { defaultProviders } from '../services/menu/providers';
 import { generateMenuWithAi, type GenerateMenuAiOptions } from '../services/menu/aiMenu';
 import { listSlotVariants, rebuildMenuForSelection, replaceMenuSlots } from '../services/menu/planner';
-import { searchIngredients, suggestIngredientName } from '../services/menu/fixtures';
+import { searchIngredients, searchIngredientGroups, suggestIngredientName } from '../services/menu/fixtures';
 import { convertQuantity } from '../services/menu/costing';
 import { round2 } from '../services/menu/scaling';
 import { getExistingStockForPair, setLeftoversForPair } from '../services/menu/leftovers';
@@ -35,8 +35,8 @@ const menuRequestShape = z
     budget: z.number().min(0.01).max(100000),
     currency: z.literal('BYN'),
     allergens: z.array(z.enum(allergenEnum)).max(8).default([]),
-    customAllergens: z.array(z.string().min(1).max(60)).max(20).default([]),
-    disliked: z.array(z.string().min(1).max(60)).max(20).default([]),
+    customAllergens: z.array(z.string().min(1).max(60)).max(60).default([]),
+    disliked: z.array(z.string().min(1).max(60)).max(60).default([]),
     cookware: z.array(z.enum(cookwareEnum)).max(9).default([]),
   })
   .refine((d) => d.adults + d.children >= 1, {
@@ -99,8 +99,9 @@ export async function menuRoutes(app: FastifyInstance) {
     if (!query.success) return reply.code(400).send({ error: 'Empty query' });
     const q = query.data.q;
     const results = searchIngredients(q);
+    const groups = searchIngredientGroups(q);
     const suggestion = results.length > 0 ? null : suggestIngredientName(q);
-    return { q, results, suggestion, exact: results.some((r) => r.name.toLowerCase() === q.toLowerCase()) };
+    return { q, results, groups, suggestion, exact: results.some((r) => r.name.toLowerCase() === q.toLowerCase()) };
   });
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {

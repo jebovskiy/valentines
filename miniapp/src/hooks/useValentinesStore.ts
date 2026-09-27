@@ -1,5 +1,5 @@
 ﻿import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuSlotReplacement, MenuSlotVariant, MenuLeftover, MenuLeftoverSuggestion, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuSlotReplacement, MenuSlotVariant, MenuLeftover, MenuLeftoverSuggestion, MenuIngredientGroup, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId } from '../types';
 import { api } from '../api/client';
 import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions, subscribeToGameSessions, unsubscribeFromGameSessions } from '../api/supabase';
 
@@ -122,6 +122,7 @@ interface ValentinesState {
   fetchMenuStoresAndAllergens: () => Promise<void>;
   searchMenuIngredients: (q: string) => Promise<{
     results: { id: string; name: string; unit: string }[];
+    groups: MenuIngredientGroup[];
     suggestion: string | null;
     exact: boolean;
   }>;
@@ -771,7 +772,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   searchMenuIngredients: async (q) => {
     const res = await api.searchMenuIngredients(q);
     if (res.error || !res.data) {
-      return { results: [], suggestion: null, exact: false };
+      return { results: [], groups: [], suggestion: null, exact: false };
     }
     return res.data;
   },

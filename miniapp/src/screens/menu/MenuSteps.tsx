@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../../hooks/useValentinesStore';
 import { MENU_COOKWARE, menuMinBudgetFor } from '../../types';
-import type { MenuAllergenId, MenuCookwareId, MenuRequest, MenuStoreId } from '../../types';
+import type { MenuAllergenId, MenuCookwareId, MenuIngredientGroup, MenuRequest, MenuStoreId } from '../../types';
 import { setMainButton, setBackButton, hapticFeedback } from '../../utils/telegram';
 import { BackButton } from '../../components/BackButton';
 
@@ -330,6 +330,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     color: 'var(--ink)',
   },
+  searchNameBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+    minWidth: 0,
+  },
+  searchGroupName: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'var(--ink)',
+  },
   searchHint: {
     fontSize: 11,
     color: 'var(--ash)',
@@ -398,29 +409,55 @@ function ProductSearchInput(props: {
   const { searchMenuIngredients } = useValentinesStore();
   const [text, setText] = useState('');
   const [results, setResults] = useState<{ id: string; name: string; unit: string }[]>([]);
+  const [groups, setGroups] = useState<MenuIngredientGroup[]>([]);
   const [suggestion, setSuggestion] = useState<string | null>(null);
 
   const search = async (raw: string) => {
     const q = raw.trim();
     if (!q) {
       setResults([]);
+      setGroups([]);
       setSuggestion(null);
       return;
     }
     const res = await searchMenuIngredients(q);
     setResults(res.results);
+    setGroups(res.groups);
     setSuggestion(res.suggestion);
   };
 
-  const add = (name: string) => {
+  const add = (names: string[]) => {
+    const toAdd = [
+      ...new Set(names.map((n) => n.trim()).filter((n) => Boolean(n) && !value.includes(n))),
+    ] as string[];
+    if (toAdd.length === 0) return;
+    onChange([...value, ...toAdd]);
+  };
+
+  const remove = (names: string[]) => {
+    const gone = new Set(names);
+    onChange(value.filter((t) => !gone.has(t)));
+  };
+
+  const addOne = (name: string) => {
     if (!name) return;
-    const clean = name.trim();
-    if (!clean) return;
-    onChange(value.includes(clean) ? value : [...value, clean]);
+    add([name]);
     setText('');
     setResults([]);
+    setGroups([]);
     setSuggestion(null);
   };
+
+  const toggleGroup = (g: MenuIngredientGroup) => {
+    const memberNames = g.members.map((m) => m.name);
+    const allAdded = memberNames.every((n) => value.includes(n));
+    if (allAdded) remove(memberNames);
+    else add(memberNames);
+  };
+
+  const groupFullyAdded = (g: MenuIngredientGroup) => g.members.every((m) => value.includes(m.name));
+  const groupPartial = (g: MenuIngredientGroup) =>
+    !groupFullyAdded(g) && g.members.some((m) => value.includes(m.name));
 
   const matched = results.some((r) => r.name.toLowerCase() === text.trim().toLowerCase() && text.trim().length > 0);
   const canAddTyped = results.length === 1 && matched;
@@ -440,11 +477,31 @@ function ProductSearchInput(props: {
       />
       {text.trim().length >= 2 && (
         <div style={styles.searchResults}>
-          {results.length === 0 && !suggestion && (
+          {results.length === 0 && groups.length === 0 && !suggestion && (
             <div style={styles.searchEmpty}>Ничего не найдено в каталоге продуктов</div>
           )}
+          {groups.map((g) => {
+            const full = groupFullyAdded(g);
+            const partial = groupPartial(g);
+            const addedCount = g.members.filter((m) => value.includes(m.name)).length;
+            return (
+              <button key={g.id} style={styles.searchRow} onClick={() => toggleGroup(g)}>
+                <span style={styles.searchNameBlock}>
+                  <span style={styles.searchGroupName}>{g.name}</span>
+                  <span style={styles.searchHint}>
+                    {g.members.map((m) => m.name).join(', ')}
+                  </span>
+                  {full && <span style={styles.alreadyAdded}>все добавлены</span>}
+                  {partial && !full && (
+                    <span style={styles.alreadyAdded}>добавлено {addedCount} из {g.members.length}</span>
+                  )}
+                </span>
+                <span style={styles.addBtn}>{full ? '✓' : partial ? '…' : '+'}</span>
+              </button>
+            );
+          })}
           {results.map((r) => (
-            <button key={r.id} style={styles.searchRow} onClick={() => add(r.name)}>
+            <button key={r.id} style={styles.searchRow} onClick={() => addOne(r.name)}>
               <span style={styles.searchName}>
                 {r.name}
                 {value.includes(r.name) && <span style={styles.alreadyAdded}>уже добавлено</span>}
@@ -453,7 +510,7 @@ function ProductSearchInput(props: {
             </button>
           ))}
           {results.length > 0 && suggestion === null && !matched && (
-            <button style={styles.searchRow} onClick={() => canAddTyped && text.trim() && add(text.trim())} disabled={!canAddTyped}>
+            <button style={styles.searchRow} onClick={() => canAddTyped && text.trim() && addOne(text.trim())} disabled={!canAddTyped}>
               <span style={styles.searchName}>
                 {text.trim()}
                 <span style={styles.searchHint}>нет в каталоге</span>
@@ -461,7 +518,7 @@ function ProductSearchInput(props: {
             </button>
           )}
           {suggestion && (
-            <button style={styles.searchRow} onClick={() => add(suggestion)}>
+            <button style={styles.searchRow} onClick={() => addOne(suggestion)}>
               <span style={styles.searchName}>
                 Возможно вы имели в виду: <strong>{suggestion}</strong>
               </span>
@@ -477,7 +534,7 @@ function ProductSearchInput(props: {
               {tag}
               <button
                 style={styles.tagChipRemove}
-                onClick={() => onChange(value.filter((t) => t !== tag))}
+                onClick={() => remove([tag])}
               >
                 ×
               </button>
@@ -882,22 +939,22 @@ export function MenuAllergensStep() {
 
       <div style={styles.tagSectionTitle}>Свои аллергии</div>
       <div style={styles.tagSectionHint}>
-        Введите продукт (например «курица», «грибы») и выберите его из подсказок — в список попадают только продукты нашего каталога.
+        Введите продукт или группу (например «грибы», «рыба») — выберите нужное из подсказок. Группа добавит все виды разом, но каждый можно убрать по отдельности.
       </div>
       <ProductSearchInput
         value={menuDraft.customAllergens}
         onChange={(tags) => updateMenuDraft({ customAllergens: tags })}
-        placeholder="Поиск: курица, грибы…"
+        placeholder="Поиск: курица, грибы, рыба…"
       />
 
       <div style={styles.tagSectionTitle}>Что не нравится</div>
       <div style={styles.tagSectionHint}>
-        Нелюбимые продукты тоже будут исключены из блюд на неделю.
+        Нелюбимые продукты тоже будут исключены из блюд на неделю. Можно добавить целую группу, а конкретные виды убрать из списка.
       </div>
       <ProductSearchInput
         value={menuDraft.disliked}
         onChange={(tags) => updateMenuDraft({ disliked: tags })}
-        placeholder="Поиск: печень, кабачки…"
+        placeholder="Поиск: печень, кабачки, орехи…"
       />
     </StepFrame>
   );

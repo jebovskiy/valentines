@@ -6,7 +6,7 @@ import { minBudgetFor } from '../src/services/menu/config';
 import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe } from '../src/services/menu/costing';
 import { generateMenu, rebuildMenuForSelection, type GenerateMenuOptions } from '../src/services/menu/planner';
 import { FixtureNutritionProvider, SnapshotRecipeProvider } from '../src/services/menu/providers';
-import { buildFixtureRecipes, STORES, buildMockOffers, INGREDIENTS, getIngredientNutrition } from '../src/services/menu/fixtures';
+import { buildFixtureRecipes, STORES, buildMockOffers, INGREDIENTS, getIngredientNutrition, searchIngredients, searchIngredientGroups } from '../src/services/menu/fixtures';
 import { inferCookware } from '../src/services/menu/cookware';
 import type { MenuProviders, PriceProvider, RecipeProvider } from '../src/services/menu/providers';
 import type { MenuRequest, ProductOffer, Recipe, StoreId } from '../src/services/menu/types';
@@ -245,6 +245,49 @@ test('generateMenu: disliked products are excluded from the week', async () => {
       assert.ok(!si.ingredient.name.toLowerCase().includes('гречк'), `disliked hit in ${si.ingredient.name}`);
     }
   }
+});
+
+test('searchIngredientGroups: group label and member queries match; members resolve to the catalogue', () => {
+  const byLabel = searchIngredientGroups('грибы');
+  assert.equal(byLabel.length, 1);
+  assert.equal(byLabel[0].name, 'Грибы');
+  const names = byLabel[0].members.map((m) => m.name);
+  assert.deepEqual(
+    names,
+    ['Шампиньоны', 'Вешенки', 'Лисички', 'Белые грибы']
+  );
+
+  const byMember = searchIngredientGroups('шампиньоны');
+  assert.ok(byMember.some((g) => g.id === 'mushrooms'));
+
+  const byPartialMember = searchIngredientGroups('лисич');
+  assert.ok(byPartialMember.some((g) => g.id === 'mushrooms'));
+
+  const noMatch = searchIngredientGroups('абвгд');
+  assert.equal(noMatch.length, 0);
+});
+
+test('searchIngredientGroups: all group members exist in the catalogue', () => {
+  const knownIds = new Set(INGREDIENTS.map((i) => i.id));
+  const checked = new Map<string, boolean>();
+  for (const q of ['молочные', 'рыба', 'орехи', 'крупы', 'сухофрукты', 'зелень']) {
+    const groups = searchIngredientGroups(q);
+    assert.ok(groups.length >= 1, `expected at least one group for ${q}`);
+    for (const g of groups) {
+      if (checked.get(g.id)) continue;
+      checked.set(g.id, true);
+      for (const m of g.members) {
+        assert.ok(knownIds.has(m.id), `group ${g.name} references unknown ingredient ${m.id}`);
+      }
+    }
+  }
+});
+
+test('searchIngredientGroups: individual search still lists products alongside groups', () => {
+  const results = searchIngredients('грибы');
+  assert.ok(results.some((r) => r.id === 'porcini')); // «Белые грибы»
+  const groups = searchIngredientGroups('грибы');
+  assert.ok(groups.some((g) => g.id === 'mushrooms'));
 });
 
 test('generateMenu: milk allergen excludes milk-containing recipes', async () => {

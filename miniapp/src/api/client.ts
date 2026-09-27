@@ -40,6 +40,7 @@ import type {
   MenuSlotVariant,
   MenuLeftover,
   MenuLeftoverSuggestion,
+  MenuIngredientGroup,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -273,6 +274,7 @@ export const api = {
     fetchWithAuth<{
       q: string;
       results: { id: string; name: string; unit: string }[];
+      groups: MenuIngredientGroup[];
       suggestion: string | null;
       exact: boolean;
     }>(`/api/menu/ingredients/search?q=${encodeURIComponent(q)}`),

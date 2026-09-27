@@ -473,6 +473,114 @@ export interface IngredientSearchResult {
   unit: string;
 }
 
+export interface IngredientGroup {
+  id: string;
+  name: string;
+  /** Catalogue ingredient ids grouped under a shared label. */
+  memberIds: string[];
+}
+
+export interface IngredientGroupSearchResult {
+  id: string;
+  name: string;
+  members: IngredientSearchResult[];
+}
+
+/**
+ * Curated groups for the custom allergen / disliked picker: choosing a group
+ * adds all its catalogue members at once, but each member stays a separate
+ * removable term — the user can then drop specific kinds.
+ */
+export const INGREDIENT_GROUPS: IngredientGroup[] = [
+  { id: 'mushrooms', name: 'Грибы', memberIds: ['mushroom', 'oyster_mushroom', 'chanterelle', 'porcini'] },
+  { id: 'cabbage', name: 'Капуста', memberIds: ['cabbage', 'red_cabbage', 'cauliflower', 'broccoli', 'peking_cabbage', 'kohlrabi'] },
+  { id: 'onions', name: 'Лук', memberIds: ['onions', 'leek', 'green_onion'] },
+  { id: 'peppers', name: 'Перец (сладкий/чили)', memberIds: ['bell_pepper', 'chili_pepper'] },
+  { id: 'greens', name: 'Зелень и салаты', memberIds: ['herbs', 'cilantro', 'basil', 'mint', 'rosemary', 'thyme', 'lettuce', 'arugula', 'microgreens'] },
+  { id: 'root_vegetables', name: 'Корнеплоды', memberIds: ['carrots', 'beets', 'parsnip', 'celery_root', 'radish', 'sweet_potato', 'ginger'] },
+  { id: 'citrus', name: 'Цитрусовые', memberIds: ['oranges', 'tangerines', 'grapefruit', 'lemon', 'limes'] },
+  { id: 'stone_fruits', name: 'Косточковые фрукты', memberIds: ['peaches', 'nectarines', 'apricots', 'plums'] },
+  { id: 'berries', name: 'Ягоды', memberIds: ['strawberries', 'raspberries', 'blackberries', 'blueberries'] },
+  { id: 'melons', name: 'Бахчевые', memberIds: ['melon', 'watermelon'] },
+  { id: 'tropical_fruits', name: 'Тропические фрукты', memberIds: ['pineapple', 'mango', 'passion_fruit', 'bananas', 'kiwi'] },
+  { id: 'nuts_seeds', name: 'Орехи и семечки', memberIds: ['peanuts', 'walnuts', 'almonds', 'cashews', 'hazelnuts', 'pistachios', 'pumpkin_seeds', 'sunflower_seeds', 'sesame', 'flax_seeds', 'chia'] },
+  { id: 'dried_fruits', name: 'Сухофрукты', memberIds: ['raisins', 'dried_apricots', 'prunes', 'dates', 'dried_figs', 'dried_cranberry'] },
+  { id: 'dairy', name: 'Молочные продукты', memberIds: ['milk', 'cream', 'sour_cream', 'kefir', 'ryazhenka', 'butter', 'cheese', 'process_cheese', 'cream_cheese', 'feta', 'cottage_cheese', 'yogurt'] },
+  { id: 'cheese', name: 'Сыры', memberIds: ['cheese', 'process_cheese', 'cream_cheese', 'feta'] },
+  { id: 'eggs', name: 'Яйца', memberIds: ['eggs', 'quail_eggs'] },
+  { id: 'chicken', name: 'Курица', memberIds: ['chicken_fillet', 'chicken_leg', 'chicken_wing', 'chicken_minced'] },
+  { id: 'offal', name: 'Субпродукты', memberIds: ['chicken_liver', 'chicken_heart', 'chicken_gizzard'] },
+  { id: 'red_meat', name: 'Красное мясо', memberIds: ['beef', 'pork'] },
+  { id: 'poultry', name: 'Птица (кроме курицы)', memberIds: ['turkey_fillet', 'duck'] },
+  { id: 'fish', name: 'Рыба', memberIds: ['salmon', 'cod', 'pollock', 'herring', 'mackerel', 'carp', 'sea_bass', 'trout'] },
+  { id: 'seafood', name: 'Морепродукты', memberIds: ['mussels', 'shrimps'] },
+  { id: 'vegetable_oils', name: 'Растительные масла', memberIds: ['vegetable_oil', 'olive_oil', 'flaxseed_oil', 'sesame_oil'] },
+  { id: 'grains', name: 'Крупы', memberIds: ['rice', 'millet', 'buckwheat', 'oatmeal', 'semolina', 'pearl_barley', 'corn_grits', 'wheat_grits'] },
+  { id: 'legumes', name: 'Бобовые', memberIds: ['peas', 'beans', 'lentils', 'mung', 'green_peas'] },
+  { id: 'canned_vegetables', name: 'Консервированные овощи', memberIds: ['green_peas_canned', 'corn_canned', 'canned_tomatoes', 'olives', 'black_olives', 'capers'] },
+  { id: 'sauces', name: 'Соусы и приправы', memberIds: ['soy_sauce', 'mayo', 'ketchup', 'mustard', 'vinegar', 'tomato_paste'] },
+];
+
+const INGREDIENT_BY_ID = new Map(INGREDIENTS.map((ing) => [ing.id, ing]));
+
+function resolveGroupMembers(group: IngredientGroup): IngredientSearchResult[] {
+  const members: IngredientSearchResult[] = [];
+  for (const id of group.memberIds) {
+    const ing = INGREDIENT_BY_ID.get(id);
+    if (ing) members.push({ id: ing.id, name: ing.name, unit: ing.unit });
+  }
+  return members;
+}
+
+/**
+ * Groups whose label or any member matches the query. Only groups with at least
+ * one real catalogue member are returned; the whole group is expanded so the
+ * client can add every member at once.
+ */
+export function searchIngredientGroups(query: string, limit = 4): IngredientGroupSearchResult[] {
+  const q = normalizeName(query);
+  if (!q) return [];
+  const words = q.split(' ').filter(Boolean);
+  if (words.length === 0) return [];
+
+  const scored: { group: IngredientGroup; score: number }[] = [];
+  for (const group of INGREDIENT_GROUPS) {
+    const label = normalizeName(group.name);
+    const members = resolveGroupMembers(group);
+    if (members.length === 0) continue;
+
+    let score = 0;
+    if (label === q) {
+      score = 90;
+    } else if (label.startsWith(q)) {
+      score = 70;
+    } else if (words.every((w) => label.includes(w))) {
+      score = 60;
+    } else if (members.some((m) => normalizeName(m.name) === q)) {
+      score = 80;
+    } else if (members.some((m) => {
+      const n = normalizeName(m.name);
+      return words.every((w) => n.includes(w));
+    })) {
+      score = 50;
+    } else if (members.some((m) => {
+      const n = normalizeName(m.name);
+      return words.some((w) => n.includes(w));
+    })) {
+      score = 30;
+    }
+
+    if (score > 0) scored.push({ group, score });
+  }
+
+  scored.sort((a, b) => b.score - a.score || a.group.name.localeCompare(b.group.name, 'ru'));
+  return scored.slice(0, limit).map((s) => ({
+    id: s.group.id,
+    name: s.group.name,
+    members: resolveGroupMembers(s.group),
+  }));
+}
+
 /**
  * Catalogue search used to validate and suggest free-text excludes (custom
  * allergens / dislikes). Only products that exist in the curated catalogue are

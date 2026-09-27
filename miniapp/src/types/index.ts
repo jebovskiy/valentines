@@ -539,6 +539,15 @@ export interface MenuRequest {
 
 export type MenuMealId = 'breakfast' | 'lunch' | 'dinner';
 
+/** A curated product group in the allergen/disliked picker (e.g. «Грибы» ->
+ * шампиньоны, вешенки, лисички, белые). Picking the group adds all members;
+ * each member remains a separate removable term. */
+export interface MenuIngredientGroup {
+  id: string;
+  name: string;
+  members: { id: string; name: string; unit: string }[];
+}
+
 /** Weekly budget floor the menu planner guarantees (see backend config). Portion
  * coefficients and the per-serving minimum are mirrored from the backend so the
  * hint matches what the planner actually does when the user's budget is low. */
