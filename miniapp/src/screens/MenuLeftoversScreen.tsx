@@ -214,6 +214,7 @@ export function MenuLeftoversScreen() {
   const [results, setResults] = useState<{ id: string; name: string; unit: string }[]>([]);
   const [saved, setSaved] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -223,8 +224,11 @@ export function MenuLeftoversScreen() {
 
   useEffect(() => {
     if (menuLeftovers.length === 0) void fetchMenuLeftovers();
-    setDraft(menuLeftovers);
-  }, [menuLeftovers, fetchMenuLeftovers]);
+  }, [fetchMenuLeftovers]);
+
+  useEffect(() => {
+    if (!dirty) setDraft(menuLeftovers);
+  }, [dirty, menuLeftovers]);
 
   const search = async (raw: string) => {
     const q = raw.trim();
@@ -243,6 +247,7 @@ export function MenuLeftoversScreen() {
     setText('');
     setResults([]);
     setSaved(false);
+    setDirty(true);
   };
 
   const importSuggestions = async () => {
@@ -269,6 +274,7 @@ export function MenuLeftoversScreen() {
       return merged;
     });
     setSaved(false);
+    setDirty(true);
   };
 
   const save = async () => {
@@ -342,6 +348,7 @@ export function MenuLeftoversScreen() {
                       d.map((i) => (i.ingredientId === item.ingredientId ? { ...i, qty: Number.isFinite(v) ? v : 0 } : i))
                     );
                     setSaved(false);
+                    setDirty(true);
                   }}
                 />
                 <select
@@ -352,6 +359,7 @@ export function MenuLeftoversScreen() {
                       d.map((i) => (i.ingredientId === item.ingredientId ? { ...i, unit: e.target.value as MenuUnit } : i))
                     );
                     setSaved(false);
+                    setDirty(true);
                   }}
                 >
                   {(['g', 'ml', 'pcs'] as MenuUnit[]).map((u) => (
@@ -363,6 +371,7 @@ export function MenuLeftoversScreen() {
                   onClick={() => {
                     setDraft((d) => d.filter((i) => i.ingredientId !== item.ingredientId));
                     setSaved(false);
+                    setDirty(true);
                   }}
                 >
                   ✕
