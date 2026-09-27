@@ -462,28 +462,11 @@ async function buildSlot(
 
   const { scaledIngredients, unknownIngredients } = scaleForServings(recipe, servings);
 
-  // Quantity sanity: the model sometimes emits absurd amounts («3 г» of eggs,
-  // «5 г» of potatoes); those must not reach pricing. A tiny quantity is OK
-  // for seasoning («10 г» сахара/соли) as long as the dish itself has real
-  // mass — i.e. check per ~100 g of the dish, not just the absolute floor.
-  const gramsOf = (s: (typeof scaledIngredients)[number]): number => {
-    if (s.unit === 'g' || s.unit === 'ml') return s.qty;
-    const g = s.ingredient.gramsPerPcs;
-    return g && s.unit === 'pcs' ? s.qty * g : 0;
-  };
-  const dishGrams = scaledIngredients.reduce((sum, s) => sum + gramsOf(s), 0);
-  for (const scaled of scaledIngredients) {
-    const grams = gramsOf(scaled);
-    const absurdSmall =
-      (grams > 0 && grams < 10) ||
-      (grams >= 10 && grams < 20 && dishGrams < 100) ||
-      (scaled.unit === 'pcs' && scaled.qty < 0.5);
-    if (absurdSmall) {
-      return reject(
-        `количество «${scaled.ingredient.name}» ${round1(scaled.qty)} ${UNIT_LABELS[scaled.unit]} — нереально мало для блюда массой ~${round1(dishGrams)} г; укажи реальное количество`
-      );
-    }
-  }
+  // No per-gram floor: tiny quantities are legitimate for seasoning («1 г»
+  // соли, «8 г» сахара). Structural sanity is enforced at parse time (every
+  // quantity must be a finite positive number), and the garnish-only guard
+  // below keeps degenerate meals out without judging ingredient weights.
+
   // A dish made of a single garnish (potato, onion, cabbage…) is not a real
   // meal — the observed degenerate output was e.g. «Жареный лук» as a dinner.
   // Grains/eggs/dairy on their own (porridge, omelette) are valid meals.
