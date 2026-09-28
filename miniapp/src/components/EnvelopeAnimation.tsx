@@ -21,14 +21,14 @@ export function EnvelopeAnimation({
   const h = size * 0.68;
   const inset = size * 0.06;
 
-  const letterRise = autoPlay
-    ? { animation: 'va-env-letter 1.5s ease-in-out forwards' }
+  const letterPlay = autoPlay
+    ? { animation: 'va-env-letter 4s ease infinite' }
     : { transform: 'translateY(-62%)' };
   const heartPlay = autoPlay
-    ? { animation: 'va-env-heart 1.5s ease-out forwards' }
+    ? { animation: 'va-env-heart 4s ease infinite' }
     : { opacity: 1, transform: 'scale(1)' };
   const flapPlay = autoPlay
-    ? { animation: 'va-env-flap 1.5s ease forwards' }
+    ? { animation: 'va-env-flap 4s ease infinite' }
     : { transform: 'rotateX(180deg)', zIndex: 0 };
 
   return (
@@ -68,7 +68,7 @@ export function EnvelopeAnimation({
           zIndex: 1,
           display: 'grid',
           placeItems: 'center',
-          ...letterRise,
+          ...letterPlay,
         }}
       >
         <svg
