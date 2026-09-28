@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import type { MenuLeftover, MenuUnit } from '../types';
@@ -215,12 +215,23 @@ export function MenuLeftoversScreen() {
   const [saved, setSaved] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
 
   useEffect(() => {
     setMainButton({ isVisible: false });
-    setBackButton(true, () => navigate(-1));
+    setBackButton(true, () => {
+      void (async () => {
+        if (dirtyRef.current) {
+          await saveMenuLeftovers(draftRef.current.filter((i) => i.qty > 0));
+        }
+        navigate(-1);
+      })();
+    });
     return () => setBackButton(false);
-  }, [navigate]);
+  }, [navigate, saveMenuLeftovers]);
 
   useEffect(() => {
     if (menuLeftovers.length === 0) void fetchMenuLeftovers();
@@ -279,7 +290,10 @@ export function MenuLeftoversScreen() {
 
   const save = async () => {
     const ok = await saveMenuLeftovers(draft.filter((i) => i.qty > 0));
-    if (ok) setSaved(true);
+    if (ok) {
+      setSaved(true);
+      setDirty(false);
+    }
   };
 
   return (
