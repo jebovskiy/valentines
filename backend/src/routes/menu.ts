@@ -6,7 +6,7 @@ import { ALLERGENS } from '../services/menu/allergens';
 import { defaultProviders } from '../services/menu/providers';
 import { generateMenuWithAi, type GenerateMenuAiOptions } from '../services/menu/aiMenu';
 import { listSlotVariants, rebuildMenuForSelection, replaceMenuSlots } from '../services/menu/planner';
-import { searchIngredients, searchIngredientGroups, suggestIngredientName } from '../services/menu/fixtures';
+import { searchIngredients, searchIngredientGroups, suggestIngredientName, ingredientDisplayName } from '../services/menu/fixtures';
 import { convertQuantity } from '../services/menu/costing';
 import { round2 } from '../services/menu/scaling';
 import { getExistingStockForPair, setLeftoversForPair } from '../services/menu/leftovers';
@@ -204,7 +204,7 @@ export async function menuRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
     const leftovers = await getExistingStockForPair(pair.id);
-    return { leftovers };
+    return { leftovers: leftovers.map((l) => ({ ...l, name: ingredientDisplayName(l.ingredientId) })) };
   });
 
   app.put('/leftovers', { preHandler: requireTelegramAuth }, async (request, reply) => {

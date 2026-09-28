@@ -1577,3 +1577,10 @@ export const FIXTURE_RECIPES: Recipe[] = [
 export function buildFixtureRecipes(): Recipe[] {
   return FIXTURE_RECIPES;
 }
+
+const INGREDIENT_NAMES_BY_ID: ReadonlyMap<string, string> = new Map(INGREDIENTS.map((i) => [i.id, i.name]));
+
+/** Russian display name for an ingredient id (labels saved leftovers on reload). */
+export function ingredientDisplayName(ingredientId: string): string {
+  return INGREDIENT_NAMES_BY_ID.get(ingredientId) ?? ingredientId;
+}

@@ -677,6 +677,8 @@ export interface MenuLeftover {
   ingredientId: string;
   qty: number;
   unit: MenuUnit;
+  /** Russian catalogue name, returned by the API on reload. */
+  name?: string;
 }
 
 /** A suggested leftover computed from the last saved menu (bought − required). */

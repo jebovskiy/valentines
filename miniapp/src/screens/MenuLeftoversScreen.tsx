@@ -341,6 +341,7 @@ export function MenuLeftoversScreen() {
           <div style={styles.groupTitle}>В наличии · {draft.length}</div>
           {draft.map((item) => {
             const name =
+              item.name ??
               namesById[item.ingredientId] ??
               results.find((r) => r.id === item.ingredientId)?.name ??
               item.ingredientId;
