@@ -15,33 +15,62 @@ const sceneCss = `
 .menu-gen-fade { animation: mg-fade .6s ease both; }
 @keyframes mg-fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+/* ── Сковорода ── */
 @keyframes mg-flame {
-  0%, 100% { transform: scale(1) translateY(0); opacity: .85; }
-  35% { transform: scale(1.08) translateY(-2px); opacity: 1; }
-  70% { transform: scale(.96) translateY(1px); opacity: .7; }
+  0%, 100% { transform: scaleY(1) translateY(0); opacity: .9; }
+  25% { transform: scaleY(1.3) translateY(-3px); opacity: 1; }
+  50% { transform: scaleY(.86) translateY(1px); opacity: .7; }
+  75% { transform: scaleY(1.14) translateY(-2px); opacity: .95; }
 }
-.mg-flame > path { animation: mg-flame 1.1s ease-in-out infinite; transform-origin: 50% 100%; }
-.mg-flame > path:nth-child(2) { animation-delay: -.4s; }
-.mg-flame > path:nth-child(3) { animation-delay: -.8s; }
+.mg-flame > path { animation: mg-flame 1.05s ease-in-out infinite; transform-origin: 50% 100%; }
+.mg-flame > path:nth-child(2) { animation-delay: -.35s; }
+.mg-flame > path:nth-child(3) { animation-delay: -.65s; }
+.mg-flame > path:nth-child(4) { animation-delay: -.12s; }
 
+/* Подкидывание: присед перед взлётом → рывок вверх с вращением → ловля, приплюскивание и отскок */
 @keyframes mg-toss {
-  0% { transform: translate(0, 0) rotate(0deg); }
-  28% { transform: translate(4px, -42px) rotate(-9deg); }
-  52% { transform: translate(-6px, -48px) rotate(11deg); }
-  76% { transform: translate(3px, -14px) rotate(-4deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1, .9); }
+  14%  { transform: translate(0, 3px) rotate(0deg) scale(1.14, .8); }
+  38%  { transform: translate(9px, -52px) rotate(-16deg) scale(1, 1.04); }
+  54%  { transform: translate(-11px, -60px) rotate(18deg) scale(1.05, 1.05); }
+  74%  { transform: translate(3px, -14px) rotate(-7deg) scale(1.22, .7); }
+  87%  { transform: translate(-2px, 1px) rotate(-2deg) scale(1, .95); }
+  100% { transform: translate(0, 0) rotate(0deg) scale(1, .9); }
 }
-.mg-toss { animation: mg-toss 1.7s cubic-bezier(.45, .05, .55, .95) infinite; }
+.mg-toss { animation: mg-toss 2.3s cubic-bezier(.45, .05, .55, .95) infinite; }
+
+/* Шкварчащие капли масла, выпрыгивающие с края сковороды */
+@keyframes mg-sizzle {
+  0%   { transform: translate(0, 0) scale(.35); opacity: 0; }
+  20%  { opacity: 1; }
+  40%  { transform: translate(-4px, -12px) scale(1); opacity: .95; }
+  70%  { transform: translate(5px, -26px) scale(.8); opacity: .8; }
+  100% { transform: translate(-6px, -40px) scale(.15); opacity: 0; }
+}
+.mg-sizzle circle { animation: mg-sizzle 1.7s ease-out infinite; }
+.mg-sizzle circle:nth-child(2) { animation-delay: -.55s; }
+.mg-sizzle circle:nth-child(3) { animation-delay: -1.1s; }
+
+/* Едва заметная вибрация самой сковороды поверх огня */
+@keyframes mg-wobble {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-1.4deg); }
+  50% { transform: rotate(1deg); }
+  75% { transform: rotate(-.6deg); }
+}
+.mg-wobble { animation: mg-wobble 3.2s ease-in-out infinite; transform-origin: 110px 118px; }
 
 @keyframes mg-steam {
-  0% { opacity: 0; transform: translateY(10px) translateX(0) scale(.9); }
-  40% { opacity: .75; }
-  100% { opacity: 0; transform: translateY(-28px) translateX(7px) scale(1.05); }
+  0% { opacity: 0; transform: translateY(14px) translateX(0) rotate(0deg) scale(.75); }
+  25% { opacity: .8; }
+  60% { opacity: .85; transform: translateY(-10px) translateX(7px) rotate(7deg) scale(1); }
+  100% { opacity: 0; transform: translateY(-36px) translateX(-9px) rotate(-11deg) scale(1.3); }
 }
-.mg-steam path { animation: mg-steam 2.2s ease-out infinite; }
-.mg-steam path:nth-child(2) { animation-delay: -.75s; }
-.mg-steam path:nth-child(3) { animation-delay: -1.5s; }
+.mg-steam path { animation: mg-steam 2.1s ease-out infinite; }
+.mg-steam path:nth-child(2) { animation-delay: -.7s; }
+.mg-steam path:nth-child(3) { animation-delay: -1.4s; }
 
+/* ── Кастрюля ── */
 @keyframes mg-lid {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   22% { transform: translateY(-18px) rotate(-1.5deg); }
@@ -60,12 +89,40 @@ const sceneCss = `
 .mg-bubbles circle:nth-child(2) { animation-delay: .5s; }
 .mg-bubbles circle:nth-child(3) { animation-delay: 1s; }
 
+/* ── Чайник ── */
 @keyframes mg-rock {
   0%, 100% { transform: translateY(0) rotate(0deg); }
-  45% { transform: translateY(-3px) rotate(2.2deg); }
-  55% { transform: translateY(0) rotate(-.5deg); }
+  22% { transform: translateY(-3px) rotate(4deg); }
+  48% { transform: translateY(0) rotate(-2deg); }
+  74% { transform: translateY(-4px) rotate(-4.5deg); }
 }
-.mg-rock { animation: mg-rock 3.8s ease-in-out infinite; transform-origin: 110px 118px; }
+.mg-rock { animation: mg-rock 3.2s ease-in-out infinite; transform-origin: 110px 124px; }
+
+/* Крышка-свисток дребезжит, пока чайник раскачивается */
+@keyframes mg-rattle {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-1.8px, 0) rotate(-2deg); }
+  20% { transform: translate(2.2px, -1px) rotate(2.4deg); }
+  30% { transform: translate(-1.2px, 1px) rotate(-1.6deg); }
+  40% { transform: translate(1.8px, -1px) rotate(2deg); }
+  50% { transform: translate(-2.2px, 0) rotate(-2.4deg); }
+  60% { transform: translate(1.2px, 1px) rotate(1.6deg); }
+  70% { transform: translate(-1.8px, -1px) rotate(-2deg); }
+  80% { transform: translate(2px, 0) rotate(2.2deg); }
+  90% { transform: translate(-1px, 1px) rotate(-1.4deg); }
+}
+.mg-rattle { animation: mg-rattle .6s ease-in-out infinite; transform-origin: 112px 30px; }
+
+/* Ритмичные клубы пара из носика */
+@keyframes mg-puff {
+  0%   { opacity: 0; transform: translate(0, 0) scale(.35); }
+  18%  { opacity: .85; }
+  45%  { opacity: .6; transform: translate(14px, -16px) scale(1.15); }
+  100% { opacity: 0; transform: translate(22px, -32px) scale(1.9); }
+}
+.mg-puffs circle { animation: mg-puff 1.5s ease-out infinite; }
+.mg-puffs circle:nth-child(2) { animation-delay: -.5s; }
+.mg-puffs circle:nth-child(3) { animation-delay: -1s; }
 `;
 
 const styles: Record<string, React.CSSProperties> = {
@@ -146,32 +203,42 @@ const styles: Record<string, React.CSSProperties> = {
 
 function SkilletScene() {
   return (
-    <svg viewBox="0 0 220 170" width={220} height={170} fill="none">
+    <svg viewBox="0 0 220 190" width={220} height={190} fill="none">
       <defs>
         <linearGradient id="mg-pan" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#94a3b8" />
           <stop offset="1" stopColor="#475569" />
         </linearGradient>
       </defs>
-      <g className="mg-flame">
-        <path d="M104 152 q-17 -17 -4 -35 q-6 12 -11 9 q-18 23 2 40 z" fill="#f97316" />
-        <path d="M113 152 q-11 -13 -3 -26 q-5 9 -10 7 q-12 20 1 35 z" fill="#fbbf24" />
-        <path d="M97 156 q-5 -9 0 -15 q-3 6 -6 5 q-6 11 1 18 z" fill="#fdba74" />
-        <path d="M118 154 q-3 -7 0 -13 q-3 5 -6 4 q-5 11 1 18 z" fill="#fdba74" />
+      <g className="mg-wobble">
+        <g className="mg-flame">
+          <path d="M88 164 q-17 -15 -4 -32 q-6 11 -11 8 q-17 24 2 40 z" fill="#f97316" />
+          <path d="M106 168 q-13 -17 -4 -31 q-6 10 -11 8 q-13 23 1 39 z" fill="#fbbf24" />
+          <path d="M122 164 q-14 -13 -3 -27 q-6 8 -9 6 q-13 21 1 35 z" fill="#fdba74" />
+          <path d="M98 168 q-5 -10 0 -16 q-4 7 -7 6 q-7 13 0 20 z" fill="#fde68a" />
+        </g>
+        <rect x="164" y="106" width="48" height="13" rx="6.5" fill="#92400e" />
+        <rect x="210" y="108" width="9" height="8" rx="4" fill="#78350f" />
+        <ellipse cx="104" cy="122" rx="62" ry="20" fill="#334155" />
+        <ellipse cx="104" cy="112" rx="62" ry="22" fill="url(#mg-pan)" />
+        <ellipse cx="104" cy="114" rx="52" ry="16" fill="#94a3b8" opacity=".25" />
+        <ellipse cx="98" cy="106" rx="46" ry="13" fill="#1e293b" />
       </g>
-      <rect x="152" y="78" width="56" height="13" rx="6.5" fill="#92400e" />
-      <rect x="202" y="80" width="9" height="8" rx="4" fill="#78350f" />
-      <ellipse cx="104" cy="82" rx="58" ry="14" fill="#334155" />
-      <ellipse cx="104" cy="76" rx="58" ry="15" fill="url(#mg-pan)" />
-      <ellipse cx="96" cy="72" rx="36" ry="8" fill="#1e293b" />
       <g className="mg-steam">
-        <path d="M62 50 q3 -11 -1 -17" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
-        <path d="M76 46 q3 -13 -2 -20" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
-        <path d="M90 50 q3 -10 -1 -15" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
+        <path d="M58 62 q4 -12 -1 -18" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
+        <path d="M74 56 q4 -14 -2 -21" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
+        <path d="M90 62 q4 -11 -1 -16" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
       </g>
-      <g className="mg-toss" style={{ transformOrigin: '104px 62px' }}>
-        <ellipse cx="104" cy="62" rx="22" ry="13" fill="#fef3c7" />
-        <circle cx="106" cy="66" r="10" fill="#f59e0b" />
+      <g className="mg-sizzle">
+        <circle cx="150" cy="106" r="3" fill="#fde68a" />
+        <circle cx="132" cy="112" r="2.5" fill="#fde68a" />
+        <circle cx="62" cy="110" r="2" fill="#fde68a" />
+      </g>
+      <g className="mg-toss" style={{ transformOrigin: '104px 100px' }}>
+        <ellipse cx="104" cy="100" rx="24" ry="14" fill="#fef3c7" />
+        <circle cx="107" cy="104" r="11" fill="#f59e0b" />
+        <circle cx="82" cy="94" r="5" fill="#f87171" />
+        <circle cx="126" cy="98" r="5" fill="#4ade80" />
       </g>
     </svg>
   );
@@ -210,26 +277,37 @@ function PotScene() {
 
 function KettleScene() {
   return (
-    <svg viewBox="0 0 220 170" width={220} height={170} fill="none">
+    <svg viewBox="0 0 220 190" width={220} height={190} fill="none">
       <defs>
         <linearGradient id="mg-kettle" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#94a3b8" />
           <stop offset="1" stopColor="#475569" />
         </linearGradient>
       </defs>
-      <g className="mg-steam" style={{ transformOrigin: '158px 40px' }}>
-        <path d="M150 38 q4 -12 0 -20" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
-        <path d="M160 34 q4 -14 -1 -22" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
-        <path d="M170 40 q4 -12 0 -18" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
+      <g className="mg-steam">
+        <path d="M164 42 q4 -12 -1 -18" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
+        <path d="M174 38 q4 -14 -2 -20" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
+        <path d="M184 44 q4 -11 -1 -16" stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round" />
+      </g>
+      <g className="mg-puffs" style={{ transformOrigin: '178px 34px' }}>
+        <circle cx="178" cy="34" r="7" fill="#e2e8f0" />
+        <circle cx="178" cy="34" r="7" fill="#e2e8f0" />
+        <circle cx="178" cy="34" r="7" fill="#e2e8f0" />
       </g>
       <g className="mg-rock">
-        <ellipse cx="110" cy="120" rx="50" ry="9" fill="#1e293b" />
-        <path d="M62 54 q44 -36 98 -6" stroke="#334155" strokeWidth="9" strokeLinecap="round" />
-        <ellipse cx="112" cy="28" rx="30" ry="7" fill="#94a3b8" />
-        <ellipse cx="106" cy="68" rx="48" ry="46" fill="url(#mg-kettle)" />
-        <path d="M150 62 q24 -6 22 -26" stroke="#475569" strokeWidth="10" strokeLinecap="round" />
-        <ellipse cx="100" cy="40" rx="16" ry="8" fill="#cbd5e1" opacity=".35" />
-        <ellipse cx="110" cy="112" rx="44" ry="7" fill="#334155" opacity=".8" />
+        <ellipse cx="110" cy="124" rx="52" ry="9" fill="#1e293b" />
+        <path d="M60 56 q46 -38 100 -8" stroke="#334155" strokeWidth="9" strokeLinecap="round" />
+        <g className="mg-rattle">
+          <path d="M84 30 q28 6 56 0" stroke="#64748b" strokeWidth="3" strokeLinecap="round" />
+          <ellipse cx="112" cy="30" rx="32" ry="8" fill="#94a3b8" />
+          <rect x="106" y="16" width="12" height="14" rx="4" fill="#cbd5e1" />
+          <ellipse cx="132" cy="18" rx="9" ry="7" fill="#ef4444" />
+          <rect x="127" y="19" width="7" height="8" rx="2" fill="#b91c1c" />
+        </g>
+        <ellipse cx="106" cy="70" rx="50" ry="48" fill="url(#mg-kettle)" />
+        <ellipse cx="92" cy="44" rx="18" ry="9" fill="#cbd5e1" opacity=".35" />
+        <path d="M150 66 q24 -10 26 -34" stroke="#475569" strokeWidth="11" strokeLinecap="round" />
+        <ellipse cx="110" cy="114" rx="44" ry="7" fill="#334155" opacity=".8" />
       </g>
     </svg>
   );

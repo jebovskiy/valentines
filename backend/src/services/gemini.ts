@@ -281,6 +281,11 @@ async function callOpenAiCompatible(
  * and returns a Gemini-shaped body so downstream parsing stays identical.
  * gemini => callGemini directly. deepseek/groq => OpenAI-compatible endpoint,
  * with gemini as a transparent fallback when its key is configured.
+ *
+ * When both the primary provider and Gemini are configured, they are raced
+ * concurrently: the first successful answer wins. This turns the old
+ * sequential "primary times out -> retry on Gemini" into `min(primary, backup)`,
+ * so a slow primary no longer doubles the menu-generation latency.
  */
 async function callLlm(
   prompt: string,
@@ -304,18 +309,46 @@ async function callLlm(
               extraBody: { provider: { sort: 'throughput' } },
             };
     if (preset.apiKey) {
-      const primary = await callOpenAiCompatible(prompt, timeoutMs, maxOutputTokens, preset.baseUrl, preset.apiKey, preset.model, preset.reasoningControl, preset.extraHeaders, preset.extraBody);
-      if (!primary.error) return primary;
+      const primary = callOpenAiCompatible(prompt, timeoutMs, maxOutputTokens, preset.baseUrl, preset.apiKey, preset.model, preset.reasoningControl, preset.extraHeaders, preset.extraBody);
       if (config.GEMINI_API_KEY) {
-        console.warn(`[llm] ${provider} failed (${primary.error.kind}), falling back to Gemini`);
-        const backup = await callGemini(prompt, schema, timeoutMs, maxOutputTokens);
-        if (!backup.error) return backup;
+        return raceWithGeminiFallback(primary, callGemini(prompt, schema, timeoutMs, maxOutputTokens), provider);
       }
       return primary;
     }
     console.warn(`[llm] provider ${provider} has no API key configured, falling back to Gemini`);
   }
   return callGemini(prompt, schema, timeoutMs, maxOutputTokens);
+}
+
+type LlmResult = { body: GeminiResponse; error: FallbackReason | null };
+
+/**
+ * Resolves with the first successful answer from either call. If both fail,
+ * resolves with the primary's error (they never reject — every caller's
+ * network/timeout errors are returned as `{ error }`).
+ */
+function raceWithGeminiFallback(primary: Promise<LlmResult>, backup: Promise<LlmResult>, provider: string): Promise<LlmResult> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const onSettle = (result: LlmResult) => {
+      if (!settled && result.error === null) {
+        settled = true;
+        resolve(result);
+      }
+    };
+    primary.then(onSettle).catch(() => {});
+    backup.then(onSettle).catch(() => {});
+    Promise.all([primary, backup]).then(([a, b]) => {
+      if (settled) return;
+      settled = true;
+      if (a.error === null) resolve(a);
+      else if (b.error === null) resolve(b);
+      else {
+        console.warn(`[llm] both ${provider} and Gemini failed ${a.error.kind === 'timeout' ? '(timeout)' : ''}, using ${provider}`);
+        resolve(a);
+      }
+    });
+  });
 }
 
 async function callGemini(
