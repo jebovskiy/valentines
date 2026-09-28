@@ -99,6 +99,26 @@
   to { transform: rotate(360deg); }
 }
 
+/* Envelope (map.html "Конверт"): flap opens, letter rises, heart appears */
+@keyframes va-env-flap {
+  0% { transform: rotateX(0deg); z-index: 3; }
+  22% { transform: rotateX(180deg); z-index: 3; }
+  26% { transform: rotateX(180deg); z-index: 0; }
+  100% { transform: rotateX(180deg); z-index: 0; }
+}
+
+@keyframes va-env-letter {
+  0%, 26% { transform: translateY(0); }
+  55% { transform: translateY(-62%); }
+  100% { transform: translateY(-62%); }
+}
+
+@keyframes va-env-heart {
+  0%, 50% { opacity: 0; transform: scale(0); }
+  62% { opacity: 1; transform: scale(1.3); }
+  75%, 100% { opacity: 1; transform: scale(1); }
+}
+
 @keyframes greet-soft-bounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }

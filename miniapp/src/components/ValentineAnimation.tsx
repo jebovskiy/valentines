@@ -1,4 +1,5 @@
 import { HeartOpenAnimation } from './HeartOpenAnimation';
+import { EnvelopeAnimation } from './EnvelopeAnimation';
 import { AnimationType } from '../types';
 
 const COLORS: Record<AnimationType, string> = {
@@ -138,7 +139,11 @@ export function ValentineAnimation({
           />
         ))}
 
-      <HeartOpenAnimation size={size} autoPlay={autoPlay} duration={900} />
+      {type === 'heart_open' ? (
+        <EnvelopeAnimation size={size} autoPlay={autoPlay} />
+      ) : (
+        <HeartOpenAnimation size={size} autoPlay={autoPlay} duration={900} />
+      )}
     </div>
   );
 }
