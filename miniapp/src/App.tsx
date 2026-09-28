@@ -19,6 +19,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { GamesScreen } from './screens/GamesScreen';
 import { GamePlayScreen } from './screens/GamePlayScreen';
 import { MenuStoreStep, MenuPeopleStep, MenuComponentsStep, MenuBudgetStep, MenuCookwareStep, MenuAllergensStep } from './screens/menu/MenuSteps';
+import { MenuGeneratingScreen } from './screens/MenuGeneratingScreen';
 import { MenuResultScreen } from './screens/MenuResultScreen';
 import { MenuReplaceScreen } from './screens/MenuReplaceScreen';
 import { MenuHistoryScreen } from './screens/MenuHistoryScreen';
@@ -99,6 +100,7 @@ function App() {
           <Route path="menu/budget" element={<MenuBudgetStep />} />
           <Route path="menu/cookware" element={<MenuCookwareStep />} />
           <Route path="menu/allergens" element={<MenuAllergensStep />} />
+          <Route path="menu/generating" element={<MenuGeneratingScreen />} />
           <Route path="menu/result" element={<MenuResultScreen />} />
           <Route path="menu/replace" element={<MenuReplaceScreen />} />
           <Route path="menu/history" element={<MenuHistoryScreen />} />

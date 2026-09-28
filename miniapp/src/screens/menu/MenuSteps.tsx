@@ -1101,7 +1101,6 @@ export function MenuAllergensStep() {
   const navigate = useNavigate();
   const { menuAllergens, menuDraft, updateMenuDraft, generateMenuPlan, menuLoading } = useValentinesStore();
   const back = useStepBack('/menu/cookware');
-  const [screenError, setScreenError] = useState<string | null>(null);
 
   useEffect(() => {
     setMainButton({ isVisible: false });
@@ -1120,7 +1119,6 @@ export function MenuAllergensStep() {
   const generate = async () => {
     if (!menuDraft.storeId || menuLoading) return;
     hapticFeedback('impact', 'light');
-    setScreenError(null);
     const rawBudget = parseFloat(menuDraft.budget.replace(',', '.'));
     const familyBudget = Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : menuMinBudgetFor(menuDraft.adults, menuDraft.children);
     const hasComponents =
@@ -1149,21 +1147,8 @@ export function MenuAllergensStep() {
           }
         : undefined,
     };
-    const result = await generateMenuPlan(request);
-    if (!result) {
-      setScreenError(useValentinesStore.getState().error || 'Не удалось подобрать меню. Попробуйте ещё раз.');
-      return;
-    }
-    if ('code' in result) {
-      const issue = result;
-      if (issue.code === 'no_recipes' || issue.code === 'empty_catalog' || issue.code === 'invalid_store') {
-        setScreenError(issue.message || 'Нет подходящих рецептов по выбранным условиям');
-      } else {
-        setScreenError(issue.message || 'Не удалось подобрать меню');
-      }
-      return;
-    }
-    navigate('/menu/result');
+    navigate('/menu/generating');
+    void generateMenuPlan(request);
   };
 
   return (
@@ -1176,7 +1161,6 @@ export function MenuAllergensStep() {
     >
       <div style={styles.sectionTitle}>Что нужно исключить?</div>
       <div style={styles.sectionHint}>Рецепты с этими ингредиентами будут исключены из подбора</div>
-      {screenError && <div style={styles.errorBox}>{screenError}</div>}
       <div style={styles.allergenGrid}>
         {menuAllergens.map((a) => {
           const selected = menuDraft.allergens.includes(a.id);

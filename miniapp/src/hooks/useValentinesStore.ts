@@ -842,7 +842,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   },
 
   generateMenuPlan: async (request) => {
-    set({ menuLoading: true, error: null, menuSaved: false });
+    set({ menuLoading: true, error: null, menuSaved: false, menuResult: null });
     const result = await api.generateMenu(request);
     if (result.error || !result.data) {
       set({ menuLoading: false, error: result.error });
