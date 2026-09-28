@@ -15,7 +15,7 @@ import { defaultProviders, type MenuProviders } from './providers';
 import { computeRecipeNutrition, per100g, perServing } from './nutrition';
 import { maxMealServings, mealServings, scaleForServings, servingsBreakdown } from './scaling';
 import { getIngredient } from './fixtures';
-import { ALLERGENS } from './allergens';
+import { ALLERGENS, exclusionTermHit, normalizeExclusions } from './allergens';
 import { MEAL_COMPONENT_TITLES, MEAL_TITLES } from './types';
 import type {
   AllergenId, MealComponentId, MealId, MenuDay, MenuGenerationIssue, MenuMeal, MenuRequest,
@@ -335,21 +335,23 @@ function filterRecipe(
     if (catalogue) {
       for (const a of catalogue.allergens) allergens.add(a);
     }
-    const nameLower = scaled.ingredient.name.toLowerCase();
-    const hit = (terms: string[]): string | null => terms.find((t) => nameLower.includes(t)) ?? null;
-    const customHit = hit(customTerms);
+    const customHit = exclusionTermHit(scaled.ingredient.name, customTerms);
     if (customHit) excludedTerms.custom.push(`${scaled.ingredient.name} (${customHit})`);
-    const dislikedHit = hit(dislikedTerms);
+    const dislikedHit = exclusionTermHit(scaled.ingredient.name, dislikedTerms);
     if (dislikedHit) excludedTerms.disliked.push(`${scaled.ingredient.name} (${dislikedHit})`);
   }
-  const recipeNameLower = recipe.name.toLowerCase();
-  const nameCustomHit = customTerms.find((t) => recipeNameLower.includes(t)) ?? null;
-  if (nameCustomHit && excludedTerms.custom.length === 0) {
-    excludedTerms.custom.push(`название блюда «${recipe.name}» (${nameCustomHit})`);
-  }
-  const nameDislikedHit = dislikedTerms.find((t) => recipeNameLower.includes(t)) ?? null;
-  if (nameDislikedHit && excludedTerms.disliked.length === 0) {
-    excludedTerms.disliked.push(`название блюда «${recipe.name}» (${nameDislikedHit})`);
+  /** Record the first reason per kind so the warning points at the real cause. */
+  const noteHit = (text: string, label: string, terms: string[], kind: 'custom' | 'disliked'): void => {
+    if (excludedTerms[kind].length > 0) return;
+    const hit = exclusionTermHit(text, terms);
+    if (hit) excludedTerms[kind].push(`${label} (${hit})`);
+  };
+  noteHit(recipe.name, `название блюда «${recipe.name}»`, customTerms, 'custom');
+  noteHit(recipe.name, `название блюда «${recipe.name}»`, dislikedTerms, 'disliked');
+  if (recipe.steps && recipe.steps.length > 0) {
+    const stepsText = recipe.steps.join(' ');
+    noteHit(stepsText, 'шаги приготовления', customTerms, 'custom');
+    noteHit(stepsText, 'шаги приготовления', dislikedTerms, 'disliked');
   }
 
   const banned = request.allergens.filter((a) => allergens.has(a));
@@ -591,20 +593,6 @@ export function mealOfRecipe(recipe: { category: string; name: string }): MealId
   if (breakfastKw.test(name)) return 'breakfast';
   if (lunchKw.test(name)) return 'lunch';
   return 'dinner';
-}
-
-function normalizeExclusions(terms?: string[]): string[] {
-  if (!terms) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of terms) {
-    const t = raw.trim().toLowerCase();
-    if (t.length < 2) continue;
-    if (seen.has(t)) continue;
-    seen.add(t);
-    out.push(t);
-  }
-  return out;
 }
 
 function shuffle<T>(arr: T[]): void {

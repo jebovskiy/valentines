@@ -173,6 +173,43 @@ test('aiMenu: repeated violations of exclusions are never leaked — falls back 
   }
 });
 
+test('aiMenu: inflected dish name with an uncatalogued ingredient still violates the exclusion', async () => {
+  // Regression: the model wrote «Овсяная каша с яблоками» (instrumental case)
+  // with the ingredient «Яблоко» — a singular form the catalogue does not know,
+  // so it was dropped from the shopping list and the naive "includes(яблоки)"
+  // check missed the dish name. The dish survived despite the custom allergen.
+  const request: MenuRequest = { ...baseRequest, customAllergens: ['яблоки'], budget: 60 };
+  const result = await generateMenuWithAi(request, {
+    providers: providersOf(),
+    now: NOW,
+    generatePlan: async (_prompt, day) =>
+      dayJson({
+        breakfast: dish(`Овсяная каша с яблоками день ${day}`, [
+          ['Овсяные хлопья', 30, 'g'],
+          ['Яблоко', 100, 'g'],
+        ]),
+        lunch: dish(`Обед день ${day}`, [['Картофель', 200, 'g']]),
+        dinner: dish(`Ужин день ${day}`, [
+          ['Картофель', 200, 'g'],
+          ['Морковь', 100, 'g'],
+        ]),
+      }),
+  });
+
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+
+  for (const choice of result.recipes) {
+    assert.ok(!choice.recipe.name.toLowerCase().includes('яблок'), `allergen hit in dish name: ${choice.recipe.name}`);
+    for (const step of choice.recipe.steps ?? []) {
+      assert.ok(!step.toLowerCase().includes('яблок'), `allergen hit in steps of ${choice.recipe.name}`);
+    }
+    for (const si of choice.scaledIngredients) {
+      assert.ok(!si.ingredient.name.toLowerCase().includes('яблок'), `allergen hit in ${si.ingredient.name}`);
+    }
+  }
+});
+
 test('aiMenu: LLM unavailable (null answer) falls back to the deterministic planner', async () => {
   const result = await generateMenuWithAi(baseRequest, {
     providers: providersOf(),

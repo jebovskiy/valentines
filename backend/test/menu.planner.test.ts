@@ -231,6 +231,25 @@ test('generateMenu: custom allergen excludes recipes containing that ingredient'
   }
 });
 
+test('generateMenu: inflected exclusion term matches the catalogue name by stem', async () => {
+  // «Яблоку» (dative) never appears verbatim in the catalogue — the recipes
+  // store the nominative plural «Яблоки». The stem matcher must still exclude
+  // apple dishes so a morphological variant cannot slip through.
+  const result = await generateMenu(
+    { ...baseRequest, budget: 350, customAllergens: ['яблоку'] },
+    { providers: providersOf(), now: NOW }
+  );
+  assert.ok(!('code' in result));
+  if ('code' in result) return;
+  const names = result.recipes.map((r) => r.recipe.name.toLowerCase()).join(' | ');
+  assert.ok(!names.includes('яблок'), `menu must not contain apple dishes: ${names}`);
+  for (const choice of result.recipes) {
+    for (const si of choice.scaledIngredients) {
+      assert.ok(!si.ingredient.name.toLowerCase().includes('яблок'), `custom allergen hit in ${si.ingredient.name}`);
+    }
+  }
+});
+
 test('generateMenu: disliked products are excluded from the week', async () => {
   const result = await generateMenu(
     { ...baseRequest, budget: 350, disliked: ['гречк'] },

@@ -18,7 +18,7 @@ import { defaultProviders, type MenuProviders } from './providers';
 import { computeRecipeNutrition, per100g, perServing } from './nutrition';
 import { mealServings, round1, round2, scaleForServings, servingsBreakdown } from './scaling';
 import { getIngredient, getIngredientByName } from './fixtures';
-import { ALLERGENS } from './allergens';
+import { ALLERGENS, exclusionTermHit, normalizeExclusions } from './allergens';
 import { MEAL_COMPONENT_TITLES, MEAL_TITLES } from './types';
 import { generateMenu, makeMenuServings, rolesForMeal, type GenerateMenuOptions } from './planner';
 import type {
@@ -461,19 +461,6 @@ interface SlotBuild {
   rejection: string | null;
 }
 
-function normalizeExclusions(terms?: string[]): string[] {
-  if (!terms) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of terms) {
-    const t = raw.trim().toLowerCase();
-    if (t.length < 2 || seen.has(t)) continue;
-    seen.add(t);
-    out.push(t);
-  }
-  return out;
-}
-
 function mergeIngredients(items: { ingredientId: string; qty: number; unit: Unit }[]): {
   ingredientId: string;
   qty: number;
@@ -591,21 +578,31 @@ async function buildSlot(
     if (catalogue) {
       for (const a of catalogue.allergens) allergens.add(a);
     }
-    const nameLower = scaled.ingredient.name.toLowerCase();
-    const hit = (terms: string[]): string | null => terms.find((t) => nameLower.includes(t)) ?? null;
-    const customHit = hit(customTerms);
+    const customHit = exclusionTermHit(scaled.ingredient.name, customTerms);
     if (customHit) excludedTerms.custom.push(`${scaled.ingredient.name} (${customHit})`);
-    const dislikedHit = hit(dislikedTerms);
+    const dislikedHit = exclusionTermHit(scaled.ingredient.name, dislikedTerms);
     if (dislikedHit) excludedTerms.disliked.push(`${scaled.ingredient.name} (${dislikedHit})`);
   }
-  const recipeNameLower = recipe.name.toLowerCase();
-  const nameCustomHit = customTerms.find((t) => recipeNameLower.includes(t)) ?? null;
-  if (nameCustomHit && excludedTerms.custom.length === 0) {
-    excludedTerms.custom.push(`название блюда «${recipe.name}» (${nameCustomHit})`);
+  /** Record the first reason per kind so the model is told about the real cause. */
+  const noteHit = (text: string, label: string, terms: string[], kind: 'custom' | 'disliked'): void => {
+    if (excludedTerms[kind].length > 0) return;
+    const hit = exclusionTermHit(text, terms);
+    if (hit) excludedTerms[kind].push(`${label} (${hit})`);
+  };
+  noteHit(recipe.name, `название блюда «${recipe.name}»`, customTerms, 'custom');
+  noteHit(recipe.name, `название блюда «${recipe.name}»`, dislikedTerms, 'disliked');
+  if (plan.steps.length > 0) {
+    const stepsText = plan.steps.join(' ');
+    noteHit(stepsText, 'шаги приготовления', customTerms, 'custom');
+    noteHit(stepsText, 'шаги приготовления', dislikedTerms, 'disliked');
   }
-  const nameDislikedHit = dislikedTerms.find((t) => recipeNameLower.includes(t)) ?? null;
-  if (nameDislikedHit && excludedTerms.disliked.length === 0) {
-    excludedTerms.disliked.push(`название блюда «${recipe.name}» (${nameDislikedHit})`);
+  // An ingredient the catalogue does not know is dropped from the dish, so it
+  // never reaches the shopping list — yet the model still cooks with it. The
+  // raw name is checked here so «Овсяная каша с яблоками» cannot survive an
+  // apple exclusion just because the model wrote «Яблоко» instead of «Яблоки».
+  for (const rawName of unknownNames) {
+    noteHit(rawName, `ингредиент «${rawName}» вне каталога`, customTerms, 'custom');
+    noteHit(rawName, `ингредиент «${rawName}» вне каталога`, dislikedTerms, 'disliked');
   }
 
   const banned = request.allergens.filter((a) => allergens.has(a));

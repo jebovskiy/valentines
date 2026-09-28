@@ -3,7 +3,6 @@ import type { AllergenId, AllergenInfo } from './types';
 export const ALLERGENS: AllergenInfo[] = [
   { id: 'milk', title: 'Молоко и молочные продукты', emoji: '🥛' },
   { id: 'egg', title: 'Яйца', emoji: '🥚' },
-  { id: 'peanut', title: 'Арахис', emoji: '🥜' },
   { id: 'tree_nut', title: 'Орехи', emoji: '🌰' },
   { id: 'fish', title: 'Рыба', emoji: '🐟' },
   { id: 'seafood', title: 'Морепродукты', emoji: '🦐' },
@@ -30,7 +29,7 @@ const ALLERGEN_ALIASES: Record<AllergenId, string[]> = {
   milk: ['молоко', 'молок', 'сливки', 'сливоч', 'сметан', 'творог', 'сыр', 'йогурт', 'кефир', 'ряженк', 'простокваш', 'масло сливочн', 'морожен', 'сгущ'],
   egg: ['яйц', 'яичн', 'меланж', 'майонез'],
   peanut: ['арахис'],
-  tree_nut: ['орех', 'миндал', 'фундук', 'кешью', 'фисташ', 'грецк', 'лесной орех'],
+  tree_nut: ['орех', 'арахис', 'миндал', 'фундук', 'кешью', 'фисташ', 'грецк', 'лесной орех'],
   fish: ['рыба', 'рыбн', 'лосос', 'семга', 'форель', 'треск', 'минтай', 'сельд', 'скумбр', 'тунец', 'судак', 'щука', 'икра'],
   seafood: ['кревет', 'морепродукт', 'кальмар', 'миди', 'мидия', 'осьминог', 'краб', 'лангуст', 'гребешок'],
   soy: ['соев', 'соя', 'тофу', 'мисо', 'эдамаме'],
@@ -104,4 +103,98 @@ export function allergensLabel(allergens: AllergenId[]): string {
   return ALLERGENS.filter((a) => allergens.includes(a.id))
     .map((a) => a.emoji)
     .join(' ');
+}
+
+// ---------------------------------------------------------------------------
+// Free-text exclusions (custom allergens / dislikes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Russian inflectional endings stripped when comparing a free-text exclusion
+ * with a word from a recipe. Ordered longest-first so «ями» wins over «и».
+ */
+const RU_ENDINGS = [
+  'иями', 'ями', 'ами', 'ыми', 'ими', 'ого', 'его', 'ому', 'ему',
+  'ах', 'ях', 'ов', 'ев', 'ей', 'ой', 'ый', 'ий', 'ая', 'яя', 'ое', 'ее',
+  'ые', 'ие', 'ем', 'ом', 'ам', 'ям', 'ую', 'юю', 'ью', 'ия', 'ию', 'ье',
+  'а', 'я', 'ы', 'и', 'о', 'е', 'у', 'ю', 'ь', 'й',
+];
+
+/** Crude but predictable Russian stem: strip the inflectional ending. */
+function ruStem(word: string): string {
+  for (const ending of RU_ENDINGS) {
+    if (word.length - ending.length >= 4 && word.endsWith(ending)) {
+      return word.slice(0, word.length - ending.length);
+    }
+  }
+  return word;
+}
+
+/** Lowercase, unify ё/е, keep letters only, collapse to a single-spaced string. */
+function flattenText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^a-zа-я]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function wordsOf(text: string): string[] {
+  const flat = flattenText(text);
+  return flat.length > 0 ? flat.split(' ') : [];
+}
+
+/**
+ * True when a single word from a recipe stands for the same product as the
+ * exclusion term. Inflected forms are compared by stem, so «печень» matches
+ * «печени»/«печёной» and «яблоки» matches «яблоком».
+ */
+function wordsMatch(termWord: string, candidateWord: string): boolean {
+  if (!termWord || !candidateWord) return false;
+  if (termWord === candidateWord) return true;
+  if (candidateWord.startsWith(termWord) || termWord.startsWith(candidateWord)) return true;
+  if (termWord.length < 3 || candidateWord.length < 3) return false;
+  const termStem = ruStem(termWord);
+  const candidateStem = ruStem(candidateWord);
+  if (termStem === candidateStem) return true;
+  return candidateStem.startsWith(termStem) || termStem.startsWith(candidateStem);
+}
+
+/** Normalize, drop noise and de-duplicate the user's free-text exclusions. */
+export function normalizeExclusions(terms?: string[]): string[] {
+  if (!terms) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of terms) {
+    const t = flattenText(raw);
+    if (t.length < 2 || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
+/**
+ * First exclusion term that the given text (ingredient name, dish name or
+ * cooking steps) stands for, or null. Whole-phrase substring matching is kept
+ * for multi-word terms; single words additionally match by stem so Russian
+ * case/number forms are recognized.
+ */
+export function exclusionTermHit(text: string, terms: string[]): string | null {
+  if (terms.length === 0) return null;
+  const flat = flattenText(text);
+  if (!flat) return null;
+  const candidateWords = wordsOf(text);
+  for (const term of terms) {
+    if (!term) continue;
+    if (flat.includes(term)) return term;
+    if (term.includes(' ')) continue;
+    const termWords = wordsOf(term);
+    if (termWords.length !== 1) continue;
+    for (const word of candidateWords) {
+      if (wordsMatch(termWords[0], word)) return term;
+    }
+  }
+  return null;
 }
