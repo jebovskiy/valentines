@@ -290,21 +290,25 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
     fontWeight: 700,
     color: 'var(--ink)',
-    marginTop: 22,
-    marginBottom: 4,
+    marginTop: 0,
+    marginBottom: 6,
   },
   tagSectionHint: {
     fontSize: 12,
     lineHeight: '17px',
     color: 'var(--ash)',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   quickSubLabel: {
     fontSize: 12,
     lineHeight: '17px',
     color: 'var(--ash)',
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  searchBlock: {
+    marginTop: 16,
+    marginBottom: 20,
   },
   tagInput: {
     width: '100%',
@@ -1267,11 +1271,13 @@ export function MenuAllergensStep() {
           );
         })}
       </div>
-      <ProductSearchInput
-        value={menuDraft.customAllergens}
-        onChange={(tags) => updateMenuDraft({ customAllergens: tags })}
-        placeholder="Поиск: курица, грибы, рыба…"
-      />
+      <div style={styles.searchBlock}>
+        <ProductSearchInput
+          value={menuDraft.customAllergens}
+          onChange={(tags) => updateMenuDraft({ customAllergens: tags })}
+          placeholder="Поиск: курица, грибы, рыба…"
+        />
+      </div>
 
       <div style={styles.tagSectionTitle}>Что не нравится</div>
       <div style={styles.tagSectionHint}>
@@ -1291,11 +1297,13 @@ export function MenuAllergensStep() {
           );
         })}
       </div>
-      <ProductSearchInput
-        value={menuDraft.disliked}
-        onChange={(tags) => updateMenuDraft({ disliked: tags })}
-        placeholder="Поиск: печень, кабачки, орехи…"
-      />
+      <div style={styles.searchBlock}>
+        <ProductSearchInput
+          value={menuDraft.disliked}
+          onChange={(tags) => updateMenuDraft({ disliked: tags })}
+          placeholder="Поиск: печень, кабачки, орехи…"
+        />
+      </div>
     </StepFrame>
   );
 }

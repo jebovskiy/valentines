@@ -182,7 +182,7 @@ export const INGREDIENTS: Ingredient[] = [
   { id: 'flaxseed_oil', name: 'Масло льняное', unit: 'ml', allergens: [] },
   { id: 'sesame_oil', name: 'Масло кунжутное', unit: 'ml', allergens: [] },
   // -- Орехи, семена, сухофрукты ---------------------------------------------
-  { id: 'peanuts', name: 'Арахис', unit: 'g', allergens: ['peanut'] },
+  { id: 'peanuts', name: 'Арахис', unit: 'g', allergens: ['tree_nut'] },
   { id: 'walnuts', name: 'Грецкие орехи', unit: 'g', allergens: ['tree_nut'] },
   { id: 'almonds', name: 'Миндаль', unit: 'g', allergens: ['tree_nut'] },
   { id: 'cashews', name: 'Кешью', unit: 'g', allergens: ['tree_nut'] },

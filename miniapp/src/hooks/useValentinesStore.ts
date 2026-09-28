@@ -60,7 +60,9 @@ export function loadMenuPreferences(key: string): MenuPreferences | null {
       return null;
     }
     return {
-      allergens: parsed.allergens.filter((x): x is MenuAllergenId => typeof x === 'string' && Boolean(x)),
+      allergens: parsed.allergens
+        .filter((x): x is MenuAllergenId => typeof x === 'string' && Boolean(x))
+        .map((a) => (a === 'peanut' ? 'tree_nut' : a)),
       customAllergens: parsed.customAllergens.filter((x): x is string => typeof x === 'string' && Boolean(x)),
       disliked: parsed.disliked.filter((x): x is string => typeof x === 'string' && Boolean(x)),
     };
