@@ -22,6 +22,61 @@ function setPartnerOverride(pairId: string, name: string | null): void {
   }
 }
 
+/** Allegry/dislike preferences remembered across menu builds. */
+export const MENU_PREFS_KEY = 'vn_menu_preferences';
+
+export interface MenuPreferences {
+  allergens: MenuAllergenId[];
+  customAllergens: string[];
+  disliked: string[];
+}
+
+/** True once the user touched the current session's prefs — stops reloading them. */
+let menuPrefsDirty = false;
+
+export function isMenuPrefsDirty(): boolean {
+  return menuPrefsDirty;
+}
+
+export function setMenuPrefsDirty(dirty: boolean): void {
+  menuPrefsDirty = dirty;
+}
+
+export function menuPrefsStorageKey(pairId: string | null): string {
+  return pairId ? `${MENU_PREFS_KEY}:${pairId}` : MENU_PREFS_KEY;
+}
+
+export function loadMenuPreferences(key: string): MenuPreferences | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<MenuPreferences>;
+    if (
+      !parsed ||
+      !Array.isArray(parsed.allergens) ||
+      !Array.isArray(parsed.customAllergens) ||
+      !Array.isArray(parsed.disliked)
+    ) {
+      return null;
+    }
+    return {
+      allergens: parsed.allergens.filter((x): x is MenuAllergenId => typeof x === 'string' && Boolean(x)),
+      customAllergens: parsed.customAllergens.filter((x): x is string => typeof x === 'string' && Boolean(x)),
+      disliked: parsed.disliked.filter((x): x is string => typeof x === 'string' && Boolean(x)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveMenuPreferences(key: string, prefs: MenuPreferences): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(prefs));
+  } catch {
+    /* ignore */
+  }
+}
+
 interface ValentinesState {
   pair: Pair | null;
   valentines: ValentineWithSender[];
@@ -982,7 +1037,8 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       menuDraft: { ...state.menuDraft, members, ...headcountOfMembers(members) },
     })),
 
-  resetMenuDraft: () =>
+  resetMenuDraft: () => {
+    setMenuPrefsDirty(false);
     set({
       menuDraft: {
         storeId: null,
@@ -996,6 +1052,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
         members: defaultMenuMembers(),
         mealComponents: { lunch: [], dinner: [] },
       },
-    }),
+    });
+  },
 }));
 

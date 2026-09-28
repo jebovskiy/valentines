@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useValentinesStore } from '../../hooks/useValentinesStore';
+import { useValentinesStore, isMenuPrefsDirty, loadMenuPreferences, menuPrefsStorageKey, saveMenuPreferences, setMenuPrefsDirty } from '../../hooks/useValentinesStore';
 import { MEAL_COMPONENT_TITLES, MEAL_ROLES, MENU_COOKWARE, menuMinBudgetFor } from '../../types';
 import type { MealComponentId, MenuAllergenId, MenuCookwareId, MenuIngredientGroup, MenuMealId, MenuMember, MenuRequest, MenuStoreId } from '../../types';
 import { setMainButton, setBackButton, hapticFeedback } from '../../utils/telegram';
@@ -23,6 +23,41 @@ function normalizeBudgetInput(value: string): string {
   const intClean = intPart.slice(0, 8);
   const decClean = decPart.slice(0, 2);
   return decClean ? `${intClean}${sep}${decClean}` : intClean;
+}
+
+interface QuickTagOption {
+  label: string;
+  emoji?: string;
+  /** Exact catalogue ingredient names added/removed together. */
+  names: string[];
+}
+
+const QUICK_CUSTOM_ALLERGENS: QuickTagOption[] = [
+  { emoji: '🍄', label: 'Грибы', names: ['Шампиньоны', 'Вешенки', 'Лисички', 'Белые грибы'] },
+  { emoji: '🍓', label: 'Клубника', names: ['Клубника'] },
+  { emoji: '🍊', label: 'Цитрусовые', names: ['Апельсины', 'Мандарины', 'Грейпфрут', 'Лимоны', 'Лайм'] },
+  { emoji: '🍯', label: 'Мёд', names: ['Мёд'] },
+];
+
+const QUICK_DISLIKED: QuickTagOption[] = [
+  { emoji: '🥣', label: 'Субпродукты', names: ['Печень куриная', 'Сердце куриное', 'Желудки куриные'] },
+  { emoji: '🍄', label: 'Грибы', names: ['Шампиньоны', 'Вешенки', 'Лисички', 'Белые грибы'] },
+  { emoji: '🍆', label: 'Баклажаны', names: ['Баклажаны'] },
+  { emoji: '🥒', label: 'Кабачки', names: ['Кабачки'] },
+  { emoji: '🧅', label: 'Лук', names: ['Лук репчатый', 'Лук-порей', 'Лук зелёный'] },
+  { emoji: '🐟', label: 'Рыба', names: ['Лосось', 'Треска', 'Минтай', 'Сельдь', 'Скумбрия', 'Карп', 'Сибас', 'Форель'] },
+  { emoji: '🦐', label: 'Морепродукты', names: ['Креветки', 'Мидии'] },
+  { emoji: '🫘', label: 'Бобовые', names: ['Горох колотый', 'Фасоль', 'Чечевица', 'Маш', 'Горошек свежий'] },
+  { emoji: '🥣', label: 'Манная каша', names: ['Крупа манная'] },
+  { emoji: '🥣', label: 'Овсянка', names: ['Овсяные хлопья'] },
+  { emoji: '🥗', label: 'Свёкла', names: ['Свёкла'] },
+];
+
+function toggleTagList(list: string[], names: string[]): string[] {
+  const next = new Set(list);
+  if (names.every((n) => next.has(n))) names.forEach((n) => next.delete(n));
+  else names.forEach((n) => next.add(n));
+  return [...next];
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -263,6 +298,13 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: '17px',
     color: 'var(--ash)',
     marginBottom: 10,
+  },
+  quickSubLabel: {
+    fontSize: 12,
+    lineHeight: '17px',
+    color: 'var(--ash)',
+    marginTop: 12,
+    marginBottom: 8,
   },
   tagInput: {
     width: '100%',
@@ -1100,6 +1142,7 @@ export function MenuCookwareStep() {
 export function MenuAllergensStep() {
   const navigate = useNavigate();
   const { menuAllergens, menuDraft, updateMenuDraft, generateMenuPlan, menuLoading } = useValentinesStore();
+  const pairId = useValentinesStore((s) => s.pair?.id ?? null);
   const back = useStepBack('/menu/cookware');
 
   useEffect(() => {
@@ -1108,12 +1151,40 @@ export function MenuAllergensStep() {
     return () => setBackButton(false);
   }, [back]);
 
+  useEffect(() => {
+    if (isMenuPrefsDirty()) return;
+    if (menuDraft.allergens.length > 0 || menuDraft.customAllergens.length > 0 || menuDraft.disliked.length > 0) return;
+    const prefs = loadMenuPreferences(menuPrefsStorageKey(pairId));
+    if (prefs && (prefs.allergens.length > 0 || prefs.customAllergens.length > 0 || prefs.disliked.length > 0)) {
+      updateMenuDraft(prefs);
+    }
+  }, [pairId, menuDraft.allergens, menuDraft.customAllergens, menuDraft.disliked]);
+
+  useEffect(() => {
+    saveMenuPreferences(menuPrefsStorageKey(pairId), {
+      allergens: menuDraft.allergens,
+      customAllergens: menuDraft.customAllergens,
+      disliked: menuDraft.disliked,
+    });
+    setMenuPrefsDirty(true);
+  }, [pairId, menuDraft.allergens, menuDraft.customAllergens, menuDraft.disliked]);
+
   const toggleAllergen = (id: MenuAllergenId) => {
     hapticFeedback('selection');
     const next = new Set(menuDraft.allergens);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     updateMenuDraft({ allergens: [...next] });
+  };
+
+  const toggleCustom = (names: string[]) => {
+    hapticFeedback('selection');
+    updateMenuDraft({ customAllergens: toggleTagList(menuDraft.customAllergens, names) });
+  };
+
+  const toggleDisliked = (names: string[]) => {
+    hapticFeedback('selection');
+    updateMenuDraft({ disliked: toggleTagList(menuDraft.disliked, names) });
   };
 
   const generate = async () => {
@@ -1161,6 +1232,11 @@ export function MenuAllergensStep() {
     >
       <div style={styles.sectionTitle}>Что нужно исключить?</div>
       <div style={styles.sectionHint}>Рецепты с этими ингредиентами будут исключены из подбора</div>
+
+      <div style={styles.tagSectionTitle}>Свои аллергии</div>
+      <div style={styles.tagSectionHint}>
+        Выберите из частых вариантов или найдите свой — всё запомним для следующего сбора меню.
+      </div>
       <div style={styles.allergenGrid}>
         {menuAllergens.map((a) => {
           const selected = menuDraft.allergens.includes(a.id);
@@ -1176,10 +1252,20 @@ export function MenuAllergensStep() {
           );
         })}
       </div>
-
-      <div style={styles.tagSectionTitle}>Свои аллергии</div>
-      <div style={styles.tagSectionHint}>
-        Введите продукт или группу (например «грибы», «рыба») — выберите нужное из подсказок. Группа добавит все виды разом, но каждый можно убрать по отдельности.
+      <div style={styles.quickSubLabel}>Ещё частые варианты:</div>
+      <div style={styles.allergenGrid}>
+        {QUICK_CUSTOM_ALLERGENS.map((o) => {
+          const selected = o.names.every((n) => menuDraft.customAllergens.includes(n));
+          return (
+            <button
+              key={o.label}
+              style={{ ...styles.allergenChip, ...(selected ? styles.allergenChipSelected : {}) }}
+              onClick={() => toggleCustom(o.names)}
+            >
+              {o.emoji ? `${o.emoji} ${o.label}` : o.label}
+            </button>
+          );
+        })}
       </div>
       <ProductSearchInput
         value={menuDraft.customAllergens}
@@ -1190,6 +1276,20 @@ export function MenuAllergensStep() {
       <div style={styles.tagSectionTitle}>Что не нравится</div>
       <div style={styles.tagSectionHint}>
         Нелюбимые продукты тоже будут исключены из блюд на неделю. Можно добавить целую группу, а конкретные виды убрать из списка.
+      </div>
+      <div style={styles.allergenGrid}>
+        {QUICK_DISLIKED.map((o) => {
+          const selected = o.names.every((n) => menuDraft.disliked.includes(n));
+          return (
+            <button
+              key={o.label}
+              style={{ ...styles.allergenChip, ...(selected ? styles.allergenChipSelected : {}) }}
+              onClick={() => toggleDisliked(o.names)}
+            >
+              {o.emoji ? `${o.emoji} ${o.label}` : o.label}
+            </button>
+          );
+        })}
       </div>
       <ProductSearchInput
         value={menuDraft.disliked}
