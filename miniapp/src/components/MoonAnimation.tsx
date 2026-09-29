@@ -1,3 +1,5 @@
+import { AppleEmoji } from './AppleEmoji';
+
 const STARS = [
   { x: 10, y: 20, delay: 0 },
   { x: 22, y: 60, delay: 0.7 },
@@ -9,12 +11,10 @@ const STARS = [
   { x: 90, y: 30, delay: 0.9 },
 ];
 
-const CRESCENT_PATH =
-  'M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.298 7.299 7.298.463 0 .916-.07 1.34-.202a.768.768 0 0 1 .728 1.353 8.598 8.598 0 0 1-2.068 1.268 8.584 8.584 0 0 1-4.299 0A8.577 8.577 0 0 1 0 8.567 8.577 8.577 0 0 1 6 .278z';
-
 /**
- * "Night": a gold crescent drifting over a dark sky with twinkling stars.
- * Self-contained dark stage so it reads well at small sizes.
+ * "Night": a full-bleed dark sky that fills its parent, with the 🌙 moon
+ * emoji drifting and stars twinkling. Position absolute inset 0 so it works
+ * both as the tile inside the size box and as the whole-card background.
  */
 export function MoonAnimation({
   size = 100,
@@ -27,20 +27,23 @@ export function MoonAnimation({
   style?: React.CSSProperties;
   className?: string;
 }) {
+  const starSize = Math.max(2, size * 0.03);
+  const moonSize = size * 0.5;
   return (
     <div
       style={{
         ...style,
-        position: 'relative',
-        width: size,
-        height: size,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
         overflow: 'hidden',
-        borderRadius: size * 0.18,
         background: 'linear-gradient(180deg, #151033, #241a4a)',
       }}
       className={className}
       role="img"
-      aria-label="Полумесяц со звёздами"
+      aria-label="Ночное небо с луной и звёздами"
     >
       {/* stars */}
       {STARS.map((s, i) => (
@@ -50,8 +53,8 @@ export function MoonAnimation({
             position: 'absolute',
             left: `${s.x}%`,
             top: `${s.y}%`,
-            width: size * 0.03,
-            height: size * 0.03,
+            width: starSize,
+            height: starSize,
             borderRadius: '50%',
             background: '#fff',
             opacity: 0,
@@ -64,26 +67,28 @@ export function MoonAnimation({
         />
       ))}
 
-      {/* crescent moon */}
-      <svg
-        width={size * 0.48}
-        height={size * 0.48}
-        viewBox="0 0 16 16"
-        fill="none"
+      {/* moon emoji */}
+      <div
         style={{
           position: 'absolute',
           left: '50%',
           top: '50%',
-          marginLeft: -(size * 0.48) / 2,
-          marginTop: -(size * 0.48) / 2,
-          color: '#f0b860',
-          filter: 'drop-shadow(0 0 14px rgba(240, 200, 120, 0.4))',
-          willChange: 'transform',
-          animation: autoPlay ? 'va-drift 6s ease-in-out infinite' : 'none',
+          width: moonSize,
+          height: moonSize,
+          marginLeft: -moonSize / 2,
+          marginTop: -moonSize / 2,
         }}
       >
-        <path d={CRESCENT_PATH} fill="currentColor" />
-      </svg>
+        <AppleEmoji
+          emoji="🌙"
+          size={moonSize}
+          style={{
+            filter: 'drop-shadow(0 0 18px rgba(240, 200, 120, 0.45))',
+            willChange: 'transform',
+            animation: autoPlay ? 'va-moon-drift 6s ease-in-out infinite' : 'none',
+          }}
+        />
+      </div>
     </div>
   );
 }

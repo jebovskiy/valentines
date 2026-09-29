@@ -5,6 +5,7 @@ import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram'
 import { BackButton } from '../components/BackButton';
 import { PhotoLightbox } from '../components/PhotoLightbox';
 import { ValentineAnimation } from '../components/ValentineAnimation';
+import { MoonAnimation } from '../components/MoonAnimation';
 import { getAnimation } from '../types';
 import { formatDateTime } from '../utils/date';
 
@@ -58,15 +59,25 @@ export function DetailScreen() {
   const senderLabel = valentine.is_own ? 'Вы' : valentine.sender_name;
   const timeDate = formatDateTime(valentine.sent_at);
   const gradient = animationGradient(valentine.animation_type);
+  const isNight = valentine.animation_type === 'moon';
 
   return (
     <div style={styles.container} className={isAnimating ? 'animate-slide-up' : ''}>
       <BackButton to="/" />
       <div style={styles.receivedBody}>
-        <div style={{ ...styles.receivedCard, background: gradient }}>
-          <div style={styles.cardArt}>
-            <ValentineAnimation type={valentine.animation_type} size={108} />
-          </div>
+        <div
+          style={{
+            ...styles.receivedCard,
+            background: isNight ? 'linear-gradient(180deg, #151033, #241a4a)' : gradient,
+            color: isNight ? '#fff' : undefined,
+          }}
+        >
+          {isNight && <MoonAnimation size={220} autoPlay />}
+          {!isNight && (
+            <div style={styles.cardArt}>
+              <ValentineAnimation type={valentine.animation_type} size={108} />
+            </div>
+          )}
           <div style={styles.cardContent}>
             <div style={styles.overlayPill}>от {senderLabel}</div>
             {valentine.photo_url ? (
@@ -80,13 +91,13 @@ export function DetailScreen() {
                 <img src={valentine.photo_url} alt="Фото валентинки" style={styles.msgPhotoImg} />
               </div>
             ) : (
-              <div style={styles.msgBox}>
+              <div style={{ ...styles.msgBox, color: isNight ? '#fff' : undefined }}>
                 {valentine.message || anim.label}
               </div>
             )}
-            <div style={styles.receivedTime}>
-              {timeDate}
-            </div>
+<div style={{ ...styles.receivedTime, color: isNight ? 'rgba(255,255,255,0.75)' : undefined }}>
+                {timeDate}
+              </div>
             {valentine.is_own && (
               <div style={valentine.seen_at ? styles.readStatus : styles.unreadStatus}>
                 {valentine.seen_at ? '✓ прочитано' : 'не прочитано'}
@@ -198,6 +209,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     flex: 1,
     minHeight: 0,
+    position: 'relative',
   },
   cardArt: {
     flex: 1,

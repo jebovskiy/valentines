@@ -1,7 +1,7 @@
 const PETAL_COLORS = ['#f2a6c4', '#e0708a'];
 
 /**
- * "Bloom": six SVG petals scaling out from the flower's center, staggered,
+ * "Bloom": ten SVG petals scaling out from the flower's center, staggered,
  * while the center bud pops in. Static frame shows the open flower.
  */
 export function BloomAnimation({
@@ -39,9 +39,9 @@ export function BloomAnimation({
           marginTop: -(size * 0.9) / 2,
         }}
       >
-        {[0, 1, 2, 3, 4, 5].map((i) => {
-          const angle = i * 60;
-          const delay = i * 0.06;
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => {
+          const angle = i * 36;
+          const delay = i * 0.05;
           return (
             <g key={i} transform={`rotate(${angle} 50 50)`}>
               <ellipse

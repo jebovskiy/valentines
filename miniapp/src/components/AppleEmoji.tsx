@@ -4,6 +4,7 @@ const EMOJI_CODEPOINTS: Record<string, string> = {
   '💌': '1f48c',
   '✨': '2728',
   '🌙': '1f319',
+  '😇': '1f607',
   '🔥': '1f525',
   '👤': '1f464',
   '📝': '1f4dd',
