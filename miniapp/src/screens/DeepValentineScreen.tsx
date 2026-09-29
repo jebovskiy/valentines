@@ -292,6 +292,8 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'flex-start',
     gap: '8px',
     padding: '20px',
+    position: 'relative',
+    zIndex: 1,
   },
   overlayPill: {
     backgroundColor: 'var(--canvas)',

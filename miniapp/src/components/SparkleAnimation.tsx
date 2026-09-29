@@ -28,19 +28,28 @@ export function SparkleAnimation({
       role="img"
       aria-label="Блеск"
     >
-      <AppleEmoji
-        emoji="✨"
-        size={emojiSize}
+      {/* centered wrapper: keeps the emoji centered while the pulse animates scale */}
+      <div
         style={{
           position: 'absolute',
           left: '50%',
           top: '50%',
-          transform: 'translate(-50%, -50%)',
-          filter: 'drop-shadow(0 0 14px rgba(240, 184, 96, 0.65))',
-          willChange: 'transform',
-          animation: autoPlay ? 'va-spark-pulse 2.4s ease-in-out infinite' : 'none',
+          width: emojiSize,
+          height: emojiSize,
+          marginLeft: -emojiSize / 2,
+          marginTop: -emojiSize / 2,
         }}
-      />
+      >
+        <AppleEmoji
+          emoji="✨"
+          size={emojiSize}
+          style={{
+            filter: 'drop-shadow(0 0 14px rgba(240, 184, 96, 0.65))',
+            willChange: 'transform',
+            animation: autoPlay ? 'va-spark-pulse 2.4s ease-in-out infinite' : 'none',
+          }}
+        />
+      </div>
     </div>
   );
 }

@@ -47,8 +47,8 @@ export function BloomAnimation({
               <ellipse
                 cx={50}
                 cy={27}
-                rx={12}
-                ry={20}
+                rx={8.5}
+                ry={21}
                 fill={PETAL_COLORS[i % 2]}
                 style={{
                   transformOrigin: '50px 50px',

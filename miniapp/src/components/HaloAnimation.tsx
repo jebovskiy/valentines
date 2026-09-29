@@ -19,7 +19,7 @@ export function HaloAnimation({
   className?: string;
 }) {
   const emojiSize = size * 0.6;
-  const ringW = size * 0.42;
+  const ringW = size * 0.46;
   const ringH = size * 0.16;
   return (
     <div
@@ -33,12 +33,27 @@ export function HaloAnimation({
       role="img"
       aria-label="Эмодзи с нимбом"
     >
-      {/* golden halo ring that puts on / takes off */}
+      {/* emoji with halo */}
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          top: '34%',
+          top: '50%',
+          width: emojiSize,
+          height: emojiSize,
+          marginLeft: -emojiSize / 2,
+          marginTop: -emojiSize / 2,
+        }}
+      >
+        <AppleEmoji emoji="😇" size={emojiSize} />
+      </div>
+
+      {/* golden halo ring that puts on / takes off (rendered on top) */}
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '16%',
           width: ringW,
           height: ringH,
           marginLeft: -ringW / 2,
@@ -46,22 +61,10 @@ export function HaloAnimation({
           border: `3px solid ${GOLD}`,
           borderRadius: '50%',
           opacity: 0,
-          filter: `drop-shadow(0 0 6px ${GOLD})`,
+          filter: `drop-shadow(0 0 8px ${GOLD})`,
           willChange: 'transform, opacity',
           animation: autoPlay ? 'va-halo-onoff 4s ease-in-out infinite' : 'none',
           ...(autoPlay ? {} : { opacity: 1 }),
-        }}
-      />
-
-      {/* emoji with halo */}
-      <AppleEmoji
-        emoji="😇"
-        size={emojiSize}
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
         }}
       />
     </div>
