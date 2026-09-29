@@ -17,7 +17,7 @@ export function HaloAnimation({
   className?: string;
 }) {
   const emojiSize = size * 0.6;
-  const crownSize = size * 0.34;
+  const crownSize = size * 0.42;
   return (
     <div
       style={{
@@ -50,7 +50,7 @@ export function HaloAnimation({
         style={{
           position: 'absolute',
           left: '50%',
-          top: '36%',
+          top: '24%',
           width: crownSize,
           height: crownSize,
           marginLeft: -crownSize / 2,
@@ -60,11 +60,21 @@ export function HaloAnimation({
           ...(autoPlay ? {} : { opacity: 1 }),
         }}
       >
+        {/* soft glow halo behind the crown */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: '-30%',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(240, 209, 112, 0.55), rgba(240, 209, 112, 0) 70%)',
+          }}
+        />
         <AppleEmoji
           emoji="👑"
           size={crownSize}
           style={{
-            filter: 'drop-shadow(0 0 12px rgba(240, 209, 112, 0.85))',
+            position: 'relative',
+            filter: 'drop-shadow(0 0 6px rgba(240, 209, 112, 0.9)) drop-shadow(0 0 16px rgba(240, 209, 112, 0.5))',
           }}
         />
       </div>
