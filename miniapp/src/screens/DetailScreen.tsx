@@ -73,6 +73,7 @@ export function DetailScreen() {
           }}
         >
           {isNight && <MoonAnimation size={220} autoPlay />}
+          {isNight && <div style={{ flex: 1 }} />}
           {!isNight && (
             <div style={styles.cardArt}>
               <ValentineAnimation type={valentine.animation_type} size={108} />

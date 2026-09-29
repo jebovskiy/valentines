@@ -1,8 +1,17 @@
 import { AppleEmoji } from './AppleEmoji';
 
+/** Star positions (percent of the box) + per-star timing. */
+const STARS: Array<{ top: string; left: string; emojiSize: number; delay: number }> = [
+  { top: '28%', left: '26%', emojiSize: 0.34, delay: 0 },
+  { top: '20%', left: '58%', emojiSize: 0.42, delay: 0.5 },
+  { top: '48%', left: '47%', emojiSize: 0.5, delay: 0.8 },
+  { top: '64%', left: '29%', emojiSize: 0.36, delay: 0.3 },
+  { top: '58%', left: '64%', emojiSize: 0.4, delay: 1.1 },
+];
+
 /**
- * "Sparkle": a sparkle emoji in the center that smoothly grows and shrinks.
- * Static frame shows the emoji at rest.
+ * "Sparkle": several sparkle emojis, each smoothly growing and shrinking on its
+ * own rhythm. Static frame shows the stars at full size.
  */
 export function SparkleAnimation({
   size = 100,
@@ -15,7 +24,6 @@ export function SparkleAnimation({
   style?: React.CSSProperties;
   className?: string;
 }) {
-  const emojiSize = size * 0.52;
   return (
     <div
       style={{
@@ -28,28 +36,35 @@ export function SparkleAnimation({
       role="img"
       aria-label="Блеск"
     >
-      {/* centered wrapper: keeps the emoji centered while the pulse animates scale */}
-      <div
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          width: emojiSize,
-          height: emojiSize,
-          marginLeft: -emojiSize / 2,
-          marginTop: -emojiSize / 2,
-        }}
-      >
-        <AppleEmoji
-          emoji="✨"
-          size={emojiSize}
-          style={{
-            filter: 'drop-shadow(0 0 14px rgba(240, 184, 96, 0.65))',
-            willChange: 'transform',
-            animation: autoPlay ? 'va-spark-pulse 2.4s ease-in-out infinite' : 'none',
-          }}
-        />
-      </div>
+      {STARS.map((star, i) => {
+        const absolute = star.emojiSize * size;
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              top: star.top,
+              left: star.left,
+              width: absolute,
+              height: absolute,
+              marginLeft: -absolute / 2,
+              marginTop: -absolute / 2,
+            }}
+          >
+            <AppleEmoji
+              emoji="✨"
+              size={absolute}
+              style={{
+                filter: 'drop-shadow(0 0 12px rgba(240, 184, 96, 0.6))',
+                willChange: 'transform',
+                animation: autoPlay
+                  ? `va-spark-pulse 2.4s ease-in-out ${star.delay}s infinite`
+                  : 'none',
+              }}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -3,9 +3,9 @@ import { AppleEmoji } from './AppleEmoji';
 const GOLD = '#f0d170';
 
 /**
- * "Halo": the halo emoji (😇) with a golden ring that smoothly slips onto the
- * head ("одевается"), holds, and smoothly lifts away ("снимается"). Static
- * frame shows the emoji with the halo settled in place.
+ * "Halo": a face emoji (no built-in halo) with a golden ring drawn over its
+ * head that smoothly slips onto the head ("одевается"), holds, and smoothly
+ * lifts away ("снимается"). Using 🙂 + drawn ring avoids a duplicated halo.
  */
 export function HaloAnimation({
   size = 100,
@@ -19,7 +19,7 @@ export function HaloAnimation({
   className?: string;
 }) {
   const emojiSize = size * 0.6;
-  const ringW = size * 0.46;
+  const ringW = size * 0.42;
   const ringH = size * 0.16;
   return (
     <div
@@ -33,7 +33,7 @@ export function HaloAnimation({
       role="img"
       aria-label="Эмодзи с нимбом"
     >
-      {/* emoji with halo */}
+      {/* plain face emoji, no halo baked in */}
       <div
         style={{
           position: 'absolute',
@@ -45,15 +45,15 @@ export function HaloAnimation({
           marginTop: -emojiSize / 2,
         }}
       >
-        <AppleEmoji emoji="😇" size={emojiSize} />
+        <AppleEmoji emoji="🙂" size={emojiSize} />
       </div>
 
-      {/* golden halo ring that puts on / takes off (rendered on top) */}
+      {/* golden halo ring right above the head (rendered on top) */}
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          top: '16%',
+          top: '38%',
           width: ringW,
           height: ringH,
           marginLeft: -ringW / 2,
