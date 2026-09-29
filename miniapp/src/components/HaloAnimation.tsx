@@ -1,11 +1,9 @@
 import { AppleEmoji } from './AppleEmoji';
 
-const GOLD = '#f0d170';
-
 /**
- * "Halo": a face emoji (no built-in halo) with a golden ring drawn over its
- * head that smoothly slips onto the head ("одевается"), holds, and smoothly
- * lifts away ("снимается"). Using 🙂 + drawn ring avoids a duplicated halo.
+ * "Halo": a plain face emoji (🙂) with a glowing crown (👑) that smoothly
+ * slips onto the head ("одевается"), holds, and smoothly lifts away
+ * ("снимается").
  */
 export function HaloAnimation({
   size = 100,
@@ -19,8 +17,7 @@ export function HaloAnimation({
   className?: string;
 }) {
   const emojiSize = size * 0.6;
-  const ringW = size * 0.42;
-  const ringH = size * 0.16;
+  const crownSize = size * 0.34;
   return (
     <div
       style={{
@@ -31,9 +28,9 @@ export function HaloAnimation({
       }}
       className={className}
       role="img"
-      aria-label="Эмодзи с нимбом"
+      aria-label="Эмодзи с короной"
     >
-      {/* plain face emoji, no halo baked in */}
+      {/* plain face emoji */}
       <div
         style={{
           position: 'absolute',
@@ -48,25 +45,29 @@ export function HaloAnimation({
         <AppleEmoji emoji="🙂" size={emojiSize} />
       </div>
 
-      {/* golden halo ring right above the head (rendered on top) */}
+      {/* glowing crown that puts on / takes off (rendered on top) */}
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          top: '38%',
-          width: ringW,
-          height: ringH,
-          marginLeft: -ringW / 2,
-          marginTop: -ringH / 2,
-          border: `3px solid ${GOLD}`,
-          borderRadius: '50%',
-          opacity: 0,
-          filter: `drop-shadow(0 0 8px ${GOLD})`,
+          top: '36%',
+          width: crownSize,
+          height: crownSize,
+          marginLeft: -crownSize / 2,
+          marginTop: -crownSize / 2,
           willChange: 'transform, opacity',
           animation: autoPlay ? 'va-halo-onoff 4s ease-in-out infinite' : 'none',
           ...(autoPlay ? {} : { opacity: 1 }),
         }}
-      />
+      >
+        <AppleEmoji
+          emoji="👑"
+          size={crownSize}
+          style={{
+            filter: 'drop-shadow(0 0 12px rgba(240, 209, 112, 0.85))',
+          }}
+        />
+      </div>
     </div>
   );
 }

@@ -1,17 +1,16 @@
 import { AppleEmoji } from './AppleEmoji';
 
-/** Star positions (percent of the box) + per-star timing. */
-const STARS: Array<{ top: string; left: string; emojiSize: number; delay: number }> = [
-  { top: '28%', left: '26%', emojiSize: 0.34, delay: 0 },
-  { top: '20%', left: '58%', emojiSize: 0.42, delay: 0.5 },
-  { top: '48%', left: '47%', emojiSize: 0.5, delay: 0.8 },
-  { top: '64%', left: '29%', emojiSize: 0.36, delay: 0.3 },
-  { top: '58%', left: '64%', emojiSize: 0.4, delay: 1.1 },
+/** Small star positions (percent of the box) + per-star timing. */
+const SMALL_STARS: Array<{ top: string; left: string; emojiSize: number; delay: number }> = [
+  { top: '30%', left: '32%', emojiSize: 0.3, delay: 0 },
+  { top: '26%', left: '66%', emojiSize: 0.28, delay: 0.5 },
+  { top: '62%', left: '58%', emojiSize: 0.3, delay: 1 },
 ];
 
 /**
- * "Sparkle": several sparkle emojis, each smoothly growing and shrinking on its
- * own rhythm. Static frame shows the stars at full size.
+ * "Sparkle": one big sparkle emoji in the center, growing and shrinking,
+ * surrounded by three small sparkles, each pulsing on its own rhythm.
+ * Static frame shows all sparkles at full size.
  */
 export function SparkleAnimation({
   size = 100,
@@ -24,6 +23,7 @@ export function SparkleAnimation({
   style?: React.CSSProperties;
   className?: string;
 }) {
+  const centerSize = size * 0.52;
   return (
     <div
       style={{
@@ -36,7 +36,31 @@ export function SparkleAnimation({
       role="img"
       aria-label="Блеск"
     >
-      {STARS.map((star, i) => {
+      {/* big center sparkle */}
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          width: centerSize,
+          height: centerSize,
+          marginLeft: -centerSize / 2,
+          marginTop: -centerSize / 2,
+        }}
+      >
+        <AppleEmoji
+          emoji="✨"
+          size={centerSize}
+          style={{
+            filter: 'drop-shadow(0 0 14px rgba(240, 184, 96, 0.65))',
+            willChange: 'transform',
+            animation: autoPlay ? 'va-spark-pulse 2.4s ease-in-out infinite' : 'none',
+          }}
+        />
+      </div>
+
+      {/* three small sparkles, each pulsing independently */}
+      {SMALL_STARS.map((star, i) => {
         const absolute = star.emojiSize * size;
         return (
           <div
@@ -55,7 +79,7 @@ export function SparkleAnimation({
               emoji="✨"
               size={absolute}
               style={{
-                filter: 'drop-shadow(0 0 12px rgba(240, 184, 96, 0.6))',
+                filter: 'drop-shadow(0 0 10px rgba(240, 184, 96, 0.6))',
                 willChange: 'transform',
                 animation: autoPlay
                   ? `va-spark-pulse 2.4s ease-in-out ${star.delay}s infinite`
