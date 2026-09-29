@@ -1,19 +1,12 @@
-const RAYS = [0, 40, 80, 120, 160, 200, 240, 280, 320];
+import { HeartSquare } from './HeartSquare';
 
-const HEART_PATH =
-  'M12,21 C5,16 1,11 1,7.5 C1,4 3.5,2 6.5,2 C8.5,2 10.5,3 12,5.5 C13.5,3 15.5,2 17.5,2 C20.5,2 23,4 23,7.5 C23,11 19,16 12,21 Z';
+const RING_DELAYS = [0, 0.9, 1.8];
 
-const SPARKS = [
-  { x: 0.5, y: 0.5, s: 0.18, d: 0 },
-  { x: 0.3, y: 0.3, s: 0.1, d: -0.5 },
-  { x: 0.7, y: 0.28, s: 0.12, d: -1 },
-  { x: 0.26, y: 0.62, s: 0.09, d: -1.5 },
-  { x: 0.74, y: 0.66, s: 0.1, d: -2 },
-];
+const GOLD = '#f0b83e';
 
 /**
- * "Golden halo": a crown-like ring of rotating light rays around a golden
- * heart, with small sparks at the tips. Reads well at small sizes.
+ * "Halo": a golden heart (square-heart shape) with glowing rings scaling out
+ * on staggered delays. Static frame shows the heart with one ring lit.
  */
 export function HaloAnimation({
   size = 100,
@@ -26,7 +19,9 @@ export function HaloAnimation({
   style?: React.CSSProperties;
   className?: string;
 }) {
-  const rayLen = size * 0.72;
+  const heartSize = size * 0.52;
+  const ringW = size * 0.3;
+  const ringH = size * 0.14;
   return (
     <div
       style={{
@@ -37,85 +32,44 @@ export function HaloAnimation({
       }}
       className={className}
       role="img"
-      aria-label="Золотое сияние вокруг сердца"
+      aria-label="Золотое сияющее сердце"
     >
-      {/* halo rays */}
+      {/* glowing rings */}
+      {RING_DELAYS.map((d, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '36%',
+            width: ringW,
+            height: ringH,
+            marginLeft: -ringW / 2,
+            marginTop: -ringH / 2,
+            border: `2px solid ${GOLD}`,
+            borderRadius: '50%',
+            opacity: 0,
+            willChange: 'transform, opacity',
+            animation: autoPlay
+              ? `va-ring 2.8s ease-out ${d}s infinite`
+              : 'none',
+            ...(autoPlay ? {} : { opacity: 0.9, transform: 'scale(1.4)' }),
+          }}
+        />
+      ))}
+
+      {/* golden heart */}
       <div
         style={{
           position: 'absolute',
           left: '50%',
           top: '50%',
-          width: size,
-          height: size,
-          marginLeft: -size / 2,
-          marginTop: -size / 2,
-          opacity: 0.9,
-          willChange: 'transform',
-          animation: autoPlay ? 'va-halo-rotate 6s linear infinite' : 'none',
+          marginLeft: -(heartSize * 0.5),
+          marginTop: -(heartSize * 0.42),
         }}
       >
-        {RAYS.map((ang, i) => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              left: '50%',
-              top: '50%',
-              width: 2.5,
-              height: rayLen,
-              marginTop: -rayLen / 2,
-              background:
-                i % 2 === 0
-                  ? 'linear-gradient(180deg, #f0c869 0%, #f7e7b6 50%, transparent 100%)'
-                  : 'linear-gradient(180deg, #ffe27a 0%, #f7e7b6 50%, transparent 100%)',
-              transform: `translate(-50%, 0) rotate(${ang}deg)`,
-              opacity: i % 2 === 0 ? 0.9 : 0.55,
-            }}
-          />
-        ))}
+        <HeartSquare size={heartSize} color={GOLD} />
       </div>
-
-      {/* sparks */}
-      {SPARKS.map((s, i) => (
-        <div
-          key={i}
-          style={{
-            position: 'absolute',
-            left: `${s.x * 100}%`,
-            top: `${s.y * 100}%`,
-            width: size * 0.06 * (s.s / 0.18),
-            height: size * 0.06 * (s.s / 0.18),
-            borderRadius: '50%',
-            background: '#fff3c4',
-            opacity: 0,
-            willChange: 'opacity, transform',
-            animation: autoPlay
-              ? `va-halo-spark 3s ease-in-out ${s.d}s infinite`
-              : 'none',
-            ...(autoPlay ? {} : { opacity: 0.9 }),
-          }}
-        />
-      ))}
-
-      {/* glowing heart */}
-      <svg
-        width={size * 0.44}
-        height={size * 0.44}
-        viewBox="0 0 24 24"
-        fill="none"
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          color: '#f0b83e',
-          transform: 'translate(-50%, -50%)',
-          filter: 'drop-shadow(0 0 10px rgba(240, 184, 62, 0.6))',
-          willChange: 'transform',
-          animation: autoPlay ? 'va-halo-heart 2s ease-in-out infinite' : 'none',
-        }}
-      >
-        <path d={HEART_PATH} fill="currentColor" stroke="currentColor" strokeWidth="0.8" />
-      </svg>
     </div>
   );
 }

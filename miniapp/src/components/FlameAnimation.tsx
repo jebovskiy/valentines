@@ -1,15 +1,15 @@
-const TONGUES = [
-  { x: 0.5, y: 0.56, w: 0.5, h: 0.62, rot: 0, delay: 0, z: 1 },
-  { x: 0.36, y: 0.42, w: 0.24, h: 0.3, rot: -18, delay: -0.3, z: 2 },
-  { x: 0.64, y: 0.42, w: 0.24, h: 0.3, rot: 18, delay: -0.6, z: 2 },
+const EMBERS = [
+  { x: -14, drift: -7, delay: 0 },
+  { x: 8, drift: 4, delay: 0.4 },
+  { x: -6, drift: -3, delay: 0.9 },
+  { x: 16, drift: 8, delay: 1.3 },
+  { x: 0, drift: 0, delay: 1.8 },
+  { x: -20, drift: -10, delay: 2.1 },
 ];
 
-const HEART_PATH =
-  'M12,21 C5,16 1,11 1,7.5 C1,4 3.5,2 6.5,2 C8.5,2 10.5,3 12,5.5 C13.5,3 15.5,2 17.5,2 C20.5,2 23,4 23,7.5 C23,11 19,16 12,21 Z';
-
 /**
- * "Flame": a red heart with dancing flames around it. Reads well at small
- * sizes; static frame shows flames spread around a lit heart.
+ * "Flame": three SVG flame layers, each flickering on its own rhythm, with
+ * embers rising up. Static frame shows the full flame lit.
  */
 export function FlameAnimation({
   size = 100,
@@ -22,6 +22,8 @@ export function FlameAnimation({
   style?: React.CSSProperties;
   className?: string;
 }) {
+  const flameW = size * 0.64;
+  const flameH = size * 0.78;
   return (
     <div
       style={{
@@ -29,76 +31,73 @@ export function FlameAnimation({
         position: 'relative',
         width: size,
         height: size,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
       }}
       className={className}
       role="img"
-      aria-label="Сердце в языках пламени"
+      aria-label="Языки пламени с поднимающимися искрами"
     >
-      {/* warm glow */}
-      <div
+      {/* layered flame */}
+      <svg
+        className="flame-svg"
+        viewBox="0 0 100 100"
+        width={flameW}
+        height={flameH}
         style={{
           position: 'absolute',
-          width: size * 1.05,
-          height: size * 1.05,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255, 140, 60, 0.4), transparent 70%)',
-          opacity: 0,
-          willChange: 'opacity',
-          animation: autoPlay ? 'va-flame-glow 1.6s ease-in-out infinite' : 'none',
-          ...(autoPlay ? {} : { opacity: 0.6 }),
-        }}
-      />
-
-      {/* flame tongues */}
-      {TONGUES.map((t, i) => (
-        <div
-          key={i}
-          style={{
-            position: 'absolute',
-            left: `${t.x * 100}%`,
-            top: `${t.y * 100}%`,
-            width: size * t.w,
-            height: size * t.h,
-            background:
-              i === 0
-                ? 'linear-gradient(180deg, #ffb066 0%, #ff7a3d 60%, #e6461b 100%)'
-                : 'linear-gradient(180deg, #ffe27a 0%, #ff9c4d 100%)',
-            borderRadius: '50% 50% 50% 50% / 70% 70% 30% 30%',
-            transform: `translate(-50%, -50%) rotate(${t.rot}deg)`,
-            transformOrigin: 'center bottom',
-            opacity: 0.95,
-            zIndex: t.z,
-            willChange: 'transform',
-            animation: autoPlay ? `va-flame-flicker 0.9s ease-in-out ${t.delay}s infinite` : 'none',
-            boxShadow:
-              i === 0
-                ? '0 0 14px rgba(255, 122, 61, 0.55)'
-                : '0 0 10px rgba(255, 226, 122, 0.5)',
-            ['--rot' as string]: `${t.rot}deg`,
-          } as React.CSSProperties}
-        />
-      ))}
-
-      {/* heart */}
-      <svg
-        width={size * 0.52}
-        height={size * 0.52}
-        viewBox="0 0 24 24"
-        fill="none"
-        style={{
-          position: 'relative',
-          zIndex: 3,
-          color: '#ff4d4d',
-          filter: 'drop-shadow(0 0 10px rgba(255, 60, 40, 0.55))',
-          willChange: 'transform',
-          animation: autoPlay ? 'va-heart-beat 1.4s ease-in-out infinite' : 'none',
+          left: '50%',
+          marginLeft: -flameW / 2,
+          bottom: '6%',
         }}
       >
-        <path d={HEART_PATH} fill="currentColor" stroke="currentColor" strokeWidth="0.8" />
+        <path
+          className="fl-outer"
+          d="M50 96 C26 80 20 54 33 32 C39 22 45 13 50 3 C55 13 61 22 67 32 C80 54 74 80 50 96 Z"
+          fill="#e0708a"
+          style={{
+            transformOrigin: '50px 96px',
+            animation: autoPlay ? 'va-flickA 1.7s ease-in-out infinite' : 'none',
+          }}
+        />
+        <path
+          className="fl-inner"
+          d="M50 88 C35 76 32 58 41 43 C44 38 47 32 50 25 C53 32 56 38 59 43 C68 58 65 76 50 88 Z"
+          fill="#f0b860"
+          style={{
+            transformOrigin: '50px 96px',
+            animation: autoPlay ? 'va-flickB 1.3s ease-in-out infinite' : 'none',
+          }}
+        />
+        <path
+          className="fl-core"
+          d="M50 78 C42 70 41 59 46 50 C47 47 48 45 50 42 C52 45 53 47 54 50 C59 59 58 70 50 78 Z"
+          fill="#ffe7a6"
+          style={{
+            transformOrigin: '50px 96px',
+            animation: autoPlay ? 'va-flickC 0.9s ease-in-out infinite' : 'none',
+          }}
+        />
       </svg>
+
+      {/* rising embers */}
+      {autoPlay &&
+        EMBERS.map((e, i) => (
+          <span
+            key={i}
+            style={{
+              position: 'absolute',
+              bottom: '20%',
+              left: `calc(50% + ${e.x}px)`,
+              width: size * 0.04,
+              height: size * 0.04,
+              borderRadius: '50%',
+              background: '#f0b860',
+              opacity: 0,
+              willChange: 'transform, opacity',
+              animation: `va-emb 2.6s linear ${e.delay}s infinite`,
+              ['--x' as string]: `${e.drift}px`,
+            } as React.CSSProperties}
+          />
+        ))}
     </div>
   );
 }
