@@ -17,7 +17,7 @@ export function HaloAnimation({
   className?: string;
 }) {
   const emojiSize = size * 0.6;
-  const crownSize = size * 0.42;
+  const crownSize = size * 0.36;
   return (
     <div
       style={{
@@ -50,7 +50,7 @@ export function HaloAnimation({
         style={{
           position: 'absolute',
           left: '50%',
-          top: '24%',
+          top: '19%',
           width: crownSize,
           height: crownSize,
           marginLeft: -crownSize / 2,
