@@ -1,6 +1,5 @@
 package app.valentines.companion.fcm
 
-import android.annotation.SuppressLint
 import app.valentines.companion.data.NotificationHelper
 import app.valentines.companion.data.PrefsRepository
 import app.valentines.companion.widget.ValentineWidget
@@ -11,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class ValentinesMessagingService : FirebaseMessagingService() {
 
@@ -33,17 +33,14 @@ class ValentinesMessagingService : FirebaseMessagingService() {
         }
     }
 
-    // Delivers async to avoid blocking the main thread (runBlocking).
+    // Firebase invokes this on a background worker thread and keeps the service
+    // alive for ~20s, so runBlocking here is not a main-thread block — it only
+    // guarantees the notification is posted before FCM tears the service down.
+    // Service has no goAsync(): that is a BroadcastReceiver API.
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
-        @SuppressLint({"WakelockTimeout"})
-        val task = goAsync()
-        scope.launch {
-            try {
-                handleMessage(message)
-            } finally {
-                task.finish()
-            }
+        runBlocking {
+            handleMessage(message)
         }
     }
 
