@@ -11,6 +11,8 @@ import {
   upsertDateVote,
   touchDateSession,
   finishDateSession,
+  dismissDateSession,
+  visibleDateSessionForUser,
   getDateSessionVotes,
   getRecentSessionPlaces,
   type DateSessionRow,
@@ -80,7 +82,10 @@ export async function datesRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
-    const session = await getLatestDateSession(pair.id);
+    // The latest session is returned even when it is already finished, so the
+    // partner who was still swiping still gets the match. Once this user has
+    // dismissed that result it is gone for good and the screen starts empty.
+    const session = visibleDateSessionForUser(await getLatestDateSession(pair.id), request.telegramUser!.id);
     return { session };
   });
 
@@ -204,7 +209,7 @@ export async function datesRoutes(app: FastifyInstance) {
     const session = await getDateSessionById(id);
     if (!session || session.pair_id !== pair.id) return reply.code(404).send({ error: 'Session not found' });
 
-    await finishDateSession(id, session.match);
+    await dismissDateSession(id, request.telegramUser!.id, session.match);
     return { ok: true };
   });
 }

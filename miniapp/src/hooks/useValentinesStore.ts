@@ -735,9 +735,10 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     if (!pair) return;
     const result = await api.getActiveDateSession();
     if (result.error || !result.data) return;
-    if (result.data.session) {
-      set({ dateSession: result.data.session });
-    }
+    // null means "nothing to show" (never started, or the finished result was
+    // already dismissed) — keep no stale session around, or the screen would
+    // replay the previous run's result.
+    set({ dateSession: result.data.session ?? null, dateSessionLoading: false });
   },
 
   createDateSession: async (params) => {

@@ -217,10 +217,9 @@ export function DatePlacesScreen() {
   const finishAndReset = async () => {
     const s = dateSession;
     if (s) {
-      const { error } = useValentinesStore.getState();
-      if (!error) {
-        await finishDateSession(s.id);
-      }
+      // Always tell the server that this result has been seen — otherwise the
+      // session would be served again on the next visit.
+      await finishDateSession(s.id);
     }
     clearDateSession();
     setPhase('setup');

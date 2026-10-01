@@ -18,12 +18,29 @@ export interface DateSessionRow {
   places: unknown[];
   status: 'active' | 'done';
   match: Record<string, unknown> | null;
+  dismissed_by: number[];
   created_at: string;
   updated_at: string;
   votes?: DateVote[];
 }
 
-const SESSION_SELECT = 'id, pair_id, initiator_id, params, places, status, match, created_at, updated_at';
+const SESSION_SELECT = 'id, pair_id, initiator_id, params, places, status, match, dismissed_by, created_at, updated_at';
+
+/**
+ * Decides whether the given session is still the one this user should see on
+ * entry. An active session is always resumable; a finished one stays visible
+ * until every partner has closed it — but never again for a user who already
+ * dismissed it, otherwise re-entering the screen would replay the old result.
+ */
+export function visibleDateSessionForUser(
+  session: DateSessionRow | null,
+  userId: number,
+): DateSessionRow | null {
+  if (!session) return null;
+  if (session.status !== 'done') return session;
+  const dismissed = session.dismissed_by ?? [];
+  return dismissed.includes(userId) ? null : session;
+}
 
 export async function getActiveDateSession(pairId: string): Promise<DateSessionRow | null> {
   const { data, error } = await supabase
@@ -147,4 +164,33 @@ export async function finishDateSession(sessionId: string, match: Record<string,
     .update({ status: 'done', match, updated_at: new Date().toISOString() })
     .eq('id', sessionId);
   if (error) throw error;
+}
+
+/**
+ * Closes the session for one user: marks it finished and remembers that this
+ * user has seen the result. Idempotent, so the result screen can send it twice.
+ */
+export async function dismissDateSession(
+  sessionId: string,
+  userId: number,
+  match: Record<string, unknown> | null,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('date_sessions')
+    .select('dismissed_by')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (error) throw error;
+
+  const current = ((data?.dismissed_by as number[] | null) ?? []).filter((id) => id !== userId);
+  const { error: updateError } = await supabase
+    .from('date_sessions')
+    .update({
+      status: 'done',
+      match,
+      dismissed_by: [...current, userId],
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId);
+  if (updateError) throw updateError;
 }
