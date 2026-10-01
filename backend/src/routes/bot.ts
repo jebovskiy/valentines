@@ -1,6 +1,12 @@
 import type { FastifyInstance } from 'fastify';
+import { timingSafeEqual } from 'crypto';
 import { config } from '../config';
 import { handleBotText, registerBot, type TelegramUpdate } from '../services/telegramBot';
+
+function matchesWebhookSecret(candidate: string | undefined, expected: string): boolean {
+  if (!candidate || candidate.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(candidate), Buffer.from(expected));
+}
 
 // Fastify plugins must return a Promise or call `done`; avvio otherwise waits
 // forever and crashes with AVV_ERR_PLUGIN_EXEC_TIMEOUT. Handlers below are
@@ -10,7 +16,7 @@ export async function botRoutes(app: FastifyInstance) {
   // Telegram pushes updates here (see setWebhook in registerBot).
   app.post('/', async (request, reply) => {
     const secret = request.headers['x-telegram-bot-api-secret-token'] as string | undefined;
-    if (!secret || secret !== config.WEBHOOK_SHARED_SECRET) {
+    if (!matchesWebhookSecret(secret, config.WEBHOOK_SHARED_SECRET)) {
       return reply.code(401).send({ error: 'Unauthorized' });
     }
 

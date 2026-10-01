@@ -5,6 +5,20 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+// Release signing is intentionally NOT the debug keystore. Create
+// key.properties in the project (git-ignored) with:
+//   storeFile=../release.keystore
+//   storePassword=...
+//   keyAlias=...
+//   keyPassword=...
+// Without it, release builds fall back to an unsigned APK so the build still
+// compiles but the release can't be shipped unverified.
+def keyProps = new Properties()
+def keyPropsFile = rootProject.file('key.properties')
+if (keyPropsFile.exists()) {
+    keyProps.load(new FileInputStream(keyPropsFile))
+}
+
 android {
     namespace 'app.valentines.companion'
     compileSdk 35
@@ -17,10 +31,21 @@ android {
         versionName "7.0"
     }
 
+    signingConfigs {
+        release {
+            if (keyPropsFile.exists()) {
+                storeFile rootProject.file(keyProps['storeFile'])
+                storePassword keyProps['storePassword']
+                keyAlias keyProps['keyAlias']
+                keyPassword keyProps['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug
+            signingConfig keyPropsFile.exists() ? signingConfigs.release : null
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

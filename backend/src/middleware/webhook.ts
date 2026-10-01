@@ -11,7 +11,14 @@ export async function verifyWebhookSignature(request: FastifyRequest, reply: Fas
   const body = JSON.stringify(request.body);
   const expectedSignature = createHmac('sha256', config.WEBHOOK_SHARED_SECRET).update(body).digest('hex');
 
-  if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+  const actualBuf = Buffer.from(signature, 'hex');
+  const expectedBuf = Buffer.from(expectedSignature, 'hex');
+
+  if (
+    actualBuf.length !== expectedBuf.length ||
+    actualBuf.length === 0 ||
+    !timingSafeEqual(actualBuf, expectedBuf)
+  ) {
     return reply.code(401).send({ error: 'Invalid webhook signature' });
   }
 }

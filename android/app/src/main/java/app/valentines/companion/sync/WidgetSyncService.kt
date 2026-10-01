@@ -1,5 +1,6 @@
 package app.valentines.companion.sync
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -21,7 +22,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -47,7 +47,9 @@ class WidgetSyncService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildForegroundNotification())
+        scope.launch {
+            startForeground(NOTIFICATION_ID, buildForegroundNotification())
+        }
         if (connectJob?.isActive != true) {
             connectJob = scope.launch { runLoop() }
         }
@@ -81,7 +83,11 @@ class WidgetSyncService : Service() {
     private suspend fun stream(deviceId: String) {
         val client = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.MILLISECONDS) // streaming: never time out reads
+            // Long-lived SSE stream: never time out at the socket level, but we
+            // still bound reads below (source timeout) so a dead connection gets
+            // detected (server pings every 5s) and we reconnect instead of
+            // hanging forever.
+            .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
         val request = Request.Builder()
             .url("${ApiClient.BASE_URL}/api/companion/stream?device_id=$deviceId")
@@ -91,14 +97,16 @@ class WidgetSyncService : Service() {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful || response.body == null) return
             val source = response.body!!.source()
+            // Any read that stalls for heartbeat window means the stream is dead.
+            source.timeout().timeout(HEARTBEAT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
             while (running.get()) {
-                val line = source.readUtf8Line() ?: break
+                val line = readLineBounded(source) ?: break
                 if (line.startsWith("event: valentine")) {
                     // The following line is the payload: data: {"id": "..."}
-                    val dataLine = source.readUtf8Line() ?: break
+                    val dataLine = readLineBounded(source) ?: break
                     if (dataLine.startsWith("data: ")) {
                         val id = runCatching {
-                            val json = dataLine.removePrefix("data: ")
+                            val json = dataLine.removePrefix("data: ").trim()
                             org.json.JSONObject(json).optString("id")
                         }.getOrNull()
                         onValentine(id)
@@ -106,6 +114,13 @@ class WidgetSyncService : Service() {
                 }
             }
         }
+    }
+
+    /** Reads one line, returning null if the heartbeat timeout hits. */
+    private fun readLineBounded(source: okio.BufferedSource): String? = try {
+        source.readUtf8Line()
+    } catch (_: java.io.InterruptedIOException) {
+        null
     }
 
     private suspend fun onValentine(id: String?) {
@@ -125,16 +140,16 @@ class WidgetSyncService : Service() {
         )
     }
 
-    private fun buildForegroundNotification() = runBlocking {
-        val hasDevice = PrefsRepository(this@WidgetSyncService).getDeviceId() != null
+    private suspend fun buildForegroundNotification(): Notification {
+        val hasDevice = PrefsRepository(this).getDeviceId() != null
         val text = if (hasDevice) "Виджет синхронизирован" else "Ожидание пары"
         val intent = PendingIntent.getActivity(
-            this@WidgetSyncService,
+            this,
             1,
-            Intent(this@WidgetSyncService, MainActivity::class.java),
+            Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        NotificationCompat.Builder(this@WidgetSyncService, SYNC_CHANNEL_ID)
+        return NotificationCompat.Builder(this, SYNC_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Валентинки")
             .setContentText(text)
@@ -148,5 +163,8 @@ class WidgetSyncService : Service() {
         const val NOTIFICATION_ID = 1002
         const val SYNC_CHANNEL_ID = "widget_sync"
         const val RECONNECT_DELAY_MS = 10_000L
+        // Server sends a comment ping every 5s; if nothing arrives for 60s the
+        // connection is treated as dead and we reconnect.
+        const val HEARTBEAT_TIMEOUT_MS = 60_000L
     }
 }

@@ -126,6 +126,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
             val context = getApplication<android.app.Application>()
+            // Only install if the downloaded APK is signed by the same cert as
+            // the installed app; otherwise refuse (possible tampering).
+            if (!UpdateInstaller.isTrustedUpdate(context, apk)) {
+                _updateFailed.value = true
+                return@launch
+            }
             if (UpdateInstaller.canRequestInstalls(context)) {
                 UpdateInstaller.install(context, apk)
             } else {

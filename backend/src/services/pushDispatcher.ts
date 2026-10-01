@@ -171,23 +171,24 @@ export async function dispatchDirectValentinePushes(valentine: Valentine): Promi
 
 /**
  * Sends a reminder notification to all paired devices for the reminder's pair.
- * Called both inline (from the reminder route when reminder is created with a
- * past due time) and from the webhook dispatch (triggered by pg_cron).
+ * Returns true when at least one push was acknowledged, so callers can decide
+ * whether the reminder was actually delivered (vs. left to retry).
  */
 export async function dispatchReminderPushes(reminder: {
   id: string;
   pair_id: string;
   title: string;
   message: string | null;
-}): Promise<void> {
+}): Promise<boolean> {
   let devices;
   try {
     devices = await getDevicesByPair(reminder.pair_id);
   } catch (error) {
     console.error('Reminder push: failed to load devices', error);
-    return;
+    return false;
   }
 
+  let delivered = false;
   for (const device of devices) {
     if (!device.push_token || device.push_token === 'pending') continue;
     if (!device.push_permission_granted) {
@@ -200,22 +201,25 @@ export async function dispatchReminderPushes(reminder: {
         message: reminder.message,
       });
       console.log(`Reminder push sent to device ${device.id}: ${result.success}`);
+      if (result.success) delivered = true;
     } catch (error) {
       console.error(`Reminder push error for device ${device.id}:`, error);
     }
   }
+  return delivered;
 }
 
-/** Sends a "couple event is coming up" push to all devices of the pair. */
-export async function dispatchEventPushes(pairId: string, event: { name: string; event_date: string; remind_days_before: number }): Promise<void> {
+/** Sends a "couple event is coming up" push to all devices of the pair. Returns true if any push was delivered. */
+export async function dispatchEventPushes(pairId: string, event: { name: string; event_date: string; remind_days_before: number }): Promise<boolean> {
   let devices;
   try {
     devices = await getDevicesByPair(pairId);
   } catch (error) {
     console.error('Event push: failed to load devices', error);
-    return;
+    return false;
   }
 
+  let delivered = false;
   for (const device of devices) {
     if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) continue;
     try {
@@ -226,10 +230,12 @@ export async function dispatchEventPushes(pairId: string, event: { name: string;
         remind_days_before: String(event.remind_days_before),
       });
       console.log(`Event push sent to device ${device.id}: ${result.success}`);
+      if (result.success) delivered = true;
     } catch (error) {
       console.error(`Event push error for device ${device.id}:`, error);
     }
   }
+  return delivered;
 }
 
 /** Sends a "new note from partner" push to the recipient's devices. */

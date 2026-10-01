@@ -9,6 +9,10 @@ import { uploadValentinePhoto } from '../utils/storage';
 
 const MAX_PHOTO_BODY_BYTES = 10 * 1024 * 1024;
 
+// Photos are heavy (base64 inside JSON): throttle aggressive upload spam and
+// bound body size at the route level, not just in the schema.
+const photoRateLimit = { max: 10, timeWindow: '1 minute' };
+
 // Streak-gated animations: unlock for good once the pair hits the day mark.
 const STREAK_LOCKED_ANIMATIONS: Record<string, number> = {
   bloom_petals: 60,
@@ -52,7 +56,7 @@ export async function valentinesRoutes(app: FastifyInstance) {
     return { valentine: { ...valentine, sender_name: senderName, is_own: isOwn } };
   });
 
-  app.post('/', { preHandler: requireTelegramAuth, bodyLimit: MAX_PHOTO_BODY_BYTES }, async (request, reply) => {
+  app.post('/', { preHandler: requireTelegramAuth, bodyLimit: MAX_PHOTO_BODY_BYTES, config: { rateLimit: photoRateLimit } }, async (request, reply) => {
     const body = sendValentineSchema.parse(request.body);
 
     if (!isKnownAnimationType(body.animation_type)) {
@@ -123,6 +127,14 @@ export async function valentinesRoutes(app: FastifyInstance) {
 
   app.post('/:id/seen', { preHandler: requireTelegramAuth }, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const valentine = await getValentineById(id);
+    if (!valentine) {
+      return reply.code(404).send({ error: 'Valentine not found' });
+    }
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair || pair.id !== valentine.pair_id) {
+      return reply.code(403).send({ error: 'Forbidden' });
+    }
     await markValentineSeen(id);
     return { success: true };
   });

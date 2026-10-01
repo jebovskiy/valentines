@@ -47,7 +47,7 @@ export async function pairsRoutes(app: FastifyInstance) {
 
   // Manually set the pair's current streak (e.g. a couple who tracked their
   // run elsewhere wants to backfill it).
-  app.patch('/streak', privateRoutes, async (request, reply) => {
+  app.patch('/streak', { ...privateRoutes, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = setStreakSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid streak value' });
 
@@ -108,7 +108,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/pairing/complete', async (request, reply) => {
+  app.post('/pairing/complete', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = completePairingSchema.parse(request.body);
     try {
       const result = await completePairing(body.token, body.platform, body.push_token);

@@ -12,6 +12,7 @@ const envSchema = z.object({
   FCM_SERVICE_ACCOUNT_JSON: z.string().min(1),
   WEBHOOK_SHARED_SECRET: z.string().min(32),
   PAIRING_TOKEN_TTL_MINUTES: z.coerce.number().default(10),
+  TELEGRAM_AUTH_MAX_AGE_SEC: z.coerce.number().int().positive().default(86400),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-3.5-flash-lite'),
   AI_PROVIDER: z

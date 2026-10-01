@@ -2,6 +2,7 @@ package app.valentines.companion.data
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -11,6 +12,8 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
 
 object UpdateInstaller {
@@ -62,4 +65,42 @@ object UpdateInstaller {
         }
         context.startActivity(intent)
     }
+
+    /**
+     * Verifies that the downloaded APK is signed with the SAME certificate as
+     * the currently installed app. Prevents installing a tampered or
+     * maliciously re-signed update. Returns false if it can't be verified.
+     */
+    fun isTrustedUpdate(context: Context, apk: File): Boolean = try {
+        val updater = context.packageManager
+
+        val archiveInfo = updater.getPackageArchiveInfo(apk.absolutePath, PackageManager.GET_SIGNATURES)
+            ?: return false
+
+        val apkSignatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            archiveInfo.signingInfo?.apkContentsSigners
+        } else {
+            archiveInfo.signatures
+        } ?: return false
+
+        val installedSignatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            updater.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+                .signingInfo?.apkContentsSigners
+        } else {
+            updater.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES).signatures
+        } ?: return false
+
+        val apkCerts = apkSignatures.map { toX509(it.toByteArray()) }
+        val installedCerts = installedSignatures.map { toX509(it.toByteArray()) }
+
+        // The update must be signed by exactly the same set of certificates.
+        apkCerts.isNotEmpty() &&
+            apkCerts.size == installedCerts.size &&
+            apkCerts.zip(installedCerts).all { (a, b) -> a.encoded.contentEquals(b.encoded) }
+    } catch (_: Exception) {
+        false
+    }
+
+    private fun toX509(der: ByteArray): X509Certificate =
+        CertificateFactory.getInstance("X.509").generateCertificate(der.inputStream()) as X509Certificate
 }

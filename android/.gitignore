@@ -12,3 +12,6 @@ app/build/
 **/build/
 google-services.json
 .kotlin/
+key.properties
+*.keystore
+*.jks

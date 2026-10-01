@@ -1,4 +1,4 @@
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { config } from '../config';
 
 export interface TelegramInitData {
@@ -16,7 +16,7 @@ export interface TelegramInitData {
   query_id?: string;
 }
 
-export function validateTelegramInitData(initData: string): TelegramInitData | null {
+export function validateTelegramInitData(initData: string, opts: { maxAgeSec?: number } = {}): TelegramInitData | null {
   const params = new URLSearchParams(initData);
   const hash = params.get('hash');
   params.delete('hash');
@@ -30,12 +30,18 @@ export function validateTelegramInitData(initData: string): TelegramInitData | n
 
   const secretKey = createHmac('sha256', 'WebAppData').update(config.TELEGRAM_BOT_TOKEN).digest();
   const calculatedHash = createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+  const hashBuf = Buffer.from(hash, 'hex');
 
-  if (calculatedHash !== hash) return null;
+  if (hashBuf.length !== 32 || !timingSafeEqual(hashBuf, Buffer.from(calculatedHash, 'hex'))) return null;
 
   const authDate = parseInt(params.get('auth_date') || '0', 10);
+  if (!Number.isFinite(authDate) || authDate <= 0) return null;
+
   const now = Math.floor(Date.now() / 1000);
-  if (now - authDate > 86400) return null; // 24 hours
+  if (authDate > now + 60) return null; // reject future clocks (60s tolerance)
+
+  const maxAgeSec = opts.maxAgeSec ?? config.TELEGRAM_AUTH_MAX_AGE_SEC;
+  if (now - authDate > maxAgeSec) return null;
 
   const userParam = params.get('user');
   if (!userParam) return null;

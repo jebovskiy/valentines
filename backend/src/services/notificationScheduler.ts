@@ -1,4 +1,4 @@
-import { getPairById, getDueReminders, getUnnotifiedEvents, markReminderSent, rescheduleRecurringReminder, markCoupleEventNotified, getPairsForMovieReminder, getMovies, logMovieReminder } from './database';
+import { getPairById, getDueReminders, getUnnotifiedEvents, markReminderSent, releaseReminderClaim, rescheduleRecurringReminder, markCoupleEventNotified, releaseEventClaim, getPairsForMovieReminder, getMovies, claimMovieReminder } from './database';
 import { dispatchReminderPushes, dispatchEventPushes, dispatchMoviePushes } from './pushDispatcher';
 import { sendReminderNotification, sendEventReminderNotification, sendMovieReminderNotification } from './telegramNotifier';
 
@@ -16,27 +16,38 @@ function nextRecurrence(recurrence: string, from: Date): Date {
   return next;
 }
 
-async function dispatchPairTelegram(pairId: string, send: (chatId: number) => Promise<void>): Promise<void> {
+async function dispatchPairTelegram(pairId: string, send: (chatId: number) => Promise<void>): Promise<boolean> {
   const pair = await getPairById(pairId);
-  if (!pair) return;
-  await Promise.allSettled([
+  if (!pair) return false;
+  const results = await Promise.allSettled([
     send(pair.telegram_user_a),
     send(pair.telegram_user_b),
   ]);
+  return results.some((r) => r.status === 'fulfilled');
 }
 
 async function processDueReminders(): Promise<void> {
+  // Rows are claimed atomically (SKIP LOCKED + claimed_at). We mark them sent
+  // only when the dispatch actually succeeded; failed deliveries are released
+  // so the next sweep retries them.
   const reminders = await getDueReminders();
   for (const reminder of reminders) {
+    let delivered = false;
     try {
-      await Promise.allSettled([
-        dispatchPairTelegram(reminder.pair_id, (chatId) =>
-          sendReminderNotification(chatId, { title: reminder.title, message: reminder.message }),
-        ),
-        dispatchReminderPushes(reminder),
-      ]);
+      const telegram = await dispatchPairTelegram(reminder.pair_id, (chatId) =>
+        sendReminderNotification(chatId, { title: reminder.title, message: reminder.message }),
+      );
+      const pushes = await dispatchReminderPushes(reminder);
+      delivered = telegram || pushes;
     } catch (error) {
       console.error(`Scheduler: reminder ${reminder.id} failed:`, error);
+    }
+
+    if (!delivered) {
+      await releaseReminderClaim(reminder.id).catch((e) =>
+        console.error(`Scheduler: release reminder ${reminder.id} claim failed:`, e),
+      );
+      continue;
     }
 
     if (reminder.is_recurring && reminder.recurrence) {
@@ -63,15 +74,28 @@ function remindersAreDue(event: { event_date: string; remind_days_before: number
 async function processUpcomingEvents(): Promise<void> {
   const events = await getUnnotifiedEvents();
   for (const event of events) {
-    if (!remindersAreDue(event)) continue;
+    if (!remindersAreDue(event)) {
+      await releaseEventClaim(event.id).catch((e) =>
+        console.error(`Scheduler: release event ${event.id} claim failed:`, e),
+      );
+      continue;
+    }
+    let delivered = false;
     try {
-      await Promise.allSettled([
-        dispatchPairTelegram(event.pair_id, (chatId) => sendEventReminderNotification(chatId, event)),
-        dispatchEventPushes(event.pair_id, event),
-      ]);
-      await markCoupleEventNotified(event.id);
+      const telegram = await dispatchPairTelegram(event.pair_id, (chatId) => sendEventReminderNotification(chatId, event));
+      const pushes = await dispatchEventPushes(event.pair_id, event);
+      delivered = telegram || pushes;
     } catch (error) {
       console.error(`Scheduler: event ${event.id} failed:`, error);
+    }
+
+    if (delivered) {
+      await markCoupleEventNotified(event.id);
+    } else {
+      // Failed: release claim so a later sweep retries. No throw so the sweep continues.
+      await releaseEventClaim(event.id).catch((e) =>
+        console.error(`Scheduler: release event ${event.id} claim failed:`, e),
+      );
     }
   }
 }
@@ -81,6 +105,11 @@ async function processMovieReminders(): Promise<void> {
   const pairIds = await getPairsForMovieReminder(today);
   for (const pairId of pairIds) {
     try {
+      // Claim first: only the instance that atomically logs the reminder for
+      // today actually dispatches; concurrent instances skip the pair.
+      const claimed = await claimMovieReminder(pairId, today);
+      if (!claimed) continue;
+
       const pair = await getPairById(pairId);
       if (!pair) continue;
       const movies = await getMovies(pairId);
@@ -95,7 +124,6 @@ async function processMovieReminders(): Promise<void> {
         message: `У вас ${pending.length} фильм(ов) в списке`,
       });
       await Promise.allSettled([sent1, sent2, push1]);
-      await logMovieReminder(pairId, today);
     } catch (error) {
       console.error(`Scheduler: movie reminder for pair ${pairId} failed:`, error);
     }

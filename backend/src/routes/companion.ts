@@ -12,37 +12,48 @@ interface ReleaseInfo {
 }
 
 let releaseCache: { at: number; info: ReleaseInfo | null } | null = null;
+let releaseFetching: Promise<ReleaseInfo | null> | null = null;
 
 async function getLatestRelease(): Promise<ReleaseInfo | null> {
   if (releaseCache && Date.now() - releaseCache.at < RELEASE_CACHE_TTL_MS) {
     return releaseCache.info;
   }
 
-  releaseCache = { at: Date.now(), info: null };
-  try {
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
-      headers: { accept: 'application/vnd.github+json', 'user-agent': 'valentines-backend' },
+  // Single-flight: when the cache is cold, concurrent callers share one
+  // upstream fetch instead of stampeding GitHub with N requests.
+  if (!releaseFetching) {
+    releaseFetching = (async () => {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+          headers: { accept: 'application/vnd.github+json', 'user-agent': 'valentines-backend' },
+        });
+        if (!res.ok) return null;
+
+        const release = (await res.json()) as {
+          tag_name?: string;
+          assets?: { name: string; browser_download_url: string }[];
+        };
+        const versionCode = parseInt((release.tag_name || '').replace(/^v/, ''), 10);
+        const apk = (release.assets || []).find((asset) => asset.name.toLowerCase().endsWith('.apk'));
+        if (!Number.isFinite(versionCode) || !apk) return null;
+
+        return {
+          version_code: versionCode,
+          version_name: release.tag_name || `v${versionCode}`,
+          download_url: apk.browser_download_url,
+        };
+      } catch (error) {
+        console.error('Failed to fetch latest release:', error);
+        return null;
+      }
+    })().finally(() => {
+      releaseFetching = null;
     });
-    if (!res.ok) return null;
-
-    const release = (await res.json()) as {
-      tag_name?: string;
-      assets?: { name: string; browser_download_url: string }[];
-    };
-    const versionCode = parseInt((release.tag_name || '').replace(/^v/, ''), 10);
-    const apk = (release.assets || []).find((asset) => asset.name.toLowerCase().endsWith('.apk'));
-    if (!Number.isFinite(versionCode) || !apk) return null;
-
-    releaseCache.info = {
-      version_code: versionCode,
-      version_name: release.tag_name || `v${versionCode}`,
-      download_url: apk.browser_download_url,
-    };
-    return releaseCache.info;
-  } catch (error) {
-    console.error('Failed to fetch latest release:', error);
-    return null;
   }
+
+  const info = await releaseFetching;
+  releaseCache = { at: Date.now(), info };
+  return info;
 }
 
 const pushTokenSchema = z.object({

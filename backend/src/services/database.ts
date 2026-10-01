@@ -392,18 +392,18 @@ export async function createPairingToken(telegramUserId: number): Promise<Pairin
 }
 
 export async function consumePairingToken(token: string): Promise<{ telegram_user_id: number } | null> {
+  // Atomic single-statement consume: the DELETE...RETURNING runs in one DB
+  // round-trip, so two concurrent requests can never both "win" the token.
   const { data, error } = await supabase
     .from('pairing_tokens')
-    .select('telegram_user_id')
+    .delete()
     .eq('token', token)
     .gt('expires_at', new Date().toISOString())
+    .select('telegram_user_id')
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) return null;
-
-  await supabase.from('pairing_tokens').delete().eq('token', token);
-  return { telegram_user_id: data.telegram_user_id };
+  return data ?? null;
 }
 
 export async function getPairingTokenByValue(token: string): Promise<{ telegram_user_id: number; expires_at: string } | null> {
@@ -456,18 +456,20 @@ export async function createInviteCode(
 export async function consumeInviteCode(
   code: string
 ): Promise<{ creator_telegram_id: number; creator_first_name: string | null } | null> {
+  if (!/^[A-Z0-9]{6,12}$/.test(code)) return null;
+
+  // Atomic single-statement consume: DELETE...RETURNING prevents two joiners
+  // from winning the same invite code under concurrency.
   const { data, error } = await supabase
     .from('pair_invites')
-    .select('creator_telegram_id, creator_first_name')
+    .delete()
     .eq('code', code.toUpperCase())
     .gt('expires_at', new Date().toISOString())
+    .select('creator_telegram_id, creator_first_name')
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) return null;
-
-  await supabase.from('pair_invites').delete().eq('code', code.toUpperCase());
-  return { creator_telegram_id: data.creator_telegram_id, creator_first_name: data.creator_first_name };
+  return data ?? null;
 }
 
 // --- Streak gamification -----------------------------------------------------
@@ -660,14 +662,20 @@ export async function getReminderById(reminderId: string): Promise<Reminder | nu
 }
 
 export async function markReminderSent(reminderId: string): Promise<void> {
-  const { error } = await supabase.from('reminders').update({ is_sent: true }).eq('id', reminderId);
+  const { error } = await supabase.from('reminders').update({ is_sent: true, claimed_at: null }).eq('id', reminderId);
+  if (error) throw error;
+}
+
+/** Release a reminder's claim without marking it sent so a later sweep retries it. */
+export async function releaseReminderClaim(reminderId: string): Promise<void> {
+  const { error } = await supabase.from('reminders').update({ claimed_at: null }).eq('id', reminderId).eq('is_sent', false);
   if (error) throw error;
 }
 
 export async function rescheduleRecurringReminder(reminderId: string, nextAt: string): Promise<void> {
   const { error } = await supabase
     .from('reminders')
-    .update({ remind_at: nextAt, is_sent: false })
+    .update({ remind_at: nextAt, is_sent: false, claimed_at: null })
     .eq('id', reminderId);
   if (error) throw error;
 }
@@ -708,16 +716,15 @@ export async function deleteCoupleEvent(eventId: string, pairId: string): Promis
 }
 
 /** Reminders whose time has come and haven't been delivered yet. */
-export async function getDueReminders(now = new Date().toISOString(), limit = 50): Promise<Reminder[]> {
-  const { data, error } = await supabase
-    .from('reminders')
-    .select('*')
-    .eq('is_sent', false)
-    .lte('remind_at', now)
-    .order('remind_at', { ascending: true })
-    .limit(limit);
+export async function getDueReminders(limit = 50): Promise<Reminder[]> {
+  // Atomic claim: rows are locked (FOR UPDATE SKIP LOCKED) and stamped
+  // claimed_at in the same transaction, so scaled-out scheduler instances
+  // never dispatch the same reminder twice. Stale claims are re-claimed after
+  // 10 minutes (crashed worker / failed dispatch).
+  const { data, error } = await supabase.rpc('claim_due_reminders', { p_limit: limit });
+
   if (error) throw error;
-  return data || [];
+  return (data || []) as unknown as Reminder[];
 }
 
 export async function getCoupleEventById(eventId: string): Promise<CoupleEvent | null> {
@@ -732,21 +739,28 @@ export async function getCoupleEventById(eventId: string): Promise<CoupleEvent |
 
 /** Events that haven't been announced to the pair yet. */
 export async function getUnnotifiedEvents(limit = 50): Promise<CoupleEvent[]> {
-  const { data, error } = await supabase
-    .from('couple_events')
-    .select('*')
-    .is('notified_at', null)
-    .order('event_date', { ascending: true })
-    .limit(limit);
+  // Atomic claim: same SKIP LOCKED semantics as reminders.
+  const { data, error } = await supabase.rpc('claim_unnotified_events', { p_limit: limit });
+
   if (error) throw error;
-  return data || [];
+  return (data || []) as unknown as CoupleEvent[];
 }
 
 export async function markCoupleEventNotified(eventId: string): Promise<void> {
   const { error } = await supabase
     .from('couple_events')
-    .update({ notified_at: new Date().toISOString() })
+    .update({ notified_at: new Date().toISOString(), claimed_at: null })
     .eq('id', eventId);
+  if (error) throw error;
+}
+
+/** Release an event's claim without marking it notified so a later sweep retries it. */
+export async function releaseEventClaim(eventId: string): Promise<void> {
+  const { error } = await supabase
+    .from('couple_events')
+    .update({ claimed_at: null })
+    .eq('id', eventId)
+    .is('notified_at', null);
   if (error) throw error;
 }
 
@@ -999,11 +1013,18 @@ export async function getPairsForMovieReminder(today: string): Promise<string[]>
   return [...new Set((moviesRes.data || []).map((m) => m.pair_id))].filter((id) => !logged.has(id));
 }
 
-export async function logMovieReminder(pairId: string, today: string): Promise<void> {
-  const { error } = await supabase
-    .from('movie_reminder_log')
-    .upsert({ pair_id: pairId, last_sent_on: today }, { onConflict: 'pair_id' });
+/**
+ * Atomically claims today's movie reminder for the pair. Only the caller whose
+ * upsert actually performed the update/insert gets the row back, so exactly one
+ * scheduler instance dispatches per pair per day.
+ */
+export async function claimMovieReminder(pairId: string, today: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('log_movie_reminder_once', {
+    p_pair_id: pairId,
+    p_sent_date: today,
+  });
   if (error) throw error;
+  return Array.isArray(data) && data.length > 0;
 }
 
 export async function saveMovieAspectScores(movieId: string, scores: Record<string, number>): Promise<void> {
