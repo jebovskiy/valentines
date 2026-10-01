@@ -27,6 +27,7 @@ const GAME_TITLES: Record<GameId, string> = {
   ASSOCIATIONS: 'Ассоциации',
   COMPLIMENTS: 'Комплименты',
   SPEED_FACTS: 'Это мы?',
+  TRUTH_DARE: 'Правда или действие',
 };
 
 function normalizeAnswer(s: string): string {
@@ -45,12 +46,19 @@ function categoryLabel(gameId: GameId, round: GameRound): string {
       return 'Комплимент';
     case 'SPEED_FACTS':
       return 'Это мы?';
+    case 'TRUTH_DARE':
+      return 'Выберите: правда или действие';
     default:
       return '';
   }
 }
 
 function reactionFor(gameId: GameId, round: GameRound, mine: string, partner: string): string {
+  if (gameId === 'TRUTH_DARE') {
+    if (mine === '🔥 Действие' && partner === '🔥 Действие') return '🔥 Оба выбрали действие — дерзайте!';
+    if (mine === partner) return '💬 Оба выбрали правду — откровенно!';
+    return '😏 Один смелый, один вдумчивый — идеальный дуэт.';
+  }
   if (round.type === 'choice') {
     if (mine === partner) {
       if (round.category === 'surprise') return '🔥 Одинаковый выбор из четырёх — это судьба!';
@@ -72,7 +80,7 @@ function reactionFor(gameId: GameId, round: GameRound, mine: string, partner: st
 }
 
 function isChoiceRound(round: GameRound): boolean {
-  return round.type === 'choice' && round.options.length > 0;
+  return (round.type === 'choice' || round.type === 'truth_dare') && round.options.length > 0;
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -505,7 +513,22 @@ export function GamePlayScreen() {
             <div className="animate-slide-up" style={styles.card}>
               <div style={styles.cardCategory}>Ответы</div>
               <div style={styles.cardQuestion}>{round.text}</div>
-              {round.type !== 'text' && (
+              {round.type === 'truth_dare' ? (
+                <div style={styles.revealBlock}>
+                  <div style={styles.revealRow}>
+                    <span style={styles.revealAvatar}>🙂</span>
+                    <span style={styles.revealAnswer}>
+                      Вы: <strong>{mine}</strong> — {mine === round.options[0] ? `«${round.truth}»` : `«${round.dare}»`}
+                    </span>
+                  </div>
+                  <div style={styles.revealRow}>
+                    <span style={styles.revealAvatar}>😊</span>
+                    <span style={styles.revealAnswer}>
+                      Партнёр: <strong>{partners}</strong> — {partners === round.options[0] ? `«${round.truth}»` : `«${round.dare}»`}
+                    </span>
+                  </div>
+                </div>
+              ) : round.type !== 'text' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 2 }}>
                   {round.options.map((opt) => {
                     const pickedByMe = opt === mine;
@@ -628,6 +651,11 @@ function FinalCard({
     }
     countValue = `${matchedChoice} из ${choiceCount}`;
     listTitle = 'Ваш следующий момент';
+  } else if (gameId === 'TRUTH_DARE') {
+    emoji = '🎲';
+    title = 'Отлично сыграно!';
+    sub = 'Вы отвечали честно и выполняли задания — вечер точно запомнится.';
+    countValue = null;
   } else {
     const pct = choiceCount > 0 ? matchedChoice / choiceCount : 0;
     if (gameId === 'SPEED_FACTS') {

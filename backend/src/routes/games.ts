@@ -15,7 +15,7 @@ import {
 } from '../services/games';
 
 const createSessionSchema = z.object({
-  game_id: z.enum(['KNOW_ME', 'CHOOSE_ONE', 'ASSOCIATIONS', 'COMPLIMENTS', 'SPEED_FACTS']),
+  game_id: z.enum(['KNOW_ME', 'CHOOSE_ONE', 'ASSOCIATIONS', 'COMPLIMENTS', 'SPEED_FACTS', 'TRUTH_DARE']),
   mood: z.enum(['нежное', 'веселое', 'погорячее', 'поговорить', 'спокойное']).nullable().optional(),
 });
 

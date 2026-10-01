@@ -19,6 +19,7 @@ const GAME_TITLES: Record<GameId, string> = {
   ASSOCIATIONS: 'Ассоциации',
   COMPLIMENTS: 'Комплименты',
   SPEED_FACTS: 'Это мы?',
+  TRUTH_DARE: 'Правда или действие',
 };
 
 const GAMES: { id: GameId; emoji: string; title: string; sub: string; bg: string }[] = [
@@ -56,6 +57,13 @@ const GAMES: { id: GameId; emoji: string; title: string; sub: string; bg: string
     title: 'Это мы?',
     sub: '8 утверждений о паре — отвечаете «да» или «нет» и узнаёте, совпало ли',
     bg: 'linear-gradient(180deg, #e9e6ff, #c9c2f5)',
+  },
+  {
+    id: 'TRUTH_DARE',
+    emoji: '😈',
+    title: 'Правда или действие',
+    sub: 'Выбирайте: ответить на откровенный вопрос или выполнить задание. ИИ подготовит и то и другое',
+    bg: 'linear-gradient(180deg, #ffe8e0, #ffcbb4)',
   },
 ];
 

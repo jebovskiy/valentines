@@ -699,7 +699,7 @@ function worstAspectsForPair(a: MovieReviewInput, b: MovieReviewInput): { who: s
 // --- AI-generated game rounds --------------------------------------------------
 
 export interface AiGameRoundsInput {
-  gameId: 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS';
+  gameId: 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS' | 'TRUTH_DARE';
   mood: string | null;
   names: { me: string; partner: string };
 }
@@ -707,6 +707,8 @@ export interface AiGameRoundsInput {
 export interface AiGameRound {
   text: string;
   options: string[];
+  truth?: string;
+  dare?: string;
 }
 
 export interface AiGameConfig {
@@ -724,6 +726,8 @@ const AI_ROUNDS_SCHEMA = {
         properties: {
           text: { type: 'string' },
           options: { type: 'array', items: { type: 'string' } },
+          truth: { type: 'string' },
+          dare: { type: 'string' },
         },
         required: ['text', 'options'],
       },
@@ -738,13 +742,21 @@ const AI_GAME_CONFIGS: Record<AiGameRoundsInput['gameId'], AiGameConfig> = {
   ASSOCIATIONS: { count: 8, min: 6 },
   COMPLIMENTS: { count: 6, min: 4 },
   SPEED_FACTS: { count: 8, min: 6 },
+  TRUTH_DARE: { count: 10, min: 8 },
 };
 
 const AI_GAME_TIMEOUT_MS = 25_000;
 
 const aiRoundsSchema = z.object({
   rounds: z
-    .array(z.object({ text: z.string(), options: z.array(z.string()).optional() }))
+    .array(
+      z.object({
+        text: z.string(),
+        options: z.array(z.string()).optional(),
+        truth: z.string().optional(),
+        dare: z.string().optional(),
+      })
+    )
     .min(1),
 });
 
@@ -798,6 +810,16 @@ ${personal}
 Утверждения должны быть такими, чтобы было интересно узнать, совпало ли мнение: про вкусы, привычки, будущее, юмор, чувства. Учитывай настроение вечера.
 ${personal}
 Все тексты на русском, позитивные.`;
+    case 'TRUTH_DARE':
+      return `Ты создаёшь карточки для игры «Правда или действие» для пар.${moodHint}
+Задача: сгенерировать ${AI_GAME_CONFIGS.TRUTH_DARE.count} раундов.
+Каждый раунд — объект с двумя текстами:
+- truth — вопрос «правда»: откровенный, тёплый, под настроение вечера (1-2 предложения);
+- dare — задание «действие»: лёгкое и приятное, которое безопасно и уместно выполнить прямо сейчас (1-2 предложения).
+Поле options должно быть пустым массивом [].
+Задания не должны быть унизительными, опасными или требовать денег, паролей и чужих личных данных. Всё выполнимо вдвоём без подготовки.
+${personal}
+Все тексты на русском, без канцелярита.`;
     default:
       return '';
   }
@@ -818,6 +840,12 @@ function sanitizeAiRounds(raw: unknown, gameId: AiGameRoundsInput['gameId'], con
     let options: string[] = [];
     if (gameId === 'SPEED_FACTS') {
       options = ['✅ Да', '❌ Нет'];
+    } else if (gameId === 'TRUTH_DARE') {
+      const truth = typeof o.truth === 'string' ? o.truth.trim().replace(/\s+/g, ' ').slice(0, 300) : '';
+      const dare = typeof o.dare === 'string' ? o.dare.trim().replace(/\s+/g, ' ').slice(0, 300) : '';
+      if (!truth || !dare) continue;
+      rounds.push({ text: '', options: ['🎯 Правда', '🔥 Действие'], truth, dare });
+      continue;
     } else if (Array.isArray(o.options)) {
       options = o.options
         .filter((x): x is string => typeof x === 'string')
@@ -842,6 +870,9 @@ function sanitizeAiRounds(raw: unknown, gameId: AiGameRoundsInput['gameId'], con
   }
   if (gameId === 'SPEED_FACTS') {
     for (const r of sliced) r.options = ['✅ Да', '❌ Нет'];
+  }
+  if (gameId === 'TRUTH_DARE') {
+    for (const r of sliced) r.options = ['🎯 Правда', '🔥 Действие'];
   }
   return sliced;
 }
