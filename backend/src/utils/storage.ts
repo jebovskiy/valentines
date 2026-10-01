@@ -18,7 +18,7 @@ function matchesMagic(buffer: Buffer, magic: number[]): boolean {
   return magic.every((byte, i) => buffer[i] === byte);
 }
 
-function detectImageType(buffer: Buffer): { ext: string; mime: string } | null {
+export function detectImageType(buffer: Buffer): { ext: string; mime: string } | null {
   if (matchesMagic(buffer, MAGIC_BYTES.jpg.magic)) return { ext: 'jpg', mime: 'image/jpeg' };
   if (matchesMagic(buffer, MAGIC_BYTES.png.magic)) return { ext: 'png', mime: 'image/png' };
   if (matchesMagic(buffer, MAGIC_BYTES.webp.magic)) {
@@ -41,6 +41,19 @@ export async function ensureStorageBucket(): Promise<void> {
         allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
       });
       console.log(`Created storage bucket: ${BUCKET_NAME}`);
+    } else {
+      // The bucket may predate the magic-byte/server-side checks and be created
+      // without constraints — re-assert the limits so the bucket itself is the
+      // first line of defense (server checks stay the second).
+      const { error: updateError } = await supabase.storage.updateBucket(BUCKET_NAME, {
+        public: true,
+        fileSizeLimit: MAX_IMAGE_BYTES,
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      });
+      if (updateError) {
+        console.warn(`Failed to update bucket constraints: ${updateError.message}`);
+      }
+      console.log(`Verified storage bucket: ${BUCKET_NAME}`);
     }
   } catch (err) {
     console.error('Failed to ensure storage bucket:', err);

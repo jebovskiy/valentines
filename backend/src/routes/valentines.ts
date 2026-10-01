@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId, updatePairMaxStreak, setPairCurrentStreak, hasActivityToday } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
+import { userRateLimit } from '../middleware/rateLimit';
 import { config, isKnownAnimationType } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
 import { dispatchDirectValentinePushes, dispatchStreakPushes } from '../services/pushDispatcher';
@@ -12,6 +13,7 @@ const MAX_PHOTO_BODY_BYTES = 10 * 1024 * 1024;
 // Photos are heavy (base64 inside JSON): throttle aggressive upload spam and
 // bound body size at the route level, not just in the schema.
 const photoRateLimit = { max: 10, timeWindow: '1 minute' };
+const photoUserRateLimit = userRateLimit({ key: 'photo-upload', max: 10, timeWindowMs: 60_000 });
 
 // Streak-gated animations: unlock for good once the pair hits the day mark.
 const STREAK_LOCKED_ANIMATIONS: Record<string, number> = {
@@ -56,7 +58,7 @@ export async function valentinesRoutes(app: FastifyInstance) {
     return { valentine: { ...valentine, sender_name: senderName, is_own: isOwn } };
   });
 
-  app.post('/', { preHandler: requireTelegramAuth, bodyLimit: MAX_PHOTO_BODY_BYTES, config: { rateLimit: photoRateLimit } }, async (request, reply) => {
+  app.post('/', { preHandler: [requireTelegramAuth, photoUserRateLimit], bodyLimit: MAX_PHOTO_BODY_BYTES, config: { rateLimit: photoRateLimit } }, async (request, reply) => {
     const body = sendValentineSchema.parse(request.body);
 
     if (!isKnownAnimationType(body.animation_type)) {

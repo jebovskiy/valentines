@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { getPairByUser, getDeviceByUserAndPlatform, setPairCurrentStreak } from '../services/database';
 import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite, getPairingStatus } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
+import { userRateLimit } from '../middleware/rateLimit';
+
+const streakRateLimit = userRateLimit({ key: 'streak', max: 10, timeWindowMs: 60_000 });
+const pairingCompleteRateLimit = userRateLimit({ key: 'pairing-complete', max: 10, timeWindowMs: 60_000 });
+const pairingInitiateRateLimit = userRateLimit({ key: 'pairing-initiate', max: 10, timeWindowMs: 60_000 });
 
 const createPairSchema = z.object({
   partner_telegram_id: z.number().int().positive(),
@@ -47,7 +52,7 @@ export async function pairsRoutes(app: FastifyInstance) {
 
   // Manually set the pair's current streak (e.g. a couple who tracked their
   // run elsewhere wants to backfill it).
-  app.patch('/streak', { ...privateRoutes, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+  app.patch('/streak', { ...privateRoutes, preHandler: [...privateRoutes.preHandler, streakRateLimit], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = setStreakSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid streak value' });
 
@@ -93,7 +98,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/pairing/initiate', privateRoutes, async (request, reply) => {
+  app.post('/pairing/initiate', { preHandler: [...privateRoutes.preHandler, pairingInitiateRateLimit] }, async (request, reply) => {
     const authHeader = request.headers.authorization;
     if (!authHeader?.startsWith('tma ')) {
       return reply.code(401).send({ error: 'Missing initData' });
@@ -108,7 +113,7 @@ export async function pairsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post('/pairing/complete', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+  app.post('/pairing/complete', { preHandler: [pairingCompleteRateLimit], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = completePairingSchema.parse(request.body);
     try {
       const result = await completePairing(body.token, body.platform, body.push_token);

@@ -37,7 +37,7 @@ internal val Context.valentinesStore: androidx.datastore.core.DataStore<androidx
 
 class PrefsRepository(private val context: Context) {
 
-    val deviceId: Flow<String?> = context.store.data.map { it[Preferences.DEVICE_ID] }
+    val deviceId: Flow<String?> = context.store.data.map { it[Preferences.DEVICE_ID]?.let(CryptoPrefs::decrypt) }
     val hasDevice: Flow<Boolean> = context.store.data.map { it[Preferences.DEVICE_ID] != null }
 
     suspend fun savePair(
@@ -48,8 +48,8 @@ class PrefsRepository(private val context: Context) {
         myName: String?
     ) {
         context.store.edit { prefs ->
-            prefs[Preferences.DEVICE_ID] = deviceId
-            prefs[Preferences.PAIR_ID] = pairId
+            prefs[Preferences.DEVICE_ID] = CryptoPrefs.encrypt(deviceId)
+            prefs[Preferences.PAIR_ID] = CryptoPrefs.encrypt(pairId)
             prefs[Preferences.PARTNER_TELEGRAM_ID] = partnerTelegramId
             putNullable(prefs, Preferences.PARTNER_NAME, partnerName)
             putNullable(prefs, Preferences.MY_NAME, myName)
@@ -71,7 +71,7 @@ class PrefsRepository(private val context: Context) {
     suspend fun isSetupDone(): Boolean =
         context.store.data.first()[Preferences.SETUP_DONE] ?: false
 
-    suspend fun getDeviceId(): String? = context.store.data.first()[Preferences.DEVICE_ID]
+    suspend fun getDeviceId(): String? = context.store.data.first()[Preferences.DEVICE_ID]?.let(CryptoPrefs::decrypt)
 
     suspend fun isPushGranted(): Boolean =
         context.store.data.first()[Preferences.PUSH_GRANTED] ?: false

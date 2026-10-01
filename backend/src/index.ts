@@ -24,7 +24,7 @@ import { ensureStorageBucket } from './utils/storage';
 import { startNotificationScheduler } from './services/notificationScheduler';
 import { startUpdateBroadcast } from './services/updateBroadcaster';
 
-const app = fastify({ logger: true });
+const app = fastify({ logger: true, trustProxy: true });
 
 function activeAiModel(): string {
   switch (config.AI_PROVIDER) {
