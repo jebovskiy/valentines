@@ -30,7 +30,9 @@ export const MENU_GENERATION_ATTEMPTS = 30;
  * euroopt: 2 взрослых (effectiveServings=2.0) требуют ~101 BYN на 21/21 слот,
  * т.е. ~50 BYN на порцию. Это эвристика, не закон — она сдвигается при
  * обновлении снапшота цен/каталога рецептов и требует периодической
- * перекалибровки (см. scripts/calibrate-min-budget.ts — TODO).
+ * перекалибровки: прогнать `test/menu.planner.test.ts` (детерминированный
+ * планировщик, снапшот `fixtures`), снять минимальный бюджет, при котором
+ * неделя закрывается без `budget_too_low`, и обновить константу ниже.
  */
 export const MENU_MIN_BUDGET_PER_SERVING = 50;
 

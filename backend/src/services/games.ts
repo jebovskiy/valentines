@@ -1,5 +1,5 @@
 ﻿import { supabase } from '../utils/supabase';
-import { generateAiGameRounds, type AiGameRound } from './gemini';
+import { generateAiGameRounds } from './gemini';
 
 export type GameId = 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS' | 'TRUTH_DARE';
 export type Mood = 'нежное' | 'веселое' | 'погорячее' | 'поговорить' | 'спокойное';
@@ -38,20 +38,6 @@ export async function getActiveGameSession(pairId: string): Promise<GameSessionR
     .select(SESSION_SELECT)
     .eq('pair_id', pairId)
     .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!data) return null;
-  return { ...data, answers: await getGameAnswers(data.id) } as GameSessionRow;
-}
-
-export async function getLatestGameSession(pairId: string): Promise<GameSessionRow | null> {
-  const { data, error } = await supabase
-    .from('game_sessions')
-    .select(SESSION_SELECT)
-    .eq('pair_id', pairId)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

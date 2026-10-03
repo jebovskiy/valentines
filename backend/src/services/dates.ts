@@ -42,21 +42,6 @@ export function visibleDateSessionForUser(
   return dismissed.includes(userId) ? null : session;
 }
 
-export async function getActiveDateSession(pairId: string): Promise<DateSessionRow | null> {
-  const { data, error } = await supabase
-    .from('date_sessions')
-    .select(SESSION_SELECT)
-    .eq('pair_id', pairId)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!data) return null;
-  return { ...data, votes: await getDateSessionVotes(data.id) } as DateSessionRow;
-}
-
 export async function getLatestDateSession(pairId: string): Promise<DateSessionRow | null> {
   const { data, error } = await supabase
     .from('date_sessions')
