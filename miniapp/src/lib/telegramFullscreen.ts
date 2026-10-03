@@ -91,7 +91,9 @@ export function initFullscreen(): void {
 
   const preference = readFullscreenPreference();
   if (preference === 'off') return;
-  if (preference === 'auto' && !isFullscreenSupported(app)) return;
+  // Гейт по клиенту общий для 'auto' и 'on': на Desktop/Web и клиентах старше
+  // 8.0 запрос не отправляем никогда, даже если пользователь выбрал 'on'.
+  if (!isFullscreenSupported(app)) return;
 
   if (app.isFullscreen !== true) {
     safeCall(() => app.requestFullscreen?.());
@@ -133,6 +135,7 @@ export function useFullscreen(): FullscreenState {
     writeFullscreenPreference(enabled ? 'on' : 'off');
     const app = resolveWebApp();
     if (!app) return;
+    if (!isFullscreenSupported(app)) return;
     if (enabled) safeCall(() => app.requestFullscreen?.());
     else safeCall(() => app.exitFullscreen?.());
   }, []);

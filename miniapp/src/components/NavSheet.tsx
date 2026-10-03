@@ -261,7 +261,7 @@ export function NavSheet() {
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     boxShadow: '0 -8px 40px rgba(0, 0, 0, 0.2)',
-    padding: '10px 6px calc(14px + var(--app-safe-bottom))',
+    padding: '10px 6px calc(14px + var(--app-bottom-inset))',
     ...(phase === 'open'
       ? { transform: 'translateY(0)', transition: `transform ${EASE_OUT_SHEET}` }
       : { transform: 'translateY(100%)', transition: phase === 'closing' ? `transform ${EASE_IN_SHEET} 0ms` : `transform ${EASE_OUT_SHEET}` }),

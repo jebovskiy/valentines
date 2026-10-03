@@ -704,17 +704,28 @@ const styles: Record<string, CSSProperties> = {
   },
 
   overlay: {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-    display: 'flex', alignItems: 'flex-end', zIndex: 1000,
+    // Высота по вьюпорту, а не inset: 0 — иначе шторка с полем ввода уходит
+    // под клавиатуру (initKeyboardViewport обновляет переменную по событию).
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 'var(--app-viewport-height)',
+    background: 'rgba(0,0,0,0.45)',
+    display: 'flex',
+    alignItems: 'flex-end',
+    zIndex: 1000,
   },
   overlayCard: {
-    width: '100%', maxHeight: '85vh', background: 'var(--surface-card)',
+    width: '100%',
+    maxHeight: 'calc(var(--app-viewport-height) * 0.85)',
+    background: 'var(--surface-card)',
     borderRadius: '20px 20px 0 0',
     paddingTop: '12px',
     paddingLeft: '16px',
     paddingRight: '16px',
-    // Шторка прижата к низу экрана — снизу нужен инсет, иначе её срежет «домашняя» полоса.
-    paddingBottom: 'calc(24px + var(--app-safe-bottom))',
+    // Шторка прижата к низу — снизу нужен инсет, иначе её срежет «домашняя» полоса.
+    paddingBottom: 'calc(24px + var(--app-bottom-inset))',
     overflowY: 'auto',
   },
 

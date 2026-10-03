@@ -1060,7 +1060,7 @@ const styles: Record<string, React.CSSProperties> = {
   feedFab: {
     position: 'fixed',
     right: 'calc(20px + var(--app-safe-right))',
-    bottom: 'calc(20px + var(--app-safe-bottom))',
+    bottom: 'calc(20px + var(--app-bottom-inset))',
     width: '52px',
     height: '52px',
     borderRadius: '50%',
