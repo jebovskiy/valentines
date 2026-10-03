@@ -62,7 +62,7 @@ function toggleTagList(list: string[], names: string[]): string[] {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    padding: '16px 16px calc(28px + var(--app-safe-bottom))',
+    padding: '16px 16px 28px',
     maxWidth: 460,
     margin: '0 auto',
     minHeight: '100%',

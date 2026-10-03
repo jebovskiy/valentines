@@ -69,7 +69,7 @@ const GAMES: { id: GameId; emoji: string; title: string; sub: string; bg: string
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    padding: '18px 16px calc(24px + var(--app-safe-bottom))',
+    padding: '18px 16px 24px',
     maxWidth: 460,
     margin: '0 auto',
   },

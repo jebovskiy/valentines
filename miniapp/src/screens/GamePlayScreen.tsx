@@ -85,7 +85,7 @@ function isChoiceRound(round: GameRound): boolean {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    padding: '18px 16px calc(24px + var(--app-safe-bottom))',
+    padding: '18px 16px 24px',
     maxWidth: 460,
     margin: '0 auto',
   },

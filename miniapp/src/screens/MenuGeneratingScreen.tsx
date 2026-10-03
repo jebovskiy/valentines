@@ -128,7 +128,7 @@ const sceneCss = `
 const styles: Record<string, React.CSSProperties> = {
   container: {
     minHeight: '100%',
-    padding: '18px 16px calc(28px + var(--app-safe-bottom))',
+    padding: '18px 16px 28px',
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
