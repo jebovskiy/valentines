@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
 import { Integration } from '../types';
 import { setMainButton, setBackButton } from '../utils/telegram';
+import { useFullscreen } from '../lib/telegramFullscreen';
 import { BackButton } from '../components/BackButton';
 
 function isEnabled(id: string): boolean {
@@ -25,6 +26,7 @@ export function SettingsScreen() {
   const navigate = useNavigate();
   const { integrations, fetchIntegrations } = useValentinesStore();
   const [enabled, setEnabledState] = useState<Record<string, boolean>>({});
+  const fullscreen = useFullscreen();
 
   useEffect(() => {
     void fetchIntegrations();
@@ -52,6 +54,51 @@ export function SettingsScreen() {
         <BackButton />
         <span style={styles.title}>Настройки</span>
       </div>
+
+      {fullscreen.supported && (
+        <div style={styles.card}>
+          <div style={styles.cardTop}>
+            <span style={styles.icon}>⛶</span>
+            <div style={styles.cardBody}>
+              <div style={styles.cardName}>Полноэкранный режим</div>
+              <div style={styles.cardDesc}>
+                Приложение занимает весь экран Telegram — без шапки и остальных элементов.
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.cardBottom}>
+            <span style={{ ...styles.status, background: 'var(--secondary-bg)', color: 'var(--mute)' }}>
+              {fullscreen.isFullscreen ? 'Включён' : 'Выключен'}
+            </span>
+            <div
+              style={styles.switch}
+              role="switch"
+              aria-checked={fullscreen.isFullscreen}
+              onClick={() => fullscreen.setEnabled(!fullscreen.isFullscreen)}
+            >
+              <span style={styles.switchLabel}>{fullscreen.isFullscreen ? 'Вкл' : 'Выкл'}</span>
+              <span
+                style={{
+                  ...styles.switchTrack,
+                  background: fullscreen.isFullscreen ? 'var(--primary)' : 'var(--stone)',
+                }}
+              >
+                <span
+                  style={{
+                    ...styles.switchThumb,
+                    transform: fullscreen.isFullscreen ? 'translateX(18px)' : 'translateX(2px)',
+                  }}
+                />
+              </span>
+            </div>
+          </div>
+
+          {!fullscreen.isFullscreen && (
+            <div style={styles.hint}>Выбор запоминается: при следующем запуске приложение не будет переключаться.</div>
+          )}
+        </div>
+      )}
 
       <div style={styles.introCard}>
         <div style={styles.introTitle}>⚡️ Интеграции</div>
