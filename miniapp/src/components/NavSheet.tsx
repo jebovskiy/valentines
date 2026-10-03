@@ -261,7 +261,7 @@ export function NavSheet() {
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     boxShadow: '0 -8px 40px rgba(0, 0, 0, 0.2)',
-    padding: '10px 6px calc(14px + env(safe-area-inset-bottom))',
+    padding: '10px 6px calc(14px + var(--app-safe-bottom))',
     ...(phase === 'open'
       ? { transform: 'translateY(0)', transition: `transform ${EASE_OUT_SHEET}` }
       : { transform: 'translateY(100%)', transition: phase === 'closing' ? `transform ${EASE_IN_SHEET} 0ms` : `transform ${EASE_OUT_SHEET}` }),
@@ -371,7 +371,9 @@ export function NavSheet() {
   ];
 
   const onStreak = location.pathname === '/streak';
-  const avatarTop = location.pathname === '/' ? 26 : 18;
+  // Фабрика закреплена от вьюпорта, поэтому вырез/status bar добавляем сами.
+  const avatarTop = `calc(${location.pathname === '/' ? 26 : 18}px + var(--app-safe-top))`;
+  const avatarRight = `calc(${onStreak ? 60 : 12}px + var(--app-safe-right))`;
 
   const partnerAv = partnerProfile ? api.avatarUrl(partnerProfile.id) : null;
   const selfAv = profile ? api.selfAvatarUrl(profile.id) : null;
@@ -386,7 +388,7 @@ export function NavSheet() {
         style={{
           position: 'fixed',
           top: avatarTop,
-          right: onStreak ? 60 : 12,
+          right: avatarRight,
           zIndex: 1300,
           width: 40,
           height: 40,

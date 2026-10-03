@@ -93,7 +93,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '100vh',
+    minHeight: '100%',
     padding: '24px',
     textAlign: 'center',
     gap: '16px',

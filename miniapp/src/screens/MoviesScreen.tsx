@@ -635,7 +635,11 @@ const styles: Record<string, CSSProperties> = {
   detailOverlay: {
     position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(255,255,255,.85)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '20px', backdropFilter: 'blur(4px)',
+    paddingTop: 'calc(20px + var(--app-safe-top))',
+    paddingBottom: 'calc(20px + var(--app-safe-bottom))',
+    paddingLeft: 'calc(20px + var(--app-safe-left))',
+    paddingRight: 'calc(20px + var(--app-safe-right))',
+    backdropFilter: 'blur(4px)',
   },
   detailCard: {
     width: '100%', maxWidth: 420, maxHeight: '82vh', overflowY: 'auto',
@@ -705,7 +709,13 @@ const styles: Record<string, CSSProperties> = {
   },
   overlayCard: {
     width: '100%', maxHeight: '85vh', background: 'var(--surface-card)',
-    borderRadius: '20px 20px 0 0', padding: '12px 16px 24px', overflowY: 'auto',
+    borderRadius: '20px 20px 0 0',
+    paddingTop: '12px',
+    paddingLeft: '16px',
+    paddingRight: '16px',
+    // Шторка прижата к низу экрана — снизу нужен инсет, иначе её срежет «домашняя» полоса.
+    paddingBottom: 'calc(24px + var(--app-safe-bottom))',
+    overflowY: 'auto',
   },
 
   searchInput: {

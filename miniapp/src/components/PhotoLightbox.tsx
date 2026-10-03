@@ -38,7 +38,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '20px',
+    paddingTop: 'calc(20px + var(--app-safe-top))',
+    paddingBottom: 'calc(20px + var(--app-safe-bottom))',
+    paddingLeft: 'calc(20px + var(--app-safe-left))',
+    paddingRight: 'calc(20px + var(--app-safe-right))',
   },
   img: {
     maxWidth: '100%',
@@ -50,8 +53,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   close: {
     position: 'fixed',
-    top: '14px',
-    right: '14px',
+    top: 'calc(14px + var(--app-safe-top))',
+    right: 'calc(14px + var(--app-safe-right))',
     width: '40px',
     height: '40px',
     borderRadius: '50%',

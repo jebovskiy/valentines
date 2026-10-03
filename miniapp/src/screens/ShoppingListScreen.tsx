@@ -8,7 +8,7 @@ import warningIcon from '../../Icons/icon.jfif';
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    padding: '18px 16px calc(24px + env(safe-area-inset-bottom))',
+    padding: '18px 16px calc(24px + var(--app-safe-bottom))',
     maxWidth: 460,
     margin: '0 auto',
   },

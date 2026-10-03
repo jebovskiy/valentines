@@ -38,7 +38,7 @@ export function Spotlight({
 
   return (
     <div style={styles.root} aria-hidden="true">
-      <svg style={{ position: 'absolute', inset: 0, width: '100vw', height: '100vh' }}>
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: 'var(--app-viewport-height)' }}>
         <defs>
           <mask id={maskId}>
             <rect x="0" y="0" width="100%" height="100%" fill="#fff" />

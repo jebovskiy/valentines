@@ -456,7 +456,7 @@ const styles: Record<string, CSSProperties> = {
     padding: 16,
     maxWidth: 480,
     margin: '0 auto',
-    minHeight: '100vh',
+    minHeight: '100%',
   },
   topBar: {
     display: 'flex',
