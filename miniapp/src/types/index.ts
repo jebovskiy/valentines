@@ -89,6 +89,44 @@ export interface ValentineWithSender extends Valentine {
   is_own: boolean;
 }
 
+export type RecapPeriod = '7d' | '30d' | '90d' | 'all';
+
+/** Numbers behind the recap card. Every field is a real count from the backend. */
+export interface RecapAggregates {
+  periodKey: RecapPeriod;
+  periodLabel: string;
+  periodStart: string | null;
+  valentinesCount: number;
+  partnerAName: string;
+  partnerACount: number;
+  partnerBName: string;
+  partnerBCount: number;
+  greetingsByType: Record<string, number>;
+  currentStreak: number;
+  maxStreak: number;
+  mostActiveHour: number | null;
+  mostActiveWeekday: string | null;
+  avgMovieCompatibility: number | null;
+  biggestMovieGap: string | null;
+  moviesWatched: number;
+  datesMatched: number;
+  moviesScoredByBoth: number;
+}
+
+export interface RecapSummary {
+  headline: string;
+  highlight_number: string;
+  insight: string;
+  fun_fact: string;
+  closing_line: string;
+}
+
+export interface Recap {
+  period: RecapPeriod;
+  aggregates: RecapAggregates;
+  summary: RecapSummary;
+}
+
 export interface ApiResponse<T> {
   data?: T;
   error?: string;

@@ -1,8 +1,11 @@
 import { getInitData, getTelegramSelfPhotoUrl } from '../utils/telegram';
+import { recapQuery } from './recapQuery';
 import type {
   Pair,
   Valentine,
   ValentineWithSender,
+  Recap,
+  RecapPeriod,
   SendValentineRequest,
   PairingInitResult,
   CompletePairingResult,
@@ -111,6 +114,11 @@ export const api = {
   getPairingStatus: (token: string) =>
     fetchWithAuth<{ status: 'pending' | 'completed' | 'expired' }>(`/api/pairs/pairing/${token}/status`),
   getStreak: () => fetchWithAuth<{ streak: { current: number; max: number } }>('/api/pairs/streak'),
+
+  // Recap («Итоги»)
+  // Час активности считается в местном времени устройства, поэтому шлём смещение.
+  getRecap: (period: RecapPeriod = '30d') =>
+    fetchWithAuth<{ recap: Recap }>(`/api/recap?${recapQuery(period, new Date().getTimezoneOffset())}`),
 
   // Valentines
   getValentines: () => fetchWithAuth<{ valentines: Valentine[] }>('/api/valentines'),

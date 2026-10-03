@@ -171,6 +171,10 @@ export function SettingsScreen() {
         ))}
       </div>
 
+      <button onClick={() => navigate('/recap')} style={styles.dateBtn}>
+        ✨ Посмотреть «Итоги»
+      </button>
+
       <button onClick={() => navigate('/date')} style={styles.dateBtn}>
         🗺️ Открыть «Куда пойти»
       </button>

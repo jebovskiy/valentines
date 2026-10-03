@@ -16,6 +16,7 @@ import { CompanionRedirect } from './screens/CompanionRedirect';
 import { DeepValentineScreen } from './screens/DeepValentineScreen';
 import { DatePlacesScreen } from './screens/DatePlacesScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { RecapScreen } from './screens/RecapScreen';
 import { GamesScreen } from './screens/GamesScreen';
 import { GamePlayScreen } from './screens/GamePlayScreen';
 import { MenuStoreStep, MenuPeopleStep, MenuComponentsStep, MenuBudgetStep, MenuCookwareStep, MenuAllergensStep } from './screens/menu/MenuSteps';
@@ -107,6 +108,7 @@ function App() {
           <Route path="menu/shopping" element={<ShoppingListScreen />} />
           <Route path="menu/leftovers" element={<MenuLeftoversScreen />} />
           <Route path="settings" element={<SettingsScreen />} />
+<Route path="recap" element={<RecapScreen />} />
         </Route>
         <Route path="/c/:token" element={<CompanionRedirect />} />
         <Route path="/v/:id" element={<DeepValentineScreen />} />
