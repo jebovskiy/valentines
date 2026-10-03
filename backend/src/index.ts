@@ -15,6 +15,7 @@ import { eventsRoutes } from './routes/events';
 import { moviesRoutes } from './routes/movies';
 import { placesRoutes, placesPhotoRoutes } from './routes/places';
 import { datesRoutes } from './routes/dates';
+import { recapRoutes } from './routes/recap';
 import { integrationsRoutes } from './routes/integrations';
 import { gamesRoutes } from './routes/games';
 import { menuRoutes } from './routes/menu';
@@ -72,6 +73,7 @@ async function start() {
   await app.register(placesRoutes, { prefix: '/api/places' });
   
   await app.register(datesRoutes, { prefix: '/api/dates' });
+  await app.register(recapRoutes, { prefix: '/api/recap' });
   
 await app.register(gamesRoutes, { prefix: '/api/games' });
   await app.register(integrationsRoutes, { prefix: '/api/integrations' });
