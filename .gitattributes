@@ -1,0 +1,9 @@
+# Окончания строк нормализованы: в git и в рабочей копии всегда LF.
+# Без этого Windows-клоненты с core.autocrlf=true получают смешанные
+# окончания строк и предупреждения "LF will be replaced by CRLF".
+* text=auto eol=lf
+
+# Windows-обвязке нужны CRLF, иначе cmd.exe ломает разбор.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
