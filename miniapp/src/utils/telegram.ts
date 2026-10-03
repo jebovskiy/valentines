@@ -8,6 +8,12 @@ declare global {
   }
 }
 
+/** Bot API 8.0 home-screen states reported by `checkHomeScreenStatus`. */
+export type HomeScreenStatus = 'added' | 'missed' | 'unknown' | 'unsupported';
+
+/** Bot API 8.0 result of `addToHomeScreen()`. */
+export type AddToHomeScreenResult = 'added' | 'missed' | 'unsupported' | 'already';
+
 export interface TelegramWebApp {
   initData: string;
   initDataUnsafe: {
@@ -26,6 +32,18 @@ export interface TelegramWebApp {
   headerColor: string;
   backgroundColor: string;
   isClosingConfirmationEnabled: boolean;
+  /** Bot API 6.9+ — feature gate for everything below. */
+  isVersionAtLeast?: (version: string) => boolean;
+  /** Bot API 7.7 — hides the pull-to-dismiss gesture. */
+  disableVerticalSwipes?: () => void;
+  /** Bot API 8.0 — true while the mini app occupies the whole screen. */
+  isFullscreen?: boolean;
+  requestFullscreen?: () => void;
+  exitFullscreen?: () => void;
+  /** Bot API 8.0 — adds a home-screen shortcut. */
+  addToHomeScreen?: () => Promise<AddToHomeScreenResult>;
+  /** Bot API 8.0 — reports whether the shortcut is already installed. */
+  checkHomeScreenStatus?: (callback: (status: HomeScreenStatus) => void) => void;
   BackButton: BackButton;
   MainButton: MainButton;
   SettingsButton: SettingsButton;
@@ -36,9 +54,8 @@ export interface TelegramWebApp {
   expand: () => void;
   close: () => void;
   requestLocation?: (callback?: (location: { latitude: number; longitude: number } | null) => void) => void;
-  addToHomeScreen: () => void;
-  onEvent: (eventType: string, callback: () => void) => void;
-  offEvent: (eventType: string, callback: () => void) => void;
+  onEvent: (eventType: string, callback: (arg?: unknown) => void) => void;
+  offEvent: (eventType: string, callback: (arg?: unknown) => void) => void;
   sendData: (data: string) => void;
   switchInlineQuery: (query: string, choose_chat_types?: string[]) => void;
   openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
@@ -139,12 +156,8 @@ export interface ScanQrParams {
 
 export const webApp = window.Telegram?.WebApp;
 
-export function initTelegramWebApp(): void {
-  if (webApp) {
-    webApp.ready();
-    webApp.expand();
-  }
-}
+/** Фон приложения: он же уходит в шапку Telegram (setHeaderColor). */
+export const APP_BACKGROUND_COLOR = '#fbfbf9';
 
 export function getInitData(): string {
   return webApp?.initData || '';
@@ -277,6 +290,6 @@ export function hapticFeedback(type: 'impact' | 'notification' | 'selection', st
 
 export function applyTheme(): void {
   if (!webApp) return;
-  webApp.setHeaderColor('#fbfbf9');
-  webApp.setBackgroundColor('#fbfbf9');
+  webApp.setHeaderColor(APP_BACKGROUND_COLOR);
+  webApp.setBackgroundColor(APP_BACKGROUND_COLOR);
 }

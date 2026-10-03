@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { initTelegramWebApp, applyTheme, getTelegramUser, webApp, setBackButton } from './utils/telegram';
+import { applyTheme, getTelegramUser, webApp, setBackButton } from './utils/telegram';
 import { useValentinesStore } from './hooks/useValentinesStore';
 import { Layout } from './components/Layout';
 import { ListScreen } from './screens/ListScreen';
@@ -33,7 +33,7 @@ function App() {
   const [initialPath, setInitialPath] = useState<string | null>(null);
 
   useEffect(() => {
-    initTelegramWebApp();
+    // ready()/expand() и запрос полного экрана уже выполнены в main.tsx.
     applyTheme();
 
     const user = getTelegramUser();
@@ -64,7 +64,7 @@ function App() {
 
   if (!currentUser) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
         <div className="animate-fade-in" style={{ textAlign: 'center', padding: '24px' }}>
           <div style={{ width: '48px', height: '48px', margin: '0 auto 16px', borderRadius: '50%', background: 'var(--secondary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
