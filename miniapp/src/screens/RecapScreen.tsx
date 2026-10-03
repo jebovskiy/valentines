@@ -242,7 +242,7 @@ const styles: Record<string, CSSProperties> = {
   },
   periodButtonActive: {
     background: 'var(--ink)',
-    color: 'var(--bg)',
+    color: '#fff',
     borderColor: 'var(--ink)',
   },
   card: {
@@ -352,7 +352,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 999,
     border: 'none',
     background: 'var(--ink)',
-    color: 'var(--bg)',
+    color: '#fff',
     fontSize: 14,
     fontWeight: 700,
     cursor: 'pointer',
