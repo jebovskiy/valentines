@@ -474,36 +474,7 @@ export async function consumeInviteCode(
 
 // --- Streak gamification -----------------------------------------------------
 
-function isoDay(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-/**
- * Number of consecutive days (ending today, or yesterday if today is still
- * empty) on which the pair exchanged at least one valentine.
- */
-export async function getCurrentStreak(pairId: string): Promise<number> {
-  const { data, error } = await supabase
-    .from('valentines')
-    .select('sent_at')
-    .eq('pair_id', pairId);
-  if (error) throw error;
-
-  const activeDays = new Set((data || []).map((row) => isoDay(new Date(row.sent_at))));
-
-  const cursor = new Date();
-  if (!activeDays.has(isoDay(cursor))) {
-    cursor.setUTCDate(cursor.getUTCDate() - 1);
-  }
-
-  let streak = 0;
-  while (activeDays.has(isoDay(cursor))) {
-    streak += 1;
-    cursor.setUTCDate(cursor.getUTCDate() - 1);
-  }
-  return streak;
-}
-
+/** Keeps the best run the pair ever had; the counter itself lives in services/streak. */
 export async function updatePairMaxStreak(pairId: string, streak: number): Promise<void> {
   const { error } = await supabase
     .from('pairs')
@@ -513,25 +484,13 @@ export async function updatePairMaxStreak(pairId: string, streak: number): Promi
   if (error) throw error;
 }
 
-/** Sets the pair's manually adjustable current streak counter. */
+/** Writes the derived run length into the cache column. */
 export async function setPairCurrentStreak(pairId: string, streak: number): Promise<void> {
   const { error } = await supabase
     .from('pairs')
     .update({ current_streak: Math.max(0, Math.floor(streak)) })
     .eq('id', pairId);
   if (error) throw error;
-}
-
-/** Whether the pair exchanged at least one valentine so far today. */
-export async function hasActivityToday(pairId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('valentines')
-    .select('sent_at')
-    .eq('pair_id', pairId)
-    .gte('sent_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-  if (error) throw error;
-  const today = new Date().toISOString().slice(0, 10);
-  return (data || []).some((row) => isoDay(new Date(row.sent_at)) === today);
 }
 
 // --- Notes & Reminders --------------------------------------------------------

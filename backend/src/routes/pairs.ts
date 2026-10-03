@@ -1,11 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getDeviceByUserAndPlatform, setPairCurrentStreak } from '../services/database';
+import { getPairByUser, getDeviceByUserAndPlatform } from '../services/database';
+import { recomputePairStreak } from '../services/streak';
 import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite, getPairingStatus } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { userRateLimit } from '../middleware/rateLimit';
 
-const streakRateLimit = userRateLimit({ key: 'streak', max: 10, timeWindowMs: 60_000 });
 const pairingCompleteRateLimit = userRateLimit({ key: 'pairing-complete', max: 10, timeWindowMs: 60_000 });
 const pairingInitiateRateLimit = userRateLimit({ key: 'pairing-initiate', max: 10, timeWindowMs: 60_000 });
 
@@ -41,26 +41,13 @@ export async function pairsRoutes(app: FastifyInstance) {
     if (!pair) {
       return reply.code(404).send({ error: 'Pair not found' });
     }
-    const current = pair.current_streak ?? 0;
-    const max = Math.max(pair.max_streak ?? 0, current);
-    return { streak: { current, max } };
-  });
-
-  const setStreakSchema = z.object({
-    current_streak: z.number().int().min(0).max(100000),
-  });
-
-  // Manually set the pair's current streak (e.g. a couple who tracked their
-  // run elsewhere wants to backfill it).
-  app.patch('/streak', { ...privateRoutes, preHandler: [...privateRoutes.preHandler, streakRateLimit], config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const parsed = setStreakSchema.safeParse(request.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'Invalid streak value' });
-
-    const pair = await getPairByUser(request.telegramUser!.id);
-    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
-
-    await setPairCurrentStreak(pair.id, parsed.data.current_streak);
-    return { ok: true, streak: { current: parsed.data.current_streak, max: Math.max(pair.max_streak ?? 0, parsed.data.current_streak) } };
+    // Пересчёт на чтении: серия обрывается сама, когда день пропущен, а
+    // испорченное ранее значение не зависает навсегда.
+    const streak = await recomputePairStreak(pair.id, {
+      current: pair.current_streak,
+      max: pair.max_streak,
+    });
+    return { streak: { current: streak.current, max: streak.max } };
   });
 
   app.post('/', privateRoutes, async (request, reply) => {

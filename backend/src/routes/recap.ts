@@ -49,7 +49,6 @@ export async function recapRoutes(app: FastifyInstance) {
           user_a_name: pair.user_a_name,
           user_b_name: pair.user_b_name,
           max_streak: pair.max_streak,
-          current_streak: pair.current_streak,
         },
         query.tz_offset_minutes ?? 0
       );

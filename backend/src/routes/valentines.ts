@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId, updatePairMaxStreak, setPairCurrentStreak, hasActivityToday } from '../services/database';
+import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId } from '../services/database';
+import { recomputePairStreak } from '../services/streak';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { userRateLimit } from '../middleware/rateLimit';
 import { config, isKnownAnimationType } from '../config';
@@ -77,26 +78,36 @@ export async function valentinesRoutes(app: FastifyInstance) {
 
     const lockedRequirement = STREAK_LOCKED_ANIMATIONS[body.animation_type];
     if (lockedRequirement !== undefined && (pair.max_streak ?? 0) < lockedRequirement) {
-      return reply
-        .code(403)
-        .send({ error: `Эта анимация откроется на ${lockedRequirement}-й день стрика` });
+      // Кэш мог устареть (стрик перестал обновляться из-за бага), поэтому перед
+      // отказом пересчитываем его по реальным валентинкам.
+      const refreshed = await recomputePairStreak(pair.id, {
+        current: pair.current_streak,
+        max: pair.max_streak,
+      }).catch(() => null);
+      if (refreshed && refreshed.max >= lockedRequirement) {
+        pair.max_streak = refreshed.max;
+      } else {
+        return reply
+          .code(403)
+          .send({ error: `Эта анимация откроется на ${lockedRequirement}-й день стрика` });
+      }
     }
 
     const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null, photoUrl);
 
-    // Advance the streak: first valentine activity of the day extends the run.
+    // Стрик — производная от валентинок пары, поэтому пересчитываем его после
+    // вставки: порядок вызовов больше не влияет на результат, а замороженное
+    // значение чинится само собой.
     try {
-      const alreadyActiveToday = await hasActivityToday(pair.id);
-      if (!alreadyActiveToday) {
-        const newStreak = (pair.current_streak ?? 0) + 1;
-        await setPairCurrentStreak(pair.id, newStreak);
-        pair.current_streak = newStreak;
-      }
-      if ((pair.current_streak ?? 0) > (pair.max_streak ?? 0)) {
-        await updatePairMaxStreak(pair.id, pair.current_streak ?? 0);
-        pair.max_streak = pair.current_streak ?? 0;
+      const streak = await recomputePairStreak(pair.id, {
+        current: pair.current_streak,
+        max: pair.max_streak,
+      });
+      pair.current_streak = streak.current;
+      pair.max_streak = streak.max;
+      if (streak.newRecord && streak.current > 0) {
         // Celebrate a new milestone with a companion push.
-        void dispatchStreakPushes(pair.id, pair.current_streak ?? 0).catch((e) => {
+        void dispatchStreakPushes(pair.id, streak.max).catch((e) => {
           app.log.error('Streak push failed:', e);
         });
       }

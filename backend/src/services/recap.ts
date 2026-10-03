@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { supabase } from '../utils/supabase';
 import { generateStructuredJson } from './gemini';
+import { isoUtcDay, streakFromActiveDays } from './streak';
 import type { Pair } from './database';
 
 /**
@@ -132,7 +133,7 @@ interface DateSessionRow {
 }
 
 export interface RecapRawData {
-  pair: Pick<Pair, 'telegram_user_a' | 'telegram_user_b' | 'user_a_name' | 'user_b_name' | 'max_streak' | 'current_streak'>;
+  pair: Pick<Pair, 'telegram_user_a' | 'telegram_user_b' | 'user_a_name' | 'user_b_name' | 'max_streak'>;
   periodKey: RecapPeriodKey;
   periodStart: Date | null;
   valentines: ActivityRow[];
@@ -143,6 +144,8 @@ export interface RecapRawData {
   dateSessions: DateSessionRow[];
   /** Смещение часового пояса в минутах, как у Date#getTimezoneOffset. */
   tzOffsetMinutes: number;
+  /** Опорный «сейчас»; по умолчанию реальное время. */
+  now?: Date;
 }
 
 function pluralDays(count: number): string {
@@ -193,6 +196,7 @@ function aspectDiff(a: ReviewRow, b: ReviewRow, key: AspectKey): number | null {
  */
 export function buildRecapAggregates(raw: RecapRawData): RecapAggregates {
   const { pair, periodKey, periodStart, tzOffsetMinutes } = raw;
+  const now = raw.now ?? new Date();
 
   let partnerACount = 0;
   let partnerBCount = 0;
@@ -304,6 +308,15 @@ export function buildRecapAggregates(raw: RecapRawData): RecapAggregates {
     if (matched === true || matched === 'true') datesMatched += 1;
   }
 
+  // Стрик считаем по тем же валентинкам, что уже загружены, а не по колонке в
+  // pairs: иначе карточка могла бы показать устаревшее число. Рекорд берём
+  // максимумом из derived и сохранённого — расхождение вниз не откатывает
+  // разблокированные анимации.
+  const streak = streakFromActiveDays(
+    raw.valentines.map((row) => isoUtcDay(new Date(row.sent_at))),
+    isoUtcDay(now)
+  );
+
   return {
     periodKey,
     periodLabel: periodLabel(periodKey),
@@ -314,8 +327,8 @@ export function buildRecapAggregates(raw: RecapRawData): RecapAggregates {
     partnerBName: pair.user_b_name ?? 'Второй партнёр',
     partnerBCount,
     greetingsByType,
-    currentStreak: pair.current_streak ?? 0,
-    maxStreak: Math.max(pair.max_streak ?? 0, pair.current_streak ?? 0),
+    currentStreak: streak.current,
+    maxStreak: Math.max(streak.max, pair.max_streak ?? 0),
     mostActiveHour: bestHourCount > 0 ? mostActiveHour : null,
     mostActiveWeekday,
     avgMovieCompatibility,

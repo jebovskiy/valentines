@@ -20,7 +20,6 @@ const PAIR = {
   user_a_name: 'Аня',
   user_b_name: 'Дима',
   max_streak: 12,
-  current_streak: 5,
 };
 
 function raw(overrides: Partial<RecapRawData> = {}): RecapRawData {
@@ -35,6 +34,7 @@ function raw(overrides: Partial<RecapRawData> = {}): RecapRawData {
     insights: [],
     dateSessions: [],
     tzOffsetMinutes: 0,
+    now: NOW,
     ...overrides,
   };
 }
@@ -207,12 +207,30 @@ test('only matched date sessions inside the period count', () => {
   assert.equal(agg.datesMatched, 2);
 });
 
-test('streak reports the record even when the current run is shorter', () => {
+test('the streak comes from the valentines, not from the stored counter', () => {
   const agg = aggregates({
-    pair: { ...PAIR, current_streak: 3, max_streak: 30 },
+    valentines: [
+      { sender_telegram_id: 10, sent_at: iso(0) },
+      { sender_telegram_id: 20, sent_at: iso(1) },
+      { sender_telegram_id: 10, sent_at: iso(2) },
+    ],
   });
 
   assert.equal(agg.currentStreak, 3);
+  // Рекорд из pairs остаётся полом: расхождение вниз не откатывает историю.
+  assert.equal(agg.maxStreak, 12);
+});
+
+test('a broken run keeps the record but drops the current streak', () => {
+  const agg = aggregates({
+    pair: { ...PAIR, max_streak: 30 },
+    valentines: [
+      { sender_telegram_id: 10, sent_at: iso(20) },
+      { sender_telegram_id: 10, sent_at: iso(0) },
+    ],
+  });
+
+  assert.equal(agg.currentStreak, 1);
   assert.equal(agg.maxStreak, 30);
 });
 
@@ -306,7 +324,7 @@ test('fallback text reuses only numbers from the aggregates', () => {
   assert.match(summary.insight, /Аня/);
   assert.match(summary.insight, /67%/);
   assert.match(summary.insight, /91%/);
-  assert.match(summary.insight, /на 5 дней/);
+  assert.match(summary.insight, /на 3 дня/);
 });
 
 test('an even split does not claim a leader', () => {
