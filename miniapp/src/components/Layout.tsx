@@ -1,9 +1,13 @@
 import { Outlet } from 'react-router-dom';
 import { useEffect } from 'react';
 import { hideMainButton, applyTheme } from '../utils/telegram';
+import { useValentinesStore } from '../hooks/useValentinesStore';
+import { AddToHomeBanner } from './AddToHomeBanner';
 import { NavSheet } from './NavSheet';
 
 export function Layout() {
+  const pair = useValentinesStore((state) => state.pair);
+
   useEffect(() => {
     applyTheme();
     hideMainButton();
@@ -15,6 +19,8 @@ export function Layout() {
   return (
     <>
       <Outlet />
+      {/* Ярлык на рабочий стол предлагаем только после успешного пейринга. */}
+      <AddToHomeBanner visible={!!pair} />
       <NavSheet />
     </>
   );
