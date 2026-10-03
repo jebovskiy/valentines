@@ -158,6 +158,9 @@ export function ProfileScreen() {
         <p style={styles.bindHint}>Приложение уже привязано</p>
       )}
 
+      <button onClick={() => navigate('/recap')} style={styles.linkButton}>
+        Итоги
+      </button>
       <button onClick={() => navigate('/pairing')} style={styles.linkButton}>
         Настройка виджета
       </button>

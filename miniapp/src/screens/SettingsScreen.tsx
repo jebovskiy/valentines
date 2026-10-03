@@ -100,10 +100,6 @@ export function SettingsScreen() {
         </div>
       )}
 
-      <button onClick={() => navigate('/recap')} style={styles.dateBtn}>
-        ✨ Посмотреть «Итоги»
-      </button>
-
       <div style={styles.introCard}>
         <div style={styles.introTitle}>⚡️ Интеграции</div>
         <div style={styles.introText}>
