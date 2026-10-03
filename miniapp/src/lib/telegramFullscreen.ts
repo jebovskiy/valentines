@@ -35,9 +35,17 @@ function safeCall(fn: () => void): void {
   try {
     fn();
   } catch (error) {
-    if (import.meta.env.DEV) {
-      console.warn('[telegram] WebApp call failed', error);
-    }
+    warnDev('WebApp call failed', error);
+  }
+}
+
+/**
+ * `import.meta.env` есть только под Vite (в тестах и Node его может не быть),
+ * поэтому DEV проверяем мягко — иначе сам лог стал бы источником падений.
+ */
+function warnDev(message: string, detail?: unknown): void {
+  if (import.meta.env?.DEV) {
+    console.warn(`[telegram] ${message}`, detail);
   }
 }
 
@@ -83,9 +91,7 @@ export function initFullscreen(): void {
   }
 
   const onFullscreenFailed = (error: unknown) => {
-    if (import.meta.env.DEV) {
-      console.warn('[telegram] requestFullscreen was rejected', error);
-    }
+    warnDev('requestFullscreen was rejected', error);
   };
   safeCall(() => app.onEvent('fullscreenFailed', onFullscreenFailed));
 

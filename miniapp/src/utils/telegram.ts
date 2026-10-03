@@ -154,7 +154,10 @@ export interface ScanQrParams {
   text?: string;
 }
 
-export const webApp = window.Telegram?.WebApp;
+// Модуль может быть импортирован без окна (тесты, SSR), поэтому читаем window
+// мягко — как это делает resolveWebApp() в lib/telegramFullscreen.
+export const webApp: TelegramWebApp | undefined =
+  typeof window === 'undefined' ? undefined : window.Telegram?.WebApp;
 
 /** Фон приложения: он же уходит в шапку Telegram (setHeaderColor). */
 export const APP_BACKGROUND_COLOR = '#fbfbf9';

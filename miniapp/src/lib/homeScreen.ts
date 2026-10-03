@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { AddToHomeScreenResult, HomeScreenStatus, TelegramWebApp } from '../utils/telegram';
 import { resolveWebApp } from './telegramFullscreen';
 
@@ -149,6 +149,95 @@ export function checkHomeScreenStatus(
   }
 }
 
+export interface HomeScreenPromptControllerOptions {
+  app?: TelegramWebApp | undefined;
+  storage?: HomeScreenStorage | null;
+  now?: () => number;
+}
+
+export interface HomeScreenPromptController {
+  getState: () => HomeScreenPromptState;
+  subscribe: (listener: () => void) => () => void;
+  /** Один раз спрашивает статус ярлыка. Идемпотентна. */
+  start: () => void;
+  add: () => Promise<void>;
+  dismiss: () => void;
+}
+
+/**
+ * Вся логика баннера без React: подписки, статус, localStorage и вызовы Bot API.
+ * Хук ниже — тонкая обвязка, а благодаря внедрению app/storage/now весь сценарий
+ * (включая кулдауны) проверяется юнит-тестами без DOM.
+ */
+export function createHomeScreenPromptController(
+  options: HomeScreenPromptControllerOptions = {}
+): HomeScreenPromptController {
+  const now = options.now ?? Date.now;
+  const getStorage = (): HomeScreenStorage | null =>
+    options.storage === undefined ? browserStorage() : options.storage;
+  const getApp = (): TelegramWebApp | undefined =>
+    options.app === undefined ? resolveWebApp() : options.app;
+
+  let state: HomeScreenPromptState = INITIAL_HOME_SCREEN_PROMPT;
+  const listeners = new Set<() => void>();
+  let started = false;
+
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
+
+  const setState = (next: HomeScreenPromptState) => {
+    state = next;
+    notify();
+  };
+
+  const start = () => {
+    if (started) return;
+    started = true;
+
+    const app = getApp();
+    if (!isHomeScreenSupported(app)) return;
+    checkHomeScreenStatus(app!, (status) => {
+      setState(stateAfterStatus(status, readHomeScreenRecord(getStorage()), now()));
+    });
+  };
+
+  const add = async () => {
+    const app = getApp();
+    if (typeof app?.addToHomeScreen !== 'function') return;
+
+    setState({ ...state, busy: true });
+    const timestamp = now();
+
+    let outcome: HomeScreenAddOutcome = 'unknown';
+    try {
+      outcome = (await app.addToHomeScreen()) ?? 'unknown';
+    } catch {
+      outcome = 'unknown';
+    }
+
+    const record = recordAfterAddOutcome(outcome, timestamp);
+    if (record) writeHomeScreenRecord(record, getStorage());
+    setState(stateAfterAddOutcome(state, outcome));
+  };
+
+  const dismiss = () => {
+    writeHomeScreenRecord(recordAfterDismiss(now()), getStorage());
+    setState({ ...state, visible: false, busy: false });
+  };
+
+  return {
+    getState: () => state,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    start,
+    add,
+    dismiss,
+  };
+}
+
 export interface HomeScreenPrompt extends HomeScreenPromptState {
   /** Нажали «Добавить»: вызывает Bot API и гасит баннер по итогу. */
   add: () => Promise<void>;
@@ -158,45 +247,15 @@ export interface HomeScreenPrompt extends HomeScreenPromptState {
 
 /** Состояние баннера для <AddToHomeBanner />. */
 export function useHomeScreenPrompt(): HomeScreenPrompt {
-  const [state, setState] = useState<HomeScreenPromptState>(INITIAL_HOME_SCREEN_PROMPT);
+  const controller = useMemo(() => createHomeScreenPromptController(), []);
+  const [state, setState] = useState<HomeScreenPromptState>(controller.getState());
 
   useEffect(() => {
-    const app = resolveWebApp();
-    if (!isHomeScreenSupported(app)) return;
+    // React StrictCode монтирует эффект дважды, поэтому start() идемпотентна.
+    const unsubscribe = controller.subscribe(() => setState(controller.getState()));
+    controller.start();
+    return unsubscribe;
+  }, [controller]);
 
-    let cancelled = false;
-    checkHomeScreenStatus(app!, (status) => {
-      if (cancelled) return;
-      setState(stateAfterStatus(status, readHomeScreenRecord(), Date.now()));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const add = useCallback(async () => {
-    const app = resolveWebApp();
-    if (typeof app?.addToHomeScreen !== 'function') return;
-
-    setState((current) => ({ ...current, busy: true }));
-    const now = Date.now();
-
-    let outcome: HomeScreenAddOutcome = 'unknown';
-    try {
-      outcome = (await app.addToHomeScreen()) ?? 'unknown';
-    } catch {
-      outcome = 'unknown';
-    }
-
-    const record = recordAfterAddOutcome(outcome, now);
-    if (record) writeHomeScreenRecord(record);
-    setState((current) => stateAfterAddOutcome(current, outcome));
-  }, []);
-
-  const dismiss = useCallback(() => {
-    writeHomeScreenRecord(recordAfterDismiss(Date.now()));
-    setState((current) => ({ ...current, visible: false, busy: false }));
-  }, []);
-
-  return { ...state, add, dismiss };
+  return { ...state, add: controller.add, dismiss: controller.dismiss };
 }
