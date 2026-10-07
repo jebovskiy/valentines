@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { getPairByUser, getUserProfile, upsertUserProfile, updateUserDisplayName, updatePairUserName } from '../services/database';
 import { resolveAvatarSource, avatarProxyPath } from '../services/telegramAvatar';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
+import { mintRealtimeToken } from '../services/realtimeToken';
+import { userRateLimit } from '../middleware/rateLimit';
 import { config } from '../config';
 
 const updateNameSchema = z.object({
@@ -11,6 +13,9 @@ const updateNameSchema = z.object({
 
 export async function usersRoutes(app: FastifyInstance) {
   const protectedRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
+
+  // Short-lived and cheap; the client caches it until shortly before expiry.
+  const realtimeTokenRateLimit = userRateLimit({ key: 'realtime-token', max: 10, timeWindowMs: 60_000 });
 
   app.get('/me', protectedRoutes, async (request, reply) => {
     const userId = request.telegramUser!.id;
@@ -55,6 +60,21 @@ export async function usersRoutes(app: FastifyInstance) {
 
     return { me, partner };
   });
+
+  // Realtime access token. Absent until SUPABASE_JWT_SECRET is configured, in
+  // which case the client stays on the anonymous socket and falls back to polling.
+  app.get(
+    '/realtime-token',
+    { preHandler: [...protectedRoutes.preHandler, realtimeTokenRateLimit] },
+    async (request, reply) => {
+      const pair = await getPairByUser(request.telegramUser!.id).catch(() => null);
+      const minted = mintRealtimeToken(request.telegramUser!.id, pair?.id ?? null);
+      if (!minted) {
+        return reply.code(503).send({ error: 'Realtime token unavailable (SUPABASE_JWT_SECRET not set)' });
+      }
+      return { token: minted.token, expires_at: minted.expiresAt, expires_in: minted.expiresIn };
+    }
+  );
 
   app.patch('/me/name', protectedRoutes, async (request, reply) => {
     const body = updateNameSchema.parse(request.body);

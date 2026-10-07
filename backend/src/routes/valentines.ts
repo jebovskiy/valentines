@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId } from '../services/database';
-import { recomputePairStreak } from '../services/streak';
+import { recordValentineActivity, rebuildPairStreak } from '../services/streak';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { userRateLimit } from '../middleware/rateLimit';
 import { config, isKnownAnimationType } from '../config';
@@ -27,6 +27,8 @@ const sendValentineSchema = z.object({
   message: z.string().max(500).optional().nullable(),
   recipient: z.enum(['partner', 'self']).optional(),
   photo_base64: z.string().max(8 * 1024 * 1024).optional().nullable(),
+  /** Minutes WEST of UTC for the sender (Date#getTimezoneOffset); picks the streak day. */
+  tz_offset_minutes: z.number().int().min(-840).max(840).optional(),
 });
 
 export async function valentinesRoutes(app: FastifyInstance) {
@@ -61,6 +63,7 @@ export async function valentinesRoutes(app: FastifyInstance) {
 
   app.post('/', { preHandler: [requireTelegramAuth, photoUserRateLimit], bodyLimit: MAX_PHOTO_BODY_BYTES, config: { rateLimit: photoRateLimit } }, async (request, reply) => {
     const body = sendValentineSchema.parse(request.body);
+    const tzOffset = body.tz_offset_minutes ?? 0;
 
     if (!isKnownAnimationType(body.animation_type)) {
       return reply.code(400).send({ error: 'Unknown animation type' });
@@ -78,9 +81,10 @@ export async function valentinesRoutes(app: FastifyInstance) {
 
     const lockedRequirement = STREAK_LOCKED_ANIMATIONS[body.animation_type];
     if (lockedRequirement !== undefined && (pair.max_streak ?? 0) < lockedRequirement) {
-      // Кэш мог устареть (стрик перестал обновляться из-за бага), поэтому перед
-      // отказом пересчитываем его по реальным валентинкам.
-      const refreshed = await recomputePairStreak(pair.id, {
+      // Normally impossible: max_streak is maintained by the atomic register RPC.
+      // A pair whose rows predate migration 027 can still be behind, so rebuild
+      // once from history instead of rejecting an animation the pair earned.
+      const refreshed = await rebuildPairStreak(pair.id, tzOffset, {
         current: pair.current_streak,
         max: pair.max_streak,
       }).catch(() => null);
@@ -95,17 +99,16 @@ export async function valentinesRoutes(app: FastifyInstance) {
 
     const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null, photoUrl);
 
-    // Стрик — производная от валентинок пары, поэтому пересчитываем его после
-    // вставки: порядок вызовов больше не влияет на результат, а замороженное
-    // значение чинится само собой.
+    // Стрик живёт в базе: один атомарный UPDATE вместо перечитывания всей
+    // истории, и порядок вызовов больше не влияет на результат.
     try {
-      const streak = await recomputePairStreak(pair.id, {
+      const streak = await recordValentineActivity(pair.id, tzOffset, {
         current: pair.current_streak,
         max: pair.max_streak,
       });
       pair.current_streak = streak.current;
       pair.max_streak = streak.max;
-      if (streak.newRecord && streak.current > 0) {
+      if (streak.newRecord && streak.advanced) {
         // Celebrate a new milestone with a companion push.
         void dispatchStreakPushes(pair.id, streak.max).catch((e) => {
           app.log.error('Streak push failed:', e);

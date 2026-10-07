@@ -20,6 +20,7 @@ import {
   claimMovieInsight,
   finishMovieInsight,
   abandonMovieInsight,
+  isUniqueViolation,
 } from '../services/database';
 import { searchPoiskkino, getPoiskkinoDetail, PoiskkinoDetail, PoiskkinoPart } from '../services/poiskkino';
 import { generateMovieInsights, classifyMovieAspects, MovieReviewInput } from '../services/gemini';
@@ -137,13 +138,52 @@ async function ensureMovieAspectScores(movieId: string, app: FastifyInstance): P
   }
 }
 
-const aspectBackfillLock = new Set<string>();
+/**
+ * Aspect-score backfill: at most ASPECT_AI_CONCURRENCY classifications in flight
+ * per process.
+ *
+ * Before this, `GET /api/movies` on a fresh 300-movie list fired one
+ * `classifyMovieAspects` call per unclassified movie at once (~600 upstream HTTP
+ * requests, since gemini.ts races two providers) with no queue and no backoff.
+ * The lock also used to be permanent, so a movie whose call failed was never
+ * retried by this process.
+ */
+const ASPECT_AI_CONCURRENCY = 3;
+
+const aspectBackfillQueue: string[] = [];
+const aspectBackfillInFlight = new Set<string>();
+const aspectBackfillDone = new Set<string>();
+
+function pumpAspectBackfill(app: FastifyInstance): void {
+  while (aspectBackfillInFlight.size < ASPECT_AI_CONCURRENCY && aspectBackfillQueue.length > 0) {
+    const movieId = aspectBackfillQueue.shift()!;
+    if (aspectBackfillInFlight.has(movieId) || aspectBackfillDone.has(movieId)) continue;
+    aspectBackfillInFlight.add(movieId);
+
+    void ensureMovieAspectScores(movieId, app)
+      .catch((error) => {
+        app.log.error(`Aspect backfill failed for ${movieId}: ${(error as Error).message}`);
+      })
+      .finally(() => {
+        // Released either way, so a transient failure can be retried later.
+        aspectBackfillInFlight.delete(movieId);
+        aspectBackfillDone.add(movieId);
+        pumpAspectBackfill(app);
+      });
+  }
+}
+
+function requestAspectScores(movieId: string, app: FastifyInstance): void {
+  if (aspectBackfillDone.has(movieId) || aspectBackfillInFlight.has(movieId)) return;
+  if (aspectBackfillQueue.includes(movieId)) return;
+  aspectBackfillQueue.push(movieId);
+  pumpAspectBackfill(app);
+}
 
 function backfillAspectScores(movies: { id: string; aspect_scores: unknown }[], app: FastifyInstance): void {
   for (const movie of movies) {
-    if (movie.aspect_scores || aspectBackfillLock.has(movie.id)) continue;
-    aspectBackfillLock.add(movie.id);
-    void ensureMovieAspectScores(movie.id, app);
+    if (movie.aspect_scores) continue;
+    requestAspectScores(movie.id, app);
   }
 }
 
@@ -295,20 +335,33 @@ export async function moviesRoutes(app: FastifyInstance) {
       const runtimeStr = detail?.movie_length ? `${detail.movie_length} мин` : null;
       const imdbRating = detail?.rating_imdb ? String(detail.rating_imdb) : null;
 
-      const movie = await createMovie({
-        pair_id: pair.id,
-        added_by: request.telegramUser!.id,
-        kp_id: item.kp_id ?? null,
-        title,
-        year: item.year ?? detail?.year ?? null,
-        poster_url: posterUrl,
-        genre: genreStr,
-        description: plot,
-        runtime: runtimeStr,
-        rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
-      });
+      let movie;
+      try {
+        movie = await createMovie({
+          pair_id: pair.id,
+          added_by: request.telegramUser!.id,
+          kp_id: item.kp_id ?? null,
+          title,
+          year: item.year ?? detail?.year ?? null,
+          poster_url: posterUrl,
+          genre: genreStr,
+          description: plot,
+          runtime: runtimeStr,
+          rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
+        });
+      } catch (error) {
+        // Another request inserted the same kp_id between our pre-check and the
+        // insert (the same kp_id can also appear twice in one batch). The unique
+        // index from 029 is the authority, so report it as a duplicate -- the same
+        // outcome the pre-check would have produced.
+        if (item.kp_id != null && isUniqueViolation(error, 'movies_pair_kp_uniq')) {
+          duplicates.push(item.kp_id);
+          continue;
+        }
+        throw error;
+      }
       addedMovies.push(movie);
-      void ensureMovieAspectScores(movie.id, app);
+      requestAspectScores(movie.id, app);
 
       const partnerId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
       if (partnerId) {
@@ -341,7 +394,7 @@ export async function moviesRoutes(app: FastifyInstance) {
     if (parsed.data.kp_id) {
       const existing = await getMovieByKp(pair.id, parsed.data.kp_id);
       if (existing) {
-        void ensureMovieAspectScores(existing.id, app);
+        requestAspectScores(existing.id, app);
         return reply.code(200).send({ movieId: existing.id, duplicate: true });
       }
     }
@@ -365,20 +418,34 @@ export async function moviesRoutes(app: FastifyInstance) {
     const runtimeStr = detail?.movie_length ? `${detail.movie_length} мин` : null;
     const imdbRating = detail?.rating_imdb ? String(detail.rating_imdb) : null;
 
-    const movie = await createMovie({
-      pair_id: pair.id,
-      added_by: request.telegramUser!.id,
-      kp_id: parsed.data.kp_id ?? null,
-      title,
-      year: parsed.data.year ?? detail?.year ?? null,
-      poster_url: posterUrl,
-      genre: genreStr,
-      description: plot,
-      runtime: runtimeStr,
-      rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
-    });
+    let movie;
+    try {
+      movie = await createMovie({
+        pair_id: pair.id,
+        added_by: request.telegramUser!.id,
+        kp_id: parsed.data.kp_id ?? null,
+        title,
+        year: parsed.data.year ?? detail?.year ?? null,
+        poster_url: posterUrl,
+        genre: genreStr,
+        description: plot,
+        runtime: runtimeStr,
+        rating: detail?.rating_kp ? `КП ${detail.rating_kp}` : imdbRating,
+      });
+    } catch (error) {
+      // The pre-check above is only a fast path; the unique index (migration 029)
+      // is the real guard, so answer a lost race exactly like a found duplicate.
+      if (parsed.data.kp_id != null && isUniqueViolation(error, 'movies_pair_kp_uniq')) {
+        const existing = await getMovieByKp(pair.id, parsed.data.kp_id).catch(() => null);
+        if (existing) {
+          requestAspectScores(existing.id, app);
+          return reply.code(200).send({ movieId: existing.id, duplicate: true });
+        }
+      }
+      throw error;
+    }
 
-    void ensureMovieAspectScores(movie.id, app);
+    requestAspectScores(movie.id, app);
 
     const authorName =
       pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name : pair.user_b_name;
@@ -516,6 +583,7 @@ export async function moviesRoutes(app: FastifyInstance) {
       const claimed = await claimMovieInsight(movie.id);
       if (claimed) {
         void (async () => {
+          let settled = false;
           try {
             const pairInfo = await getPairById(pair.id);
             const inputs: MovieReviewInput[] = reviews.map((r) => ({
@@ -536,12 +604,11 @@ export async function moviesRoutes(app: FastifyInstance) {
               { title: movie.title, year: movie.year, genre: movie.genre, plot: movie.description },
               [a, b],
             );
+            // Someone else finished it while we were waiting on the model.
             const stored = await getMovieInsight(movie.id);
-            if (stored) {
-              await abandonMovieInsight(movie.id);
-              return;
-            }
+            if (stored) return;
             await finishMovieInsight(movie.id, insight as unknown as Record<string, unknown>);
+            settled = true;
             const summary = insight.summary || insight.verdict || null;
             const authorSet = new Set(reviews.map((r) => r.author_telegram_id));
             for (const chatId of [pair.telegram_user_a, pair.telegram_user_b]) {
@@ -559,10 +626,14 @@ export async function moviesRoutes(app: FastifyInstance) {
             }).catch((e) => app.log.error('Insight push failed:', e));
           } catch (error) {
             app.log.error(`Insight generation failed: ${(error as Error).message}`);
-            try {
-              await abandonMovieInsight(movie.id);
-            } catch (abandonError) {
-              app.log.error(`Failed to abandon insight claim: ${(abandonError as Error).message}`);
+          } finally {
+            // Always give the claim back on the failure path. Without a finally, an
+            // unhandled rejection or an early return froze the insight until
+            // migration 028's 5-minute stale takeover had to clean up after us.
+            if (!settled) {
+              await abandonMovieInsight(movie.id).catch((abandonError) => {
+                app.log.error(`Failed to release insight claim: ${(abandonError as Error).message}`);
+              });
             }
           }
         })();

@@ -10,6 +10,8 @@ export interface Pair {
   created_at: string;
   max_streak: number;
   current_streak?: number;
+  /** Pair-local day (YYYY-MM-DD) the run was last counted on; null = never. */
+  last_active_date?: string | null;
 }
 
 export interface Device {
@@ -819,6 +821,25 @@ export async function getMovieByKp(pairId: string, kpId: number): Promise<Movie 
   return data;
 }
 
+/** Postgres error code for a unique violation (see migration 029). */
+export const UNIQUE_VIOLATION = '23505';
+
+export function isUniqueViolation(error: unknown, constraint?: string): boolean {
+  const code = (error as { code?: string } | null)?.code;
+  if (code !== UNIQUE_VIOLATION) return false;
+  if (!constraint) return true;
+  const message = (error as { message?: string }).message ?? '';
+  return message.includes(constraint);
+}
+
+export interface DuplicateMovieError extends Error {
+  code: typeof UNIQUE_VIOLATION;
+}
+
+function isDuplicateMovieError(error: unknown): error is DuplicateMovieError {
+  return isUniqueViolation(error, 'movies_pair_kp_uniq');
+}
+
 export async function createMovie(input: {
   pair_id: string;
   added_by: number;
@@ -847,6 +868,11 @@ export async function createMovie(input: {
     })
     .select()
     .single();
+
+  // Lost the race against a concurrent add of the same kp_id: the unique index
+  // from migration 029 did its job, and the caller should behave exactly like it
+  // does after its own pre-check found the row.
+  if (error && isDuplicateMovieError(error)) throw error;
   if (error) throw error;
   return data;
 }
@@ -931,33 +957,69 @@ export async function getMovieInsight(movieId: string): Promise<MovieInsight | n
 
 /**
  * Atomically claims the right to generate an insight for a movie.
- * Inserts a 'generating' row via INSERT ... ON CONFLICT DO NOTHING.
- * Returns true only if this caller inserted a fresh row (won the race).
+ *
+ * Migration 028 moved this into SQL so a claim older than `staleAfter` can be
+ * taken over: the previous `ON CONFLICT DO NOTHING` insert-only claim could never
+ * be won twice, so one crashed worker froze that movie's insight forever.
+ * Returns true only if this caller owns the claim.
  */
-export async function claimMovieInsight(movieId: string): Promise<boolean> {
-  const { count, error } = await supabase
-    .from('movie_insights')
-    .upsert(
-      { movie_id: movieId, result: {}, status: 'generating' },
-      { onConflict: 'movie_id', ignoreDuplicates: true, count: 'exact' }
-    );
-  if (error) throw error;
-  return (count ?? 0) > 0;
+export async function claimMovieInsight(movieId: string, staleAfterMinutes = 5): Promise<boolean> {
+  const { data, error } = await supabase.rpc('claim_movie_insight', {
+    p_movie_id: movieId,
+    p_stale_after: `${staleAfterMinutes} minutes`,
+  });
+
+  if (!error) return data === true;
+
+  // Migration 028 not applied yet -- fall back to the old insert-only claim so
+  // insights keep working (just without the stale takeover).
+  if (error.code === '42883' || error.code === 'PGRST202' || error.code === '404') {
+    const { count, error: fallbackError } = await supabase
+      .from('movie_insights')
+      .upsert(
+        { movie_id: movieId, result: {}, status: 'generating' },
+        { onConflict: 'movie_id', ignoreDuplicates: true, count: 'exact' },
+      );
+    if (fallbackError) throw fallbackError;
+    return (count ?? 0) > 0;
+  }
+
+  throw error;
 }
 
-/** Marks the claim row as done with the final result. */
+/** Marks the claim row as done with the final result. Scoped to 'generating'. */
 export async function finishMovieInsight(movieId: string, result: Record<string, unknown>): Promise<void> {
-  const { error } = await supabase
-    .from('movie_insights')
-    .update({ result, status: 'done', created_at: new Date().toISOString() })
-    .eq('movie_id', movieId);
-  if (error) throw error;
+  const { error } = await supabase.rpc('finish_movie_insight', {
+    p_movie_id: movieId,
+    p_result: result,
+  });
+  if (!error) return;
+  if (error.code === '42883' || error.code === 'PGRST202' || error.code === '404') {
+    const { error: fallbackError } = await supabase
+      .from('movie_insights')
+      .update({ result, status: 'done', created_at: new Date().toISOString() })
+      .eq('movie_id', movieId)
+      .eq('status', 'generating');
+    if (fallbackError) throw fallbackError;
+    return;
+  }
+  throw error;
 }
 
-/** Releases the claim row (deletes it) so a later retry can re-generate. */
+/** Releases the claim so a later retry can re-claim. Never touches a done row. */
 export async function abandonMovieInsight(movieId: string): Promise<void> {
-  const { error } = await supabase.from('movie_insights').delete().eq('movie_id', movieId);
-  if (error) throw error;
+  const { error } = await supabase.rpc('release_movie_insight', { p_movie_id: movieId });
+  if (!error) return;
+  if (error.code === '42883' || error.code === 'PGRST202' || error.code === '404') {
+    const { error: fallbackError } = await supabase
+      .from('movie_insights')
+      .delete()
+      .eq('movie_id', movieId)
+      .eq('status', 'generating');
+    if (fallbackError) throw fallbackError;
+    return;
+  }
+  throw error;
 }
 
 /** Pairs that have any movies but haven't received a reminder today. */

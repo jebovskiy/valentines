@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { supabase } from '../utils/supabase';
 import { generateStructuredJson } from './gemini';
-import { isoUtcDay, streakFromActiveDays } from './streak';
+import { localDay, readStoredStreak } from './streak';
 import type { Pair } from './database';
 
 /**
@@ -133,7 +133,10 @@ interface DateSessionRow {
 }
 
 export interface RecapRawData {
-  pair: Pick<Pair, 'telegram_user_a' | 'telegram_user_b' | 'user_a_name' | 'user_b_name' | 'max_streak'>;
+  pair: Pick<
+    Pair,
+    'telegram_user_a' | 'telegram_user_b' | 'user_a_name' | 'user_b_name' | 'max_streak' | 'current_streak' | 'last_active_date'
+  >;
   periodKey: RecapPeriodKey;
   periodStart: Date | null;
   valentines: ActivityRow[];
@@ -308,14 +311,14 @@ export function buildRecapAggregates(raw: RecapRawData): RecapAggregates {
     if (matched === true || matched === 'true') datesMatched += 1;
   }
 
-  // Стрик считаем по тем же валентинкам, что уже загружены, а не по колонке в
-  // pairs: иначе карточка могла бы показать устаревшее число. Рекорд берём
-  // максимумом из derived и сохранённого — расхождение вниз не откатывает
-  // разблокированные анимации.
-  const streak = streakFromActiveDays(
-    raw.valentines.map((row) => isoUtcDay(new Date(row.sent_at))),
-    isoUtcDay(now)
-  );
+  // Стрик берём из тех же атомарно поддерживаемых колонок `pairs`, что и
+  // /api/pairs/streak, а НЕ из загруженных валентинок: они уже отфильтрованы по
+  // периоду, поэтому для 7d/30d/90d серия обрезалась бы длиной периода (120 дней
+  // подряд показывались как «7 дней»). Записи в БД достаточно: она протухает
+  // сама, когда `last_active_date` старше вчерашнего дня.
+  const today = localDay(now, tzOffsetMinutes);
+  const streak = readStoredStreak(pair, today);
+  const currentStreak = streak.alive ? streak.current : 0;
 
   return {
     periodKey,
@@ -327,7 +330,7 @@ export function buildRecapAggregates(raw: RecapRawData): RecapAggregates {
     partnerBName: pair.user_b_name ?? 'Второй партнёр',
     partnerBCount,
     greetingsByType,
-    currentStreak: streak.current,
+    currentStreak,
     maxStreak: Math.max(streak.max, pair.max_streak ?? 0),
     mostActiveHour: bestHourCount > 0 ? mostActiveHour : null,
     mostActiveWeekday,

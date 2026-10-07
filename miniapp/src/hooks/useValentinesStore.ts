@@ -1,7 +1,9 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuSlotReplacement, MenuSlotVariant, MenuLeftover, MenuLeftoverSuggestion, MenuIngredientGroup, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId, MenuMember, MenuMealId, MealComponentId, MealComponents } from '../types';
 import { api } from '../api/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions, subscribeToGameSessions, unsubscribeFromGameSessions } from '../api/supabase';
+import { getRealtimeToken } from '../api/client';
 
 export const PARTNER_NAME_OVERRIDE_KEY = 'vn_partner_name_override';
 
@@ -88,12 +90,12 @@ interface ValentinesState {
   androidPaired: boolean;
   isLoading: boolean;
   error: string | null;
-  realtimeChannel: ReturnType<typeof subscribeToValentines> | null;
+  realtimeChannel: RealtimeChannel | null;
 
   fetchPair: () => Promise<void>;
   gameSession: GameSession | null;
   gameSessionLoading: boolean;
-  gameRealtimeChannel: ReturnType<typeof subscribeToGameSessions> | null;
+  gameRealtimeChannel: RealtimeChannel | null;
 
   checkPair: () => Promise<Pair | null>;
   createInvite: () => Promise<string | null>;
@@ -154,7 +156,7 @@ interface ValentinesState {
   saveTasteProfile: (aspectWeights: Record<string, number>) => Promise<boolean>;
   dateSession: DateSession | null;
   dateSessionLoading: boolean;
-  dateRealtimeChannel: ReturnType<typeof subscribeToDateSessions> | null;
+  dateRealtimeChannel: RealtimeChannel | null;
   integrations: Integration[];
   fetchDateSession: () => Promise<void>;
   createDateSession: (params: DateParams) => Promise<DateSession | null>;
@@ -497,22 +499,31 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
 
-    const channel = subscribeToValentines(
-      pairId,
-      (valentine) => {
-        const enriched = enrichValentine(valentine, get().pair, currentUser.id);
-        get().addValentine(enriched);
-      },
-      (valentine) => {
-        const enriched = enrichValentine(valentine, get().pair, currentUser.id);
-        get().updateValentine(enriched);
-      },
-      (valentine) => {
-        get().removeValentine(valentine.id);
-      }
-    );
+    void getRealtimeToken().then((token) => {
+      // The channel may have been torn down (or the pair changed) while the
+      // token request was in flight.
+      if (get().pair?.id !== pairId) return;
 
-    set({ realtimeChannel: channel });
+      const channel = subscribeToValentines(
+        pairId,
+        token,
+        (valentine) => {
+          const enriched = enrichValentine(valentine, get().pair, currentUser.id);
+          get().addValentine(enriched);
+        },
+        (valentine) => {
+          const enriched = enrichValentine(valentine, get().pair, currentUser.id);
+          get().updateValentine(enriched);
+        },
+        (valentine) => {
+          get().removeValentine(valentine.id);
+        },
+      );
+
+      void channel.then((ready) => {
+        if (get().pair?.id === pairId) set({ realtimeChannel: ready });
+      });
+    });
   },
 
   cleanupRealtime: () => {
@@ -779,10 +790,15 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
       unsubscribeFromDateSessions(dateRealtimeChannel);
     }
 
-    const channel = subscribeToDateSessions(pairId, () => {
-      void get().fetchDateSession();
+    void getRealtimeToken().then((token) => {
+      if (get().pair?.id !== pairId) return;
+      const channel = subscribeToDateSessions(pairId, token, () => {
+        void get().fetchDateSession();
+      });
+      void channel.then((ready) => {
+        if (get().pair?.id === pairId) set({ dateRealtimeChannel: ready });
+      });
     });
-    set({ dateRealtimeChannel: channel });
   },
 
   cleanupDateRealtime: () => {
@@ -841,16 +857,21 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
 
   clearGameSession: () => set({ gameSession: null }),
 
-  setupGameRealtime: (pairId) => {
+setupGameRealtime: (pairId) => {
     const { gameRealtimeChannel } = get();
     if (gameRealtimeChannel) {
       unsubscribeFromGameSessions(gameRealtimeChannel);
     }
 
-    const channel = subscribeToGameSessions(pairId, () => {
-      void get().fetchGameSession();
+    void getRealtimeToken().then((token) => {
+      if (get().pair?.id !== pairId) return;
+      const channel = subscribeToGameSessions(pairId, token, () => {
+        void get().fetchGameSession();
+      });
+      void channel.then((ready) => {
+        if (get().pair?.id === pairId) set({ gameRealtimeChannel: ready });
+      });
     });
-    set({ gameRealtimeChannel: channel });
   },
 
   cleanupGameRealtime: () => {

@@ -89,6 +89,41 @@ async function fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Pr
   }
 }
 
+/**
+ * Supabase Realtime token, cached until shortly before it expires.
+ *
+ * Realtime is the only thing in the app that talks to Supabase directly; without
+ * the token its socket runs as `anon` with no claims, and migration 026's
+ * claim-scoped policies then deliver nothing. A failure here is deliberately
+ * silent: the caller subscribes anonymously and the polling fallbacks keep the
+ * screens correct.
+ */
+let realtimeTokenCache: { token: string; expiresAt: number } | null = null;
+let realtimeTokenInFlight: Promise<string | null> | null = null;
+
+const REALTIME_TOKEN_REFRESH_MARGIN_MS = 60_000;
+
+export function getRealtimeToken(): Promise<string | null> {
+  const cached = realtimeTokenCache;
+  if (cached && cached.expiresAt - REALTIME_TOKEN_REFRESH_MARGIN_MS > Date.now()) {
+    return Promise.resolve(cached.token);
+  }
+  if (realtimeTokenInFlight) return realtimeTokenInFlight;
+
+  realtimeTokenInFlight = fetchWithAuth<{ token: string; expires_at: number }>('/api/users/realtime-token')
+    .then((result) => {
+      if (result.error || !result.data) return null;
+      realtimeTokenCache = { token: result.data.token, expiresAt: result.data.expires_at * 1000 };
+      return result.data.token;
+    })
+    .catch(() => null)
+    .finally(() => {
+      realtimeTokenInFlight = null;
+    });
+
+  return realtimeTokenInFlight;
+}
+
 export const api = {
   // Pairs
   getMyPair: () => fetchWithAuth<{ pair: Pair; pairing: { android_paired: boolean } }>('/api/pairs/me'),

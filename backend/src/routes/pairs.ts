@@ -1,13 +1,25 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getDeviceByUserAndPlatform } from '../services/database';
-import { recomputePairStreak } from '../services/streak';
+import { localDay, readStoredStreak, rebuildPairStreak } from '../services/streak';
 import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite, getPairingStatus } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { userRateLimit } from '../middleware/rateLimit';
 
 const pairingCompleteRateLimit = userRateLimit({ key: 'pairing-complete', max: 10, timeWindowMs: 60_000 });
 const pairingInitiateRateLimit = userRateLimit({ key: 'pairing-initiate', max: 10, timeWindowMs: 60_000 });
+const streakRateLimit = userRateLimit({ key: 'streak', max: 10, timeWindowMs: 60_000 });
+
+// Minutes east of UTC (the same convention /api/recap uses). Optional everywhere,
+// so an old client that sends nothing keeps the previous UTC behaviour.
+const tzQuerySchema = z.object({
+  tz_offset_minutes: z.coerce.number().int().min(-840).max(840).default(0),
+});
+
+function tzOffsetMinutesFrom(query: unknown): number {
+  const parsed = tzQuerySchema.safeParse(query ?? {});
+  return parsed.success ? parsed.data.tz_offset_minutes : 0;
+}
 
 const createPairSchema = z.object({
   partner_telegram_id: z.number().int().positive(),
@@ -41,14 +53,47 @@ export async function pairsRoutes(app: FastifyInstance) {
     if (!pair) {
       return reply.code(404).send({ error: 'Pair not found' });
     }
-    // Пересчёт на чтении: серия обрывается сама, когда день пропущен, а
-    // испорченное ранее значение не зависает навсегда.
-    const streak = await recomputePairStreak(pair.id, {
-      current: pair.current_streak,
-      max: pair.max_streak,
-    });
-    return { streak: { current: streak.current, max: streak.max } };
+
+    // O(1) read: the stored run is only alive while the pair was active today or
+    // yesterday (in the caller's timezone), otherwise it is already zero.
+    const today = localDay(new Date(), tzOffsetMinutesFrom(request.query));
+    let { current, max } = readStoredStreak(pair, today);
+
+    // `last_active_date IS NULL` means the pair was never anchored by migration
+    // 027 (drifted legacy row). Rebuild once so the fast path takes over instead of
+    // re-detecting the drift on every single request.
+    if (!pair.last_active_date) {
+      const rebuilt = await rebuildPairStreak(pair.id, tzOffsetMinutesFrom(request.query), {
+        current: pair.current_streak,
+        max: pair.max_streak,
+      });
+      current = rebuilt.current;
+      max = rebuilt.max;
+    }
+
+    return { streak: { current, max } };
   });
+
+  // Explicit resync: rebuilds the run from `valentines` in one SQL statement and
+  // re-anchors `last_active_date`. Kept as the public repair endpoint -- it can
+  // only ever agree with history, it cannot be used to inflate a number.
+  app.patch(
+    '/streak',
+    { ...privateRoutes, preHandler: [...privateRoutes.preHandler, streakRateLimit] },
+    async (request, reply) => {
+      const pair = await getPairByUser(request.telegramUser!.id);
+      if (!pair) {
+        return reply.code(404).send({ error: 'Pair not found' });
+      }
+
+      const tzOffset = tzOffsetMinutesFrom(request.body ?? request.query);
+      const rebuilt = await rebuildPairStreak(pair.id, tzOffset, {
+        current: pair.current_streak,
+        max: pair.max_streak,
+      });
+      return { streak: { current: rebuilt.current, max: rebuilt.max } };
+    }
+  );
 
   app.post('/', privateRoutes, async (request, reply) => {
     const body = createPairSchema.parse(request.body);

@@ -20,6 +20,8 @@ const PAIR = {
   user_a_name: 'Аня',
   user_b_name: 'Дима',
   max_streak: 12,
+  current_streak: 3,
+  last_active_date: '2026-03-15',
 };
 
 function raw(overrides: Partial<RecapRawData> = {}): RecapRawData {
@@ -207,7 +209,10 @@ test('only matched date sessions inside the period count', () => {
   assert.equal(agg.datesMatched, 2);
 });
 
-test('the streak comes from the valentines, not from the stored counter', () => {
+test('the streak is read from the pair row, so it cannot drift from /api/pairs/streak', () => {
+  // The stored run is maintained atomically by register_valentine_activity; the
+  // recap must show exactly that number rather than deriving its own from the
+  // (period-filtered) valentines it happens to have loaded.
   const agg = aggregates({
     valentines: [
       { sender_telegram_id: 10, sent_at: iso(0) },
@@ -221,17 +226,71 @@ test('the streak comes from the valentines, not from the stored counter', () => 
   assert.equal(agg.maxStreak, 12);
 });
 
+test('a long streak survives a short period instead of being clamped to it', () => {
+  // Regression: the streak used to be derived from the period-filtered rows, so a
+  // 120-day run showed as "7 дней" on the 7d tab.
+  const longRun = {
+    current_streak: 120,
+    max_streak: 120,
+    last_active_date: '2026-03-15',
+  };
+
+  for (const periodKey of ['7d', '30d', '90d', 'all'] as const) {
+    const agg = aggregates({
+      pair: { ...PAIR, ...longRun },
+      periodKey,
+      periodStart: periodStartFor(periodKey, NOW),
+      // Only the rows inside the window are loaded -- exactly the old bug.
+      valentines: [{ sender_telegram_id: 10, sent_at: iso(1) }],
+    });
+    assert.equal(agg.currentStreak, 120, `period ${periodKey} clamped the streak`);
+    assert.equal(agg.maxStreak, 120);
+  }
+});
+
 test('a broken run keeps the record but drops the current streak', () => {
   const agg = aggregates({
-    pair: { ...PAIR, max_streak: 30 },
+    pair: { ...PAIR, max_streak: 30, current_streak: 4, last_active_date: '2026-03-13' },
     valentines: [
       { sender_telegram_id: 10, sent_at: iso(20) },
       { sender_telegram_id: 10, sent_at: iso(0) },
     ],
   });
 
-  assert.equal(agg.currentStreak, 1);
+  // last_active_date is two days old, so the run is over no matter what the
+  // loaded rows look like.
+  assert.equal(agg.currentStreak, 0);
   assert.equal(agg.maxStreak, 30);
+});
+
+test('an unanchored pair shows no streak rather than a stale number', () => {
+  const agg = aggregates({
+    pair: { ...PAIR, current_streak: 9, max_streak: 9, last_active_date: null },
+  });
+  assert.equal(agg.currentStreak, 0);
+  assert.equal(agg.maxStreak, 9);
+});
+
+test('the recap streak is judged in the client timezone', () => {
+  // 22:00Z is already the next day in Moscow (offset -180) and the previous
+  // evening in New York (offset +300).
+  const instant = new Date('2026-03-15T22:00:00.000Z');
+  const anchored = { ...PAIR, current_streak: 4, max_streak: 4, last_active_date: '2026-03-15' };
+
+  assert.equal(
+    aggregates({ pair: anchored, tzOffsetMinutes: 0, now: instant }).currentStreak,
+    4
+  );
+  // Moscow: "today" is 2026-03-16, so 2026-03-15 is yesterday -- still alive.
+  assert.equal(
+    aggregates({ pair: anchored, tzOffsetMinutes: -180, now: instant }).currentStreak,
+    4
+  );
+  // New York: "today" is still 2026-03-15 in UTC terms for this anchor.
+  assert.equal(
+    aggregates({ pair: anchored, tzOffsetMinutes: 300, now: instant }).currentStreak,
+    4
+  );
 });
 
 test('period labels are natural and periodStartFor honours the window', () => {
