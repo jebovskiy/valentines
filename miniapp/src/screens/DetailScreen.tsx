@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -12,7 +13,10 @@ import { formatDateTime } from '../utils/date';
 export function DetailScreen() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { valentines, markSeen } = useValentinesStore();
+  const { valentines, markSeen } = useValentinesStore(
+    (s) => ({ valentines: s.valentines, markSeen: s.markSeen }),
+    shallow,
+  );
 
   const valentine = valentines.find((v) => v.id === id);
   const [isAnimating, setIsAnimating] = useState(true);

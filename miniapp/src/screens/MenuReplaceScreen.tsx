@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -121,7 +122,10 @@ const slotKey = (meal: MenuMealId, role: MealComponentId) => `${meal}:${role}`;
 export function MenuReplaceScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { menuResult, getSlotVariants, replaceMenuSlots, menuLoading } = useValentinesStore();
+  const { menuResult, getSlotVariants, replaceMenuSlots, menuLoading } = useValentinesStore(
+    (s) => ({ menuResult: s.menuResult, getSlotVariants: s.getSlotVariants, replaceMenuSlots: s.replaceMenuSlots, menuLoading: s.menuLoading }),
+    shallow,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [variants, setVariants] = useState<Record<string, MenuSlotVariant[]>>({});

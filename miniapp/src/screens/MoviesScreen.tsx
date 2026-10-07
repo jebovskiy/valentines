@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { CSSProperties, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -35,11 +36,14 @@ function partnerReview(movie: MovieListItem, myId: number | null): MovieReview |
 
 export function MoviesScreen() {
   const navigate = useNavigate();
-  const {
-    movies, fetchMovies, deleteMovie, markMovieWatched,
-    shareMovie, getMovieInsight, getEveningPick,
-  } = useValentinesStore();
-  const { currentUser } = useValentinesStore();
+  const { movies, fetchMovies, deleteMovie, markMovieWatched, shareMovie, getMovieInsight, getEveningPick, } = useValentinesStore(
+    (s) => ({ movies: s.movies, fetchMovies: s.fetchMovies, deleteMovie: s.deleteMovie, markMovieWatched: s.markMovieWatched, shareMovie: s.shareMovie, getMovieInsight: s.getMovieInsight, getEveningPick: s.getEveningPick }),
+    shallow,
+  );
+  const { currentUser } = useValentinesStore(
+    (s) => ({ currentUser: s.currentUser }),
+    shallow,
+  );
   const myId = currentUser?.id ?? null;
 
   const [tab, setTab] = useState<Tab>('watch');
@@ -363,7 +367,10 @@ function DetailOverlay({ movie, onClose }: { movie: MovieListItem; onClose: () =
 }
 
 function SearchOverlay({ onClose }: { onClose: () => void }) {
-  const { searchMovies, movieSearchResults, movieSearchLoading, getMovieParts, addMovie, addMoviesBatch } = useValentinesStore();
+  const { searchMovies, movieSearchResults, movieSearchLoading, getMovieParts, addMovie, addMoviesBatch } = useValentinesStore(
+    (s) => ({ searchMovies: s.searchMovies, movieSearchResults: s.movieSearchResults, movieSearchLoading: s.movieSearchLoading, getMovieParts: s.getMovieParts, addMovie: s.addMovie, addMoviesBatch: s.addMoviesBatch }),
+    shallow,
+  );
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState<number | null>(null);
   const [partsPicker, setPartsPicker] = useState<PoiskkinoCandidate | null>(null);
@@ -508,7 +515,10 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
 }
 
 function ReviewOverlay({ movieId, onClose }: { movieId: string; onClose: () => void }) {
-  const { addMovieReview } = useValentinesStore();
+  const { addMovieReview } = useValentinesStore(
+    (s) => ({ addMovieReview: s.addMovieReview }),
+    shallow,
+  );
   const [values, setValues] = useState({ visuals: 3, plot: 3, acting: 3, music: 3, atmosphere: 3, humor: 3 });
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);

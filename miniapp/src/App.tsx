@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { applyTheme, getTelegramUser, webApp, setBackButton } from './utils/telegram';
@@ -30,7 +31,10 @@ import { ShoppingListScreen } from './screens/ShoppingListScreen';
 import './styles/global.css';
 
 function App() {
-  const { currentUser, fetchPair, fetchValentines, setupRealtime, cleanupRealtime, pair } = useValentinesStore();
+  const { currentUser, fetchPair, fetchValentines, setupRealtime, cleanupRealtime, pair } = useValentinesStore(
+    (s) => ({ currentUser: s.currentUser, fetchPair: s.fetchPair, fetchValentines: s.fetchValentines, setupRealtime: s.setupRealtime, cleanupRealtime: s.cleanupRealtime, pair: s.pair }),
+    shallow,
+  );
   const [initialPath, setInitialPath] = useState<string | null>(null);
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -118,7 +119,10 @@ function russianPlural(n: number, one: string, few: string, many: string): strin
 
 export function MenuHistoryScreen({ root = false }: { root?: boolean }) {
   const navigate = useNavigate();
-  const { menuHistory, menuHistoryLoading, menuLoading, fetchMenuHistory, fetchMenu } = useValentinesStore();
+  const { menuHistory, menuHistoryLoading, menuLoading, fetchMenuHistory, fetchMenu } = useValentinesStore(
+    (s) => ({ menuHistory: s.menuHistory, menuHistoryLoading: s.menuHistoryLoading, menuLoading: s.menuLoading, fetchMenuHistory: s.fetchMenuHistory, fetchMenu: s.fetchMenu }),
+    shallow,
+  );
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {

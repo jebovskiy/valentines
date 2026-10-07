@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -315,7 +316,10 @@ function KettleScene() {
 
 export function MenuGeneratingScreen() {
   const navigate = useNavigate();
-  const { menuLoading, menuResult, error } = useValentinesStore();
+  const { menuLoading, menuResult, error } = useValentinesStore(
+    (s) => ({ menuLoading: s.menuLoading, menuResult: s.menuResult, error: s.error }),
+    shallow,
+  );
   const [tick, setTick] = useState(0);
 
   useEffect(() => {

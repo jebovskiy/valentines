@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
@@ -21,8 +22,10 @@ function InitialAvatar({ name, size }: { name: string; size: number }) {
 
 export function ProfileScreen() {
   const navigate = useNavigate();
-  const { profile, partnerProfile, pair, currentUser, fetchProfile, updateMyName, updatePartnerName, androidPaired, refreshPairingStatus } =
-    useValentinesStore();
+  const { profile, partnerProfile, pair, currentUser, fetchProfile, updateMyName, updatePartnerName, androidPaired, refreshPairingStatus } = useValentinesStore(
+    (s) => ({ profile: s.profile, partnerProfile: s.partnerProfile, pair: s.pair, currentUser: s.currentUser, fetchProfile: s.fetchProfile, updateMyName: s.updateMyName, updatePartnerName: s.updatePartnerName, androidPaired: s.androidPaired, refreshPairingStatus: s.refreshPairingStatus }),
+    shallow,
+  );
 
   const [myName, setMyName] = useState('');
   const [partnerNameLocal, setPartnerNameLocal] = useState('');

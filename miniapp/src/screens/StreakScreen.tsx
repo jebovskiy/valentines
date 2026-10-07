@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { CSSProperties, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -22,7 +23,10 @@ function isUnlocked(tierDay: number, current: number, max: number): boolean {
 
 export function StreakScreen() {
   const navigate = useNavigate();
-  const { pair, streak, fetchStreak } = useValentinesStore();
+  const { pair, streak, fetchStreak } = useValentinesStore(
+    (s) => ({ pair: s.pair, streak: s.streak, fetchStreak: s.fetchStreak }),
+    shallow,
+  );
 
   useEffect(() => {
     void fetchStreak();

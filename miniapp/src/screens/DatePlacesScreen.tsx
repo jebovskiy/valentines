@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -88,19 +89,10 @@ type Phase = 'setup' | 'swipe' | 'result';
 
 export function DatePlacesScreen() {
   const navigate = useNavigate();
-  const {
-    dateSession,
-    currentUser,
-    pair,
-    createDateSession,
-    voteDate,
-    finishDateSession,
-    clearDateSession,
-    fetchDateSession,
-    setupDateRealtime,
-    cleanupDateRealtime,
-    fetchIntegrations,
-  } = useValentinesStore();
+  const { dateSession, currentUser, pair, createDateSession, voteDate, finishDateSession, clearDateSession, fetchDateSession, setupDateRealtime, cleanupDateRealtime, fetchIntegrations, } = useValentinesStore(
+    (s) => ({ dateSession: s.dateSession, currentUser: s.currentUser, pair: s.pair, createDateSession: s.createDateSession, voteDate: s.voteDate, finishDateSession: s.finishDateSession, clearDateSession: s.clearDateSession, fetchDateSession: s.fetchDateSession, setupDateRealtime: s.setupDateRealtime, cleanupDateRealtime: s.cleanupDateRealtime, fetchIntegrations: s.fetchIntegrations }),
+    shallow,
+  );
 
   const [phase, setPhase] = useState<Phase>('setup');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);

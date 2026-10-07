@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -198,15 +199,10 @@ const UNIT_LABELS: Record<MenuUnit, string> = { g: 'гр', ml: 'мл', pcs: 'ш�
 
 export function MenuLeftoversScreen() {
   const navigate = useNavigate();
-  const {
-    menuLeftovers,
-    menuLeftoversLoading,
-    fetchMenuLeftovers,
-    saveMenuLeftovers,
-    suggestMenuLeftovers,
-    searchMenuIngredients,
-    menuLoading,
-  } = useValentinesStore();
+  const { menuLeftovers, menuLeftoversLoading, fetchMenuLeftovers, saveMenuLeftovers, suggestMenuLeftovers, searchMenuIngredients, menuLoading, } = useValentinesStore(
+    (s) => ({ menuLeftovers: s.menuLeftovers, menuLeftoversLoading: s.menuLeftoversLoading, fetchMenuLeftovers: s.fetchMenuLeftovers, saveMenuLeftovers: s.saveMenuLeftovers, suggestMenuLeftovers: s.suggestMenuLeftovers, searchMenuIngredients: s.searchMenuIngredients, menuLoading: s.menuLoading }),
+    shallow,
+  );
 
   const [draft, setDraft] = useState<MenuLeftover[]>([]);
   const [namesById, setNamesById] = useState<Record<string, string>>({});

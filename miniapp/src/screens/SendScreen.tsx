@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName } from '../hooks/useValentinesStore';
@@ -65,7 +66,10 @@ async function preparePhoto(file: File): Promise<string> {
 
 export function SendScreen() {
   const navigate = useNavigate();
-  const { sendValentine, currentUser, pair, streak } = useValentinesStore();
+  const { sendValentine, currentUser, pair, streak } = useValentinesStore(
+    (s) => ({ sendValentine: s.sendValentine, currentUser: s.currentUser, pair: s.pair, streak: s.streak }),
+    shallow,
+  );
   const [message, setMessage] = useState('');
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [mode, setMode] = useState<'text' | 'photo'>('text');

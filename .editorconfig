@@ -1,0 +1,17 @@
+# One convention for the whole tree: LF in the repository, whatever the OS.
+# `.gitattributes` already normalizes on check-in; this keeps editors from
+# re-introducing CRLF or, worse, a second line-ending style inside one file.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
+
+# Windows tooling that still insists on CRLF.
+[*.{bat,cmd,ps1}]
+end_of_line = crlf

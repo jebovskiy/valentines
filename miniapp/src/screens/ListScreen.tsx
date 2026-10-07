@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useValentinesStore, partnerName, daysTogether } from '../hooks/useValentinesStore';
@@ -82,7 +83,10 @@ const GREETING_ACTIONS: {
 ];
 
 export function ListScreen() {
-  const { valentines, isLoading, error, fetchValentines, refreshValentines, markSeen, pair, checkPair, createInvite, joinInvite, profile, androidPaired, refreshPairingStatus, greetings, fetchGreetings, sendGreeting } = useValentinesStore();
+  const { valentines, isLoading, error, fetchValentines, refreshValentines, markSeen, pair, checkPair, createInvite, joinInvite, profile, androidPaired, refreshPairingStatus, greetings, fetchGreetings, sendGreeting } = useValentinesStore(
+    (s) => ({ valentines: s.valentines, isLoading: s.isLoading, error: s.error, fetchValentines: s.fetchValentines, refreshValentines: s.refreshValentines, markSeen: s.markSeen, pair: s.pair, checkPair: s.checkPair, createInvite: s.createInvite, joinInvite: s.joinInvite, profile: s.profile, androidPaired: s.androidPaired, refreshPairingStatus: s.refreshPairingStatus, greetings: s.greetings, fetchGreetings: s.fetchGreetings, sendGreeting: s.sendGreeting }),
+    shallow,
+  );
   const navigate = useNavigate();
   const [inviteCode, setInviteCode] = useState('');
   const [joinCode, setJoinCode] = useState('');

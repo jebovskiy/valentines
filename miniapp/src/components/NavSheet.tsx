@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -73,17 +74,10 @@ const ONBOARD_COPY: Record<number, { title: string; text: string; btn: string }>
 export function NavSheet() {
   const navigate = useNavigate();
   const location = useLocation();
-  const {
-    notes,
-    movies,
-    streak,
-    profile,
-    partnerProfile,
-    currentUser,
-    fetchNotes,
-    fetchMovies,
-    fetchStreak,
-  } = useValentinesStore();
+  const { notes, movies, streak, profile, partnerProfile, currentUser, fetchNotes, fetchMovies, fetchStreak, } = useValentinesStore(
+    (s) => ({ notes: s.notes, movies: s.movies, streak: s.streak, profile: s.profile, partnerProfile: s.partnerProfile, currentUser: s.currentUser, fetchNotes: s.fetchNotes, fetchMovies: s.fetchMovies, fetchStreak: s.fetchStreak }),
+    shallow,
+  );
 
   const userId = currentUser?.id ?? null;
 

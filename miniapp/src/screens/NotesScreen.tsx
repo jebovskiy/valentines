@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { CSSProperties, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -22,21 +23,10 @@ const CATEGORY_COLORS: Record<NoteCategory, string> = {
 
 export function NotesScreen() {
   const navigate = useNavigate();
-  const {
-    notes,
-    reminders,
-    events,
-    fetchNotes,
-    fetchReminders,
-    fetchEvents,
-    createNote,
-    toggleNotePin,
-    deleteNote,
-    createReminder,
-    deleteReminder,
-    createEvent,
-    deleteEvent,
-  } = useValentinesStore();
+  const { notes, reminders, events, fetchNotes, fetchReminders, fetchEvents, createNote, toggleNotePin, deleteNote, createReminder, deleteReminder, createEvent, deleteEvent, } = useValentinesStore(
+    (s) => ({ notes: s.notes, reminders: s.reminders, events: s.events, fetchNotes: s.fetchNotes, fetchReminders: s.fetchReminders, fetchEvents: s.fetchEvents, createNote: s.createNote, toggleNotePin: s.toggleNotePin, deleteNote: s.deleteNote, createReminder: s.createReminder, deleteReminder: s.deleteReminder, createEvent: s.createEvent, deleteEvent: s.deleteEvent }),
+    shallow,
+  );
 
   const [tab, setTab] = useState<Tab>('notes');
   const [showComposer, setShowComposer] = useState(false);
@@ -116,7 +106,10 @@ function NotesTab({
   onTogglePin: (id: string, isPinned: boolean) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }) {
-  const { notes } = useValentinesStore();
+  const { notes } = useValentinesStore(
+    (s) => ({ notes: s.notes }),
+    shallow,
+  );
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<NoteCategory>('idea');
 
@@ -211,7 +204,10 @@ function RemindersTab({
   onCreate: (input: { title: string; message?: string | null; remind_at: string; is_recurring?: boolean; recurrence?: Recurrence | null }) => Promise<unknown>;
   onDelete: (id: string) => Promise<void>;
 }) {
-  const { reminders } = useValentinesStore();
+  const { reminders } = useValentinesStore(
+    (s) => ({ reminders: s.reminders }),
+    shallow,
+  );
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [when, setWhen] = useState('');
@@ -316,7 +312,10 @@ function EventsTab({
   onCreate: (input: { name: string; event_date: string; event_type: CoupleEventType; remind_days_before?: number }) => Promise<unknown>;
   onDelete: (id: string) => Promise<void>;
 }) {
-  const { events } = useValentinesStore();
+  const { events } = useValentinesStore(
+    (s) => ({ events: s.events }),
+    shallow,
+  );
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
   const [eventType, setEventType] = useState<CoupleEventType>('first_date');

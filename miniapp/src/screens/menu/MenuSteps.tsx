@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore, isMenuPrefsDirty, loadMenuPreferences, menuPrefsStorageKey, saveMenuPreferences, setMenuPrefsDirty } from '../../hooks/useValentinesStore';
@@ -545,7 +546,10 @@ function ProductSearchInput(props: {
   placeholder: string;
 }) {
   const { value, onChange, placeholder } = props;
-  const { searchMenuIngredients } = useValentinesStore();
+  const { searchMenuIngredients } = useValentinesStore(
+    (s) => ({ searchMenuIngredients: s.searchMenuIngredients }),
+    shallow,
+  );
   const [text, setText] = useState('');
   const [results, setResults] = useState<{ id: string; name: string; unit: string }[]>([]);
   const [groups, setGroups] = useState<MenuIngredientGroup[]>([]);
@@ -738,8 +742,10 @@ function useStepBack(target: string) {
 
 export function MenuStoreStep() {
   const navigate = useNavigate();
-  const { menuStores, fetchMenuStoresAndAllergens, menuDraft, updateMenuDraft, clearMenu } =
-    useValentinesStore();
+  const { menuStores, fetchMenuStoresAndAllergens, menuDraft, updateMenuDraft, clearMenu } = useValentinesStore(
+    (s) => ({ menuStores: s.menuStores, fetchMenuStoresAndAllergens: s.fetchMenuStoresAndAllergens, menuDraft: s.menuDraft, updateMenuDraft: s.updateMenuDraft, clearMenu: s.clearMenu }),
+    shallow,
+  );
 
   const availableStores = useMemo(
     () => menuStores.filter((s) => (s.available ?? true)),
@@ -825,7 +831,10 @@ export function MenuStoreStep() {
 
 export function MenuPeopleStep() {
   const navigate = useNavigate();
-  const { menuDraft, updateMenuMembers } = useValentinesStore();
+  const { menuDraft, updateMenuMembers } = useValentinesStore(
+    (s) => ({ menuDraft: s.menuDraft, updateMenuMembers: s.updateMenuMembers }),
+    shallow,
+  );
   const members = menuDraft.members;
 
   useEffect(() => {
@@ -973,7 +982,10 @@ export function MenuPeopleStep() {
 
 export function MenuComponentsStep() {
   const navigate = useNavigate();
-  const { menuDraft, updateMenuDraft } = useValentinesStore();
+  const { menuDraft, updateMenuDraft } = useValentinesStore(
+    (s) => ({ menuDraft: s.menuDraft, updateMenuDraft: s.updateMenuDraft }),
+    shallow,
+  );
   const back = useStepBack('/menu/people');
 
   useEffect(() => {
@@ -1036,7 +1048,10 @@ export function MenuComponentsStep() {
 
 export function MenuBudgetStep() {
   const navigate = useNavigate();
-  const { menuDraft, updateMenuDraft } = useValentinesStore();
+  const { menuDraft, updateMenuDraft } = useValentinesStore(
+    (s) => ({ menuDraft: s.menuDraft, updateMenuDraft: s.updateMenuDraft }),
+    shallow,
+  );
   const back = useStepBack('/menu/components');
 
   useEffect(() => {
@@ -1085,7 +1100,10 @@ export function MenuBudgetStep() {
 
 export function MenuCookwareStep() {
   const navigate = useNavigate();
-  const { menuDraft, updateMenuDraft } = useValentinesStore();
+  const { menuDraft, updateMenuDraft } = useValentinesStore(
+    (s) => ({ menuDraft: s.menuDraft, updateMenuDraft: s.updateMenuDraft }),
+    shallow,
+  );
   const back = useStepBack('/menu/budget');
 
   useEffect(() => {
@@ -1145,7 +1163,10 @@ export function MenuCookwareStep() {
 
 export function MenuAllergensStep() {
   const navigate = useNavigate();
-  const { menuAllergens, menuDraft, updateMenuDraft, generateMenuPlan, menuLoading } = useValentinesStore();
+  const { menuAllergens, menuDraft, updateMenuDraft, generateMenuPlan, menuLoading } = useValentinesStore(
+    (s) => ({ menuAllergens: s.menuAllergens, menuDraft: s.menuDraft, updateMenuDraft: s.updateMenuDraft, generateMenuPlan: s.generateMenuPlan, menuLoading: s.menuLoading }),
+    shallow,
+  );
   const pairId = useValentinesStore((s) => s.pair?.id ?? null);
   const back = useStepBack('/menu/cookware');
 

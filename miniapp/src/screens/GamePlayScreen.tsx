@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -317,16 +318,10 @@ const styles: Record<string, React.CSSProperties> = {
 
 export function GamePlayScreen() {
   const navigate = useNavigate();
-  const {
-    pair,
-    currentUser,
-    gameSession,
-    answerGame,
-    finishGameSession,
-    fetchGameSession,
-    setupGameRealtime,
-    cleanupGameRealtime,
-  } = useValentinesStore();
+  const { pair, currentUser, gameSession, answerGame, finishGameSession, fetchGameSession, setupGameRealtime, cleanupGameRealtime, } = useValentinesStore(
+    (s) => ({ pair: s.pair, currentUser: s.currentUser, gameSession: s.gameSession, answerGame: s.answerGame, finishGameSession: s.finishGameSession, fetchGameSession: s.fetchGameSession, setupGameRealtime: s.setupGameRealtime, cleanupGameRealtime: s.cleanupGameRealtime }),
+    shallow,
+  );
 
   const [revealIdx, setRevealIdx] = useState(0);
   const [textDraft, setTextDraft] = useState('');

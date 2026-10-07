@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -219,14 +220,10 @@ const styles: Record<string, React.CSSProperties> = {
 
 export function GamesScreen() {
   const navigate = useNavigate();
-  const {
-    pair,
-    gameSession,
-    createGameSession,
-    fetchGameSession,
-    setupGameRealtime,
-    cleanupGameRealtime,
-  } = useValentinesStore();
+  const { pair, gameSession, createGameSession, fetchGameSession, setupGameRealtime, cleanupGameRealtime, } = useValentinesStore(
+    (s) => ({ pair: s.pair, gameSession: s.gameSession, createGameSession: s.createGameSession, fetchGameSession: s.fetchGameSession, setupGameRealtime: s.setupGameRealtime, cleanupGameRealtime: s.cleanupGameRealtime }),
+    shallow,
+  );
 
   const [selectedGame, setSelectedGame] = useState<GameId>('KNOW_ME');
   const [mood, setMood] = useState<GameMood>('нежное');

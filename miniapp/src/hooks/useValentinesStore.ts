@@ -226,18 +226,18 @@ function enrichValentine(valentine: Valentine, pair: Pair | null, currentUserId:
   const isOwn = valentine.sender_telegram_id === currentUserId;
   return {
     ...valentine,
-    sender_name: isOwn ? 'Р’С‹' : partnerName(pair, currentUserId),
+    sender_name: isOwn ? 'Вы' : partnerName(pair, currentUserId),
     is_own: isOwn,
   };
 }
 
 export function partnerName(pair: Pair | null, currentUserId: number | null): string {
-  if (!pair || !currentUserId) return 'РџР°СЂС‚РЅРµСЂ';
+  if (!pair || !currentUserId) return 'Партнер';
   const override = getPartnerOverride(pair.id);
   if (override && override.trim()) return override.trim();
-  if (pair.telegram_user_a === currentUserId) return pair.user_b_name || 'РџР°СЂС‚РЅРµСЂ';
-  if (pair.telegram_user_b === currentUserId) return pair.user_a_name || 'РџР°СЂС‚РЅРµСЂ';
-  return 'РџР°СЂС‚РЅРµСЂ';
+  if (pair.telegram_user_a === currentUserId) return pair.user_b_name || 'Партнер';
+  if (pair.telegram_user_b === currentUserId) return pair.user_a_name || 'Партнер';
+  return 'Партнер';
 }
 
 export function daysTogether(pair: Pair | null): number {
@@ -543,7 +543,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     if (result.error || !result.data) return;
     const enriched = result.data.greetings.map((g) => ({
       ...g,
-      sender_name: g.sender_telegram_id === currentUser.id ? 'Р’С‹' : partnerName(pair, currentUser.id),
+      sender_name: g.sender_telegram_id === currentUser.id ? 'Вы' : partnerName(pair, currentUser.id),
       is_own: g.sender_telegram_id === currentUser.id,
     }));
     set({ greetings: enriched });
@@ -559,7 +559,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     const greeting = result.data!.greeting;
     const enriched: Greeting = {
       ...greeting,
-      sender_name: currentUser ? 'Р’С‹' : 'Р’С‹',
+      sender_name: currentUser ? 'Вы' : 'Вы',
       is_own: true,
     };
     set((state) => ({ greetings: [enriched, ...state.greetings] }));
@@ -700,8 +700,11 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
 
   markMovieWatched: async (id) => {
     const result = await api.markMovieWatched(id);
-    if (result.error) { set({ error: result.error }); return; }
-    await get().fetchMovies();
+    if (result.error || !result.data) { set({ error: result.error }); return; }
+    // The endpoint already answers with the full watch list, so the row can be
+    // patched in place instead of reloading every movie in the pair.
+    const watches = result.data.watches;
+    set((state) => ({ movies: state.movies.map((m) => (m.id === id ? { ...m, watches } : m)) }));
   },
 
   addMovieReview: async (id, review) => {

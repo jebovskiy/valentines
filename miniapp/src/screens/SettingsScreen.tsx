@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -24,7 +25,10 @@ function setEnabled(id: string, on: boolean): void {
 
 export function SettingsScreen() {
   const navigate = useNavigate();
-  const { integrations, fetchIntegrations } = useValentinesStore();
+  const { integrations, fetchIntegrations } = useValentinesStore(
+    (s) => ({ integrations: s.integrations, fetchIntegrations: s.fetchIntegrations }),
+    shallow,
+  );
   const [enabled, setEnabledState] = useState<Record<string, boolean>>({});
   const fullscreen = useFullscreen();
 

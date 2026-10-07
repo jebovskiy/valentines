@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -151,7 +152,10 @@ function pkgNoun(n: number): string {
 export function ShoppingListScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { menuResult } = useValentinesStore();
+  const { menuResult } = useValentinesStore(
+    (s) => ({ menuResult: s.menuResult }),
+    shallow,
+  );
 
   useEffect(() => {
     setMainButton({ isVisible: false });

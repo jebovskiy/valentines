@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -416,7 +417,10 @@ function ComponentDish({ comp }: { comp: MenuMealComponent }) {
 export function MenuResultScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { menuResult, menuLoading, menuSaved, saveMenuPlan } = useValentinesStore();
+  const { menuResult, menuLoading, menuSaved, saveMenuPlan } = useValentinesStore(
+    (s) => ({ menuResult: s.menuResult, menuLoading: s.menuLoading, menuSaved: s.menuSaved, saveMenuPlan: s.saveMenuPlan }),
+    shallow,
+  );
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
   const [savingError, setSavingError] = useState<string | null>(null);
 

@@ -1,3 +1,4 @@
+import { shallow } from 'zustand/shallow';
 import { CSSProperties, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
@@ -23,7 +24,10 @@ const WEIGHT_LABELS: Record<number, string> = {
 
 export function TasteProfileScreen() {
   const navigate = useNavigate();
-  const { tasteProfile, fetchTasteProfile, saveTasteProfile } = useValentinesStore();
+  const { tasteProfile, fetchTasteProfile, saveTasteProfile } = useValentinesStore(
+    (s) => ({ tasteProfile: s.tasteProfile, fetchTasteProfile: s.fetchTasteProfile, saveTasteProfile: s.saveTasteProfile }),
+    shallow,
+  );
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
