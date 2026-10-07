@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { fetchWithTimeout, TELEGRAM_FETCH_TIMEOUT_MS } from '../utils/http';
 
 const TG_API = `https://api.telegram.org/bot${config.TELEGRAM_BOT_TOKEN}`;
 const BOT_USERNAME = 'pairvalentine_bot';
@@ -191,11 +192,11 @@ async function sendMessageWithButton(chatId: number, text: string, webUrl: strin
 }
 
 async function sendMessage(body: Record<string, unknown>): Promise<SendMessageResult> {
-  const response = await fetch(`${TG_API}/sendMessage`, {
+  const response = await fetchWithTimeout(`${TG_API}/sendMessage`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
-  });
+  }, TELEGRAM_FETCH_TIMEOUT_MS);
 
   const data = (await response.json().catch(() => ({}))) as SendMessageResult;
   if (!response.ok) {

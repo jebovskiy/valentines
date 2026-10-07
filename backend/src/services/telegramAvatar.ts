@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { fetchWithTimeout, TELEGRAM_FETCH_TIMEOUT_MS } from '../utils/http';
 import { getUserProfile, upsertUserProfile } from './database';
 
 const TG_API = `https://api.telegram.org/bot${config.TELEGRAM_BOT_TOKEN}`;
@@ -31,11 +32,11 @@ interface GetFileResult {
 
 async function callBot<T>(method: string, body: Record<string, unknown>): Promise<T | null> {
   try {
-    const response = await fetch(`${TG_API}/${method}`, {
+    const response = await fetchWithTimeout(`${TG_API}/${method}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
-    });
+    }, TELEGRAM_FETCH_TIMEOUT_MS);
     const data = (await response.json().catch(() => ({}))) as T;
     return data;
   } catch (error) {

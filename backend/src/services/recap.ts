@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { supabase } from '../utils/supabase';
 import { generateStructuredJson } from './gemini';
+import { getCachedRecapSummary, recapSummaryCacheKey, setCachedRecapSummary } from './recapCache';
 import { localDay, readStoredStreak } from './streak';
 import type { Pair } from './database';
 
@@ -527,17 +528,27 @@ export function fallbackRecapSummary(agg: RecapAggregates): RecapSummary {
 
 /** Один вызов общего LLM-слоя приложения; при любой неудаче — детерминированный текст. */
 export async function generateRecapSummary(agg: RecapAggregates): Promise<RecapSummary> {
+  const cacheKey = recapSummaryCacheKey(agg);
+  const cached = getCachedRecapSummary(cacheKey);
+  if (cached) return cached;
+
   const { text, error } = await generateStructuredJson(buildRecapPrompt(agg), RECAP_RESPONSE_SCHEMA, 20_000, 1_024);
+  let summary: RecapSummary;
   if (error) {
     console.warn(`[recap] LLM fallback for ${agg.periodKey}: ${error.kind}`);
-    return fallbackRecapSummary(agg);
+    summary = fallbackRecapSummary(agg);
+  } else {
+    const parsed = parseRecapSummary(text);
+    if (parsed) {
+      summary = parsed;
+    } else {
+      console.warn('[recap] model returned an unexpected shape, using numbers only');
+      summary = fallbackRecapSummary(agg);
+    }
   }
-  const parsed = parseRecapSummary(text);
-  if (!parsed) {
-    console.warn('[recap] model returned an unexpected shape, using numbers only');
-    return fallbackRecapSummary(agg);
-  }
-  return parsed;
+
+  setCachedRecapSummary(cacheKey, summary);
+  return summary;
 }
 
 // PostgREST has no "every row" mode: a query either carries an explicit limit

@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { fetchWithTimeout } from '../utils/http';
 
 const BASE = 'https://api.poiskkino.dev';
 
@@ -51,7 +52,7 @@ export interface PoiskkinoPart {
 export async function searchPoiskkino(query: string): Promise<PoiskkinoCandidate[]> {
   if (!config.POISKKINO_API_KEY) throw new Error('POISKKINO_API_KEY is not configured');
   const url = `${BASE}/v1.5/movie/search?query=${encodeURIComponent(query)}&page=1&limit=10`;
-  const res = await fetch(url, { headers: headers() });
+  const res = await fetchWithTimeout(url, { headers: headers() });
   if (!res.ok) throw new Error(`Poiskkino search failed: ${res.status}`);
   const body = (await res.json()) as { docs?: any[]; error?: string };
   if (!body.docs) throw new Error(body.error || 'No results');
@@ -71,7 +72,7 @@ export async function searchPoiskkino(query: string): Promise<PoiskkinoCandidate
 export async function getPoiskkinoDetail(kpId: number): Promise<PoiskkinoDetail | null> {
   if (!config.POISKKINO_API_KEY) throw new Error('POISKKINO_API_KEY is not configured');
   const url = `${BASE}/v1.5/movie/${kpId}`;
-  const res = await fetch(url, { headers: headers() });
+  const res = await fetchWithTimeout(url, { headers: headers() });
   if (!res.ok) {
     if (res.status === 404) return null;
     throw new Error(`Poiskkino detail failed: ${res.status}`);

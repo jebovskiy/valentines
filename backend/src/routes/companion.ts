@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { updateDevicePushToken, updateDevicePushPermission, updateDeviceWidgetAdded, getDeviceById, getValentinesByPair, getValentinesSince, getValentineById, getPairById } from '../services/database';
 import type { Valentine } from '../services/database';
 import { advanceStreamCursor, cursorFromRow } from '../services/streamCursor';
+import { fetchWithTimeout } from '../utils/http';
 
 const GITHUB_REPO = process.env.GITHUB_REPO || 'jebovskiy/valentines';
 const RELEASE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -42,7 +43,7 @@ async function getLatestRelease(): Promise<ReleaseInfo | null> {
   if (!releaseFetching) {
     releaseFetching = (async () => {
       try {
-        const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+        const res = await fetchWithTimeout(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
           headers: { accept: 'application/vnd.github+json', 'user-agent': 'valentines-backend' },
         });
         if (!res.ok) return null;

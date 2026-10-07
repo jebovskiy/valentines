@@ -5,11 +5,18 @@ import { resolveAvatarSource, avatarProxyPath } from '../services/telegramAvatar
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { mintRealtimeToken } from '../services/realtimeToken';
 import { userRateLimit } from '../middleware/rateLimit';
+import { fetchWithTimeout } from '../utils/http';
 import { config } from '../config';
 
 const updateNameSchema = z.object({
   name: z.string().min(1).max(50).trim(),
 });
+
+// The avatar proxy is deliberately reachable without a token (the miniapp asks
+// for a partner avatar before it has a session), so nothing else throttles it.
+// Without this a burst of avatar requests fans out into an unbounded number of
+// simultaneous outbound sockets to Telegram.
+const avatarRateLimit = userRateLimit({ key: 'avatar', max: 60, timeWindowMs: 60_000 });
 
 export async function usersRoutes(app: FastifyInstance) {
   const protectedRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
@@ -96,7 +103,7 @@ export async function usersRoutes(app: FastifyInstance) {
     return { success: true, name };
   });
 
-  app.get('/:id/avatar', async (request, reply) => {
+  app.get('/:id/avatar', { preHandler: [avatarRateLimit] }, async (request, reply) => {
     const params = z.object({ id: z.coerce.number().int().positive() }).parse(request.params);
     const userId = params.id;
 
@@ -115,7 +122,7 @@ export async function usersRoutes(app: FastifyInstance) {
         ? `https://api.telegram.org/file/bot${config.TELEGRAM_BOT_TOKEN}/${source.filePath}`
         : source.url;
     try {
-      const response = await fetch(fileUrl);
+      const response = await fetchWithTimeout(fileUrl);
       if (!response.ok) {
         return reply.code(response.status).send({ error: 'Avatar unavailable' });
       }

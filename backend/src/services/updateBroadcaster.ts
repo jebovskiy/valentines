@@ -1,4 +1,5 @@
 import { broadcastUpdatePush } from './pushDispatcher';
+import { fetchWithTimeout } from '../utils/http';
 
 const GITHUB_REPO = process.env.GITHUB_REPO || 'jebovskiy/valentines';
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
@@ -12,7 +13,7 @@ interface ReleaseInfo {
 
 async function fetchLatestRelease(): Promise<ReleaseInfo | null> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+    const res = await fetchWithTimeout(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
       headers: { accept: 'application/vnd.github+json', 'user-agent': 'valentines-backend' },
     });
     if (!res.ok) return null;

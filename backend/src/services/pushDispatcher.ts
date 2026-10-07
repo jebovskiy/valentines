@@ -1,10 +1,33 @@
 import { sendVisiblePush, sendDataPush, sendBothPushes, sendGreetingDataPush, sendReminderPush, sendCustomDataPush, PushPayload } from './fcm';
 import { getDeviceById, getValentineById, getPairById, getPushJob, updatePushJobStatus, markValentineDelivered, getPendingPushJobs, getDevicesByPair, getAllDevices, Valentine, Pair, GreetingType } from './database';
+import type { Device } from './database';
 
 export interface PushDispatchPayload {
   valentine_id: string;
   device_id: string;
   channel: 'visible' | 'data';
+}
+
+/**
+ * Sends never overlap beyond this: a fan-out used to await one device at a
+ * time, so a broadcast opened a connection per device in series and one slow
+ * answer held up everything queued behind it.
+ */
+const FANOUT_CONCURRENCY = 4;
+
+async function fanOut<T>(items: readonly T[], task: (item: T) => Promise<void>): Promise<void> {
+  const pending = [...items];
+  const workers = Array.from({ length: Math.min(FANOUT_CONCURRENCY, pending.length) }, async () => {
+    for (let item = pending.shift(); item !== undefined; item = pending.shift()) {
+      await task(item);
+    }
+  });
+  // Workers are not expected to reject (every caller handles its own errors),
+  // but one shouldn't take the rest of the batch down with it if one does.
+  const results = await Promise.allSettled(workers);
+  for (const result of results) {
+    if (result.status === 'rejected') console.error('Push fan-out worker failed:', result.reason);
+  }
 }
 
 function senderName(pair: Pair, senderTelegramId: number): string {
@@ -34,16 +57,16 @@ export async function dispatchGreetingPushes(pairId: string, senderTelegramId: n
     return;
   }
 
-  for (const device of devices) {
-    if (device.telegram_user_id === senderTelegramId) continue;
-    if (!device.push_token || device.push_token === 'pending') continue;
+  await fanOut(devices, async (device) => {
+    if (device.telegram_user_id === senderTelegramId) return;
+    if (!device.push_token || device.push_token === 'pending') return;
     try {
       const result = await sendGreetingDataPush(device.push_token, { type: greetingType, from_name: fromName });
       console.log(`Greeting push sent to device ${device.id}: ${result.success}`);
     } catch (error) {
       console.error(`Greeting push error for device ${device.id}:`, error);
     }
-  }
+  });
 }
 
 export async function dispatchPush(payload: PushDispatchPayload): Promise<void> {
@@ -108,13 +131,19 @@ async function sendDataPushToDevice(token: string, payload: PushPayload) {
 export async function retryPendingPushJobs(): Promise<void> {
   const jobs = await getPendingPushJobs();
 
-  for (const job of jobs) {
-    await dispatchPush({
-      valentine_id: job.valentine_id,
-      device_id: job.device_id,
-      channel: job.channel,
-    });
-  }
+  // A single malformed job used to abort the whole retry pass; each one now
+  // fails on its own.
+  await fanOut(jobs, async (job) => {
+    try {
+      await dispatchPush({
+        valentine_id: job.valentine_id,
+        device_id: job.device_id,
+        channel: job.channel,
+      });
+    } catch (error) {
+      console.error(`Push retry failed for job ${job.valentine_id}/${job.device_id}/${job.channel}:`, error);
+    }
+  });
 }
 
 /**
@@ -149,12 +178,12 @@ export async function dispatchDirectValentinePushes(valentine: Valentine): Promi
     photo_url: valentine.photo_url || undefined,
   };
 
-  for (const device of devices) {
+  await fanOut(devices, async (device) => {
     // The widget must update even when the user hasn't granted notification
     // permission: the data push (widget update) is processed regardless, only
     // the visible notification is suppressed by the OS. Skip only devices
     // without a real token.
-    if (!device.push_token || device.push_token === 'pending') continue;
+    if (!device.push_token || device.push_token === 'pending') return;
     try {
       const { visible, data } = await sendBothPushes(device.push_token, payload);
       if (visible.success || data.success) {
@@ -166,7 +195,7 @@ export async function dispatchDirectValentinePushes(valentine: Valentine): Promi
     } catch (error) {
       console.error(`Direct push error for device ${device.id}:`, error);
     }
-  }
+  });
 }
 
 /**
@@ -189,11 +218,11 @@ export async function dispatchReminderPushes(reminder: {
   }
 
   let delivered = false;
-  for (const device of devices) {
-    if (!device.push_token || device.push_token === 'pending') continue;
+  await fanOut(devices, async (device) => {
+    if (!device.push_token || device.push_token === 'pending') return;
     if (!device.push_permission_granted) {
       console.log(`Reminder push: permission not granted for device ${device.id}`);
-      continue;
+      return;
     }
     try {
       const result = await sendReminderPush(device.push_token, {
@@ -205,7 +234,7 @@ export async function dispatchReminderPushes(reminder: {
     } catch (error) {
       console.error(`Reminder push error for device ${device.id}:`, error);
     }
-  }
+  });
   return delivered;
 }
 
@@ -220,8 +249,8 @@ export async function dispatchEventPushes(pairId: string, event: { name: string;
   }
 
   let delivered = false;
-  for (const device of devices) {
-    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) continue;
+  await fanOut(devices, async (device) => {
+    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) return;
     try {
       const result = await sendCustomDataPush(device.push_token, {
         event: 'event',
@@ -234,7 +263,7 @@ export async function dispatchEventPushes(pairId: string, event: { name: string;
     } catch (error) {
       console.error(`Event push error for device ${device.id}:`, error);
     }
-  }
+  });
   return delivered;
 }
 
@@ -253,9 +282,9 @@ export async function dispatchNotePushes(
     return;
   }
 
-  for (const device of devices) {
-    if (device.telegram_user_id === excludeTelegramId) continue;
-    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) continue;
+  await fanOut(devices, async (device) => {
+    if (device.telegram_user_id === excludeTelegramId) return;
+    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) return;
     try {
       const preview = note.content.length > 140 ? `${note.content.slice(0, 140)}…` : note.content;
       const result = await sendCustomDataPush(device.push_token, {
@@ -268,7 +297,7 @@ export async function dispatchNotePushes(
     } catch (error) {
       console.error(`Note push error for device ${device.id}:`, error);
     }
-  }
+  });
 }
 
 /** Sends a "new streak milestone reached" push to all devices of the pair. */
@@ -281,8 +310,8 @@ export async function dispatchStreakPushes(pairId: string, count: number): Promi
     return;
   }
 
-  for (const device of devices) {
-    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) continue;
+  await fanOut(devices, async (device) => {
+    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) return;
     try {
       const result = await sendCustomDataPush(device.push_token, {
         event: 'streak',
@@ -292,7 +321,7 @@ export async function dispatchStreakPushes(pairId: string, count: number): Promi
     } catch (error) {
       console.error(`Streak push error for device ${device.id}:`, error);
     }
-  }
+  });
 }
 
 /** Broadcasts a "new version available" push to every companion device. */
@@ -305,8 +334,8 @@ export async function broadcastUpdatePush(versionName: string): Promise<void> {
     return;
   }
 
-  for (const device of devices) {
-    if (!device.push_token || device.push_token === 'pending') continue;
+  await fanOut(devices, async (device) => {
+    if (!device.push_token || device.push_token === 'pending') return;
     try {
       const result = await sendCustomDataPush(device.push_token, {
         event: 'update',
@@ -316,7 +345,7 @@ export async function broadcastUpdatePush(versionName: string): Promise<void> {
     } catch (error) {
       console.error(`Update push error for device ${device.id}:`, error);
     }
-  }
+  });
 }
 
 /** Sends a movie event push (added / watched / review / insight) to devices. */
@@ -333,9 +362,9 @@ export async function dispatchMoviePushes(
     return;
   }
 
-  for (const device of devices) {
-    if (excludeTelegramId !== null && device.telegram_user_id === excludeTelegramId) continue;
-    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) continue;
+  await fanOut(devices, async (device) => {
+    if (excludeTelegramId !== null && device.telegram_user_id === excludeTelegramId) return;
+    if (!device.push_token || device.push_token === 'pending' || !device.push_permission_granted) return;
     try {
       const result = await sendCustomDataPush(device.push_token, {
         event: 'movie',
@@ -348,5 +377,5 @@ export async function dispatchMoviePushes(
     } catch (error) {
       console.error(`Movie push error for device ${device.id}:`, error);
     }
-  }
+  });
 }

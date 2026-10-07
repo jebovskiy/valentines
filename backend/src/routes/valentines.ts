@@ -8,6 +8,7 @@ import { config, isKnownAnimationType } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
 import { dispatchDirectValentinePushes, dispatchStreakPushes } from '../services/pushDispatcher';
 import { uploadValentinePhoto } from '../utils/storage';
+import { Semaphore } from '../utils/concurrency';
 
 const MAX_PHOTO_BODY_BYTES = 10 * 1024 * 1024;
 
@@ -15,6 +16,10 @@ const MAX_PHOTO_BODY_BYTES = 10 * 1024 * 1024;
 // bound body size at the route level, not just in the schema.
 const photoRateLimit = { max: 10, timeWindow: '1 minute' };
 const photoUserRateLimit = userRateLimit({ key: 'photo-upload', max: 10, timeWindowMs: 60_000 });
+// The rate limit counts requests, not bytes: it still lets a full page of
+// maximum-size photos land at once, each one decoded and pushed to storage
+// concurrently. This bounds how many are actually in flight.
+const photoUploadGate = new Semaphore(3);
 
 // Streak-gated animations: unlock for good once the pair hits the day mark.
 const STREAK_LOCKED_ANIMATIONS: Record<string, number> = {
@@ -76,7 +81,7 @@ export async function valentinesRoutes(app: FastifyInstance) {
 
     let photoUrl: string | null = null;
     if (body.photo_base64) {
-      photoUrl = await uploadValentinePhoto(pair.id, body.photo_base64);
+      photoUrl = await photoUploadGate.run(() => uploadValentinePhoto(pair.id, body.photo_base64!));
     }
 
     const lockedRequirement = STREAK_LOCKED_ANIMATIONS[body.animation_type];

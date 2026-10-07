@@ -23,6 +23,7 @@ import {
   isUniqueViolation,
 } from '../services/database';
 import { searchPoiskkino, getPoiskkinoDetail, PoiskkinoDetail, PoiskkinoPart } from '../services/poiskkino';
+import { mapConcurrent } from '../utils/concurrency';
 import { generateMovieInsights, classifyMovieAspects, MovieReviewInput } from '../services/gemini';
 import { computeCompatibility, normalizeWeights, DEFAULT_ASPECT_WEIGHTS } from '../services/taste';
 import {
@@ -187,6 +188,13 @@ function backfillAspectScores(movies: { id: string; aspect_scores: unknown }[], 
   }
 }
 
+/**
+ * Detail lookups for `POST /batch` are external calls with the full fetch
+ * timeout each. In a straight loop a 50-item batch was bounded by
+ * `50 × timeout`; the writes stay ordered below, the reads do not have to be.
+ */
+const BATCH_DETAIL_CONCURRENCY = 4;
+
 export async function moviesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
@@ -308,24 +316,39 @@ export async function moviesRoutes(app: FastifyInstance) {
     const duplicates: number[] = [];
     const authorName =
       pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name : pair.user_b_name;
+    // The partner cannot change while the batch runs, so this is one read
+    // instead of one per inserted movie.
+    const partnerId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
 
-    for (const item of parsed.data.items) {
-      if (item.kp_id) {
-        const existing = await getMovieByKp(pair.id, item.kp_id);
-        if (existing) {
-          duplicates.push(item.kp_id);
-          continue;
-        }
+    const items = parsed.data.items;
+    const uniqueKpIds = [...new Set(items.map((i) => i.kp_id).filter((id): id is number => typeof id === 'number'))];
+
+    // One query instead of a duplicate check per item: the batch's own inserts
+    // have to land in this set too, or a repeated kp_id slips through.
+    const knownKpIds = new Set(
+      (await getMovies(pair.id)).map((m) => m.kp_id).filter((id): id is number => typeof id === 'number'),
+    );
+
+    const detailResults = await mapConcurrent(uniqueKpIds, BATCH_DETAIL_CONCURRENCY, async (kpId) => {
+      try {
+        return await getPoiskkinoDetail(kpId);
+      } catch (error) {
+        app.log.error(`Poiskkino detail failed: ${(error as Error).message}`);
+        return null;
       }
-      let detail = null;
+    });
+    const details = new Map(uniqueKpIds.map((kpId, index) => [kpId, detailResults[index] ?? null]));
+
+    for (const item of items) {
+      if (item.kp_id && knownKpIds.has(item.kp_id)) {
+        duplicates.push(item.kp_id);
+        continue;
+      }
+      let detail: PoiskkinoDetail | null = null;
       let title = item.title;
       if (item.kp_id) {
-        try {
-          detail = await getPoiskkinoDetail(item.kp_id);
-          if (detail) title = detail.name || detail.alternative_name || title;
-        } catch (error) {
-          app.log.error(`Poiskkino detail failed: ${(error as Error).message}`);
-        }
+        detail = details.get(item.kp_id) ?? null;
+        if (detail) title = detail.name || detail.alternative_name || title;
       }
       if (!title) continue;
 
@@ -361,9 +384,9 @@ export async function moviesRoutes(app: FastifyInstance) {
         throw error;
       }
       addedMovies.push(movie);
+      if (item.kp_id != null) knownKpIds.add(item.kp_id);
       requestAspectScores(movie.id, app);
 
-      const partnerId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
       if (partnerId) {
         void sendMovieAddedNotification(partnerId, movie, authorName).catch((e) =>
           app.log.error('Movie added Telegram notification failed:', e),

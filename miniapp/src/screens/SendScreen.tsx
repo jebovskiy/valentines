@@ -18,6 +18,51 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+/**
+ * The server stores the upload as-is, so whatever the camera produced crosses
+ * the wire in full — base64 again over the bytes, inside JSON. Resizing in the
+ * browser does the "compress the photo" work where the pixels already are, and
+ * needs no image library on the backend.
+ */
+const MAX_PHOTO_DIMENSION = 1600;
+const PHOTO_JPEG_QUALITY = 0.82;
+
+function decodeImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('image decode failed'));
+    img.src = src;
+  });
+}
+
+async function preparePhoto(file: File): Promise<string> {
+  const original = await fileToBase64(file);
+  // Camera JPEGs and WebPs are the ones that need it; re-encoding a PNG (or an
+  // animation) would spend transparency and crispness for no gain.
+  if (file.type !== 'image/jpeg' && file.type !== 'image/webp') return original;
+
+  try {
+    const image = await decodeImage(original);
+    const scale = Math.min(1, MAX_PHOTO_DIMENSION / Math.max(image.width, image.height));
+    const width = Math.max(1, Math.round(image.width * scale));
+    const height = Math.max(1, Math.round(image.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return original;
+    context.drawImage(image, 0, 0, width, height);
+    const encoded = canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY);
+    // Both strings are data URLs, so their lengths are directly comparable; a
+    // re-encode that came out bigger is worse than doing nothing.
+    if (encoded.length >= original.length) return original;
+    return encoded;
+  } catch {
+    return original;
+  }
+}
+
 export function SendScreen() {
   const navigate = useNavigate();
   const { sendValentine, currentUser, pair, streak } = useValentinesStore();
@@ -54,7 +99,7 @@ export function SendScreen() {
       return;
     }
     setError(null);
-    fileToBase64(file)
+    preparePhoto(file)
       .then((dataUrl) => {
         setPhotoBase64(dataUrl);
         setMode('photo');
