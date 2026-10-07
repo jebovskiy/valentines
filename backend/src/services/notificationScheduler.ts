@@ -5,6 +5,7 @@ import { sendReminderNotification, sendEventReminderNotification, sendMovieRemin
 const REMINDER_TICK_MS = 60 * 1000;
 const EVENT_TICK_MS = 10 * 60 * 1000;
 const MOVIE_REMINDER_TICK_MS = 4 * 60 * 60 * 1000;
+const EVENT_CLAIM_LIMIT = 50;
 
 function nextRecurrence(recurrence: string, from: Date): Date {
   const next = new Date(from);
@@ -62,19 +63,53 @@ async function processDueReminders(): Promise<void> {
   }
 }
 
-function remindersAreDue(event: { event_date: string; remind_days_before: number }): boolean {
+/** Calendar arithmetic on a `YYYY-MM-DD` date, unaffected by the host's DST rules. */
+function shiftIsoDate(isoDate: string, days: number): string {
+  const shifted = new Date(`${isoDate}T00:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * Today on the local calendar the window is judged against, as `YYYY-MM-DD`.
+ *
+ * Exported because it is the other half of the contract with migration 030:
+ * `claim_unnotified_events(p_today => ...)` receives exactly this string, and
+ * both sides have to read the same day or the claim is released right back.
+ */
+export function localToday(): string {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const eventDate = new Date(`${event.event_date}T00:00:00`);
-  const remindOn = new Date(eventDate);
-  remindOn.setDate(remindOn.getDate() - event.remind_days_before);
-  return remindOn <= now && eventDate >= now;
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * Is the reminder for this event inside its window today?
+ *
+ * Pure calendar arithmetic rather than a walk through local midnights: the
+ * column is a `date` with no timezone attached, and comparing it through the
+ * host clock made the answer depend on whether local midnight happened to
+ * exist on a DST transition day — which is one more way for the claim to hand
+ * over a row this function then rejects. The SQL mirror of this predicate
+ * lives in migration 030.
+ */
+export function remindersAreDue(
+  event: { event_date: string; remind_days_before: number },
+  today: string = localToday(),
+): boolean {
+  return event.event_date >= today && shiftIsoDate(event.event_date, -event.remind_days_before) <= today;
 }
 
 async function processUpcomingEvents(): Promise<void> {
-  const events = await getUnnotifiedEvents();
+  // Hand the window to the claim itself: rows outside it used to be claimed
+  // first (they sort by event_date), rejected by remindersAreDue() below,
+  // released, and re-claimed on every sweep — which starved anything that was
+  // actually due once those rows filled the claim's LIMIT.
+  const today = localToday();
+  const events = await getUnnotifiedEvents(EVENT_CLAIM_LIMIT, today);
   for (const event of events) {
-    if (!remindersAreDue(event)) {
+    if (!remindersAreDue(event, today)) {
       await releaseEventClaim(event.id).catch((e) =>
         console.error(`Scheduler: release event ${event.id} claim failed:`, e),
       );

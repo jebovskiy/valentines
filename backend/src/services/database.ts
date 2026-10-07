@@ -302,6 +302,28 @@ export async function getValentinesByPair(pairId: string, limit = 50): Promise<V
   return data || [];
 }
 
+/**
+ * Everything sent for the pair at or after `since`, oldest first.
+ *
+ * The SSE stream uses this to catch a reconnecting client up: `valentines.id`
+ * is a uuid, so "newer than <id>" cannot be expressed with the id alone and the
+ * cursor has to be the timestamp. Ties are possible inside one transaction
+ * (shared `now()`), which is why the order carries `id` as a tie-break and the
+ * caller filters rows it has already announced by id.
+ */
+export async function getValentinesSince(pairId: string, since: string, limit = 50): Promise<Valentine[]> {
+  const { data, error } = await supabase
+    .from('valentines')
+    .select('*')
+    .eq('pair_id', pairId)
+    .gte('sent_at', since)
+    .order('sent_at', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function getValentineById(valentineId: string): Promise<Valentine | null> {
   const { data, error } = await supabase.from('valentines').select('*').eq('id', valentineId).maybeSingle();
   if (error) throw error;
@@ -699,12 +721,29 @@ export async function getCoupleEventById(eventId: string): Promise<CoupleEvent |
 }
 
 /** Events that haven't been announced to the pair yet. */
-export async function getUnnotifiedEvents(limit = 50): Promise<CoupleEvent[]> {
-  // Atomic claim: same SKIP LOCKED semantics as reminders.
-  const { data, error } = await supabase.rpc('claim_unnotified_events', { p_limit: limit });
+/** What supabase-js returns from an RPC when the client carries no schema types. */
+interface RpcRows<T> {
+  data: T[] | null;
+  error: { message: string } | null;
+}
 
-  if (error) throw error;
-  return (data || []) as unknown as CoupleEvent[];
+export async function getUnnotifiedEvents(limit = 50, today?: string): Promise<CoupleEvent[]> {
+  // Atomic claim: same SKIP LOCKED semantics as reminders. `today` pushes the
+  // reminder window into SQL — otherwise not-yet-due rows are claimed first
+  // (they sort by event_date) and fill the whole LIMIT, starving the events
+  // that actually are due today.
+  const args: Record<string, unknown> = { p_limit: limit };
+  if (today) args.p_today = today;
+
+  let result = (await supabase.rpc('claim_unnotified_events', args)) as RpcRows<CoupleEvent>;
+  if (result.error && today) {
+    // Migration 030 not applied yet: retry through the argument set it still
+    // understands rather than stalling every event sweep on a missing argument.
+    result = (await supabase.rpc('claim_unnotified_events', { p_limit: limit })) as RpcRows<CoupleEvent>;
+  }
+
+  if (result.error) throw result.error;
+  return result.data ?? [];
 }
 
 export async function markCoupleEventNotified(eventId: string): Promise<void> {
@@ -1025,7 +1064,10 @@ export async function abandonMovieInsight(movieId: string): Promise<void> {
 /** Pairs that have any movies but haven't received a reminder today. */
 export async function getPairsForMovieReminder(today: string): Promise<string[]> {
   const [moviesRes, logRes] = await Promise.all([
-    supabase.from('movies').select('pair_id'),
+    // Only the pairs that could actually send a reminder: without this the
+    // query pulled every movie of every pair (and every already-watched one)
+    // on every 4-hour sweep just to throw them away below.
+    supabase.from('movies').select('pair_id').eq('status', 'want_to_watch'),
     supabase.from('movie_reminder_log').select('pair_id').eq('last_sent_on', today),
   ]);
   if (moviesRes.error) throw moviesRes.error;

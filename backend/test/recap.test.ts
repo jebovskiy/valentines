@@ -4,6 +4,7 @@ import {
   buildRecapAggregates,
   buildRecapPrompt,
   fallbackRecapSummary,
+  fetchAllPages,
   parseRecapSummary,
   periodLabel,
   periodStartFor,
@@ -395,4 +396,73 @@ test('an even split does not claim a leader', () => {
   });
 
   assert.match(fallbackRecapSummary(agg).insight, /поровну/);
+});
+
+test('fetchAllPages reads a whole period instead of only the newest page', async () => {
+  const all = Array.from({ length: 1200 }, (_, i) => ({ id: `row-${i}` }));
+  const offsets: number[] = [];
+
+  const rows = await fetchAllPages<{ id: string }>((offset, limit) => {
+    offsets.push(offset);
+    return Promise.resolve({ data: all.slice(offset, offset + limit), error: null });
+  }, 'valentines');
+
+  assert.equal(rows.length, 1200);
+  assert.deepEqual(
+    rows.map((r) => r.id),
+    all.map((r) => r.id),
+    'pages must come back in the order the query promised',
+  );
+  assert.deepEqual(offsets, [0, 500, 1000]);
+});
+
+test('fetchAllPages stops on a short page', async () => {
+  const rows = await fetchAllPages<{ id: string }>(
+    (offset) => Promise.resolve({ data: [{ id: `row-${offset}` }], error: null }),
+    'valentines',
+  );
+  assert.equal(rows.length, 1);
+});
+
+test('fetchAllPages surfaces a page error rather than half a period', async () => {
+  const full = Array.from({ length: 500 }, (_, i) => ({ id: `row-${i}` }));
+
+  try {
+    await fetchAllPages<{ id: string }>(
+      (offset) =>
+        Promise.resolve(
+          offset === 0 ? { data: full, error: null } : { data: null, error: { message: 'boom' } },
+        ),
+      'valentines',
+    );
+    assert.fail('expected the page error to be rethrown');
+  } catch (error) {
+    assert.equal((error as { message: string }).message, 'boom');
+  }
+});
+
+test('fetchAllPages hits the ceiling loudly instead of quietly', async () => {
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args.map(String).join(' '));
+  };
+
+  try {
+    const rows = await fetchAllPages<{ id: string }>(
+      (offset, limit) =>
+        Promise.resolve({
+          data: Array.from({ length: limit }, (_, i) => ({ id: `row-${offset + i}` })),
+          error: null,
+        }),
+      'valentines',
+    );
+
+    assert.equal(rows.length, 20_000);
+    assert.equal(warnings.length, 1, 'a truncated recap must say so');
+    assert.match(warnings[0], /20000-row ceiling/);
+    assert.match(warnings[0], /truncated/);
+  } finally {
+    console.warn = originalWarn;
+  }
 });

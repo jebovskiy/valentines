@@ -1,9 +1,27 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { updateDevicePushToken, updateDevicePushPermission, updateDeviceWidgetAdded, getDeviceById, getValentinesByPair, getPairById } from '../services/database';
+import { updateDevicePushToken, updateDevicePushPermission, updateDeviceWidgetAdded, getDeviceById, getValentinesByPair, getValentinesSince, getValentineById, getPairById } from '../services/database';
+import type { Valentine } from '../services/database';
+import { advanceStreamCursor, cursorFromRow } from '../services/streamCursor';
 
 const GITHUB_REPO = process.env.GITHUB_REPO || 'jebovskiy/valentines';
 const RELEASE_CACHE_TTL_MS = 10 * 60 * 1000;
+const STREAM_POLL_MS = 5000;
+// A burst bigger than this is not dropped, it is simply drained over several
+// polls: the anchor only advances as far as the page actually returned.
+const STREAM_BATCH = 50;
+
+/** Header values arrive as string | string[]; only the first one matters here. */
+function firstHeader(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/** A resume id that is not a uuid can never resolve, so reject it up front. */
+function asUuid(value: string | undefined): string | null {
+  if (!value) return null;
+  const parsed = z.string().uuid().safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
 
 interface ReleaseInfo {
   version_code: number;
@@ -136,9 +154,24 @@ export async function companionRoutes(app: FastifyInstance) {
   });
 
   app.get('/stream', async (request, reply) => {
-    const query = z.object({ device_id: z.string().uuid() }).parse(request.query);
+    const query = z
+      .object({
+        device_id: z.string().uuid(),
+        // Optional: browsers resubscribe through the `Last-Event-ID` header and
+        // cannot set headers with EventSource, so hand-rolled clients need a way in.
+        last_event_id: z.string().uuid().optional(),
+      })
+      .parse(request.query);
     const device = await getDeviceById(query.device_id);
     if (!device) return reply.code(404).send({ error: 'Device not found' });
+
+    // Resolve the resume point before hijacking the reply: a failure here still
+    // surfaces as a normal HTTP error instead of a half-open stream. An id that
+    // no longer resolves, or belongs to another pair, simply means "no resume".
+    const resumeId =
+      asUuid(firstHeader(request.headers['last-event-id'])) ?? asUuid(query.last_event_id) ?? null;
+    const resumeRow = resumeId ? await getValentineById(resumeId).catch(() => null) : null;
+    let cursor = resumeRow && resumeRow.pair_id === device.pair_id ? cursorFromRow(resumeRow) : null;
 
     // Real-time push channel to the companion app, independent of FCM.
     reply.hijack();
@@ -151,9 +184,7 @@ export async function companionRoutes(app: FastifyInstance) {
     });
     raw.write('retry: 5000\n\n');
 
-    let lastId: string | null = null;
     let closed = false;
-
     const write = (chunk: string) => {
       if (closed) return;
       try {
@@ -163,25 +194,57 @@ export async function companionRoutes(app: FastifyInstance) {
       }
     };
 
-    const timer = setInterval(async () => {
+    const announce = (valentine: Valentine) => {
+      // `id:` is what makes the browser remember the cursor at all: without it
+      // no `Last-Event-ID` is ever sent and every reconnect gap stays invisible.
+      write(`id: ${valentine.id}\nevent: valentine\ndata: ${JSON.stringify({ id: valentine.id })}\n\n`);
+    };
+
+    const pump = async () => {
       if (closed) return;
       try {
-        const valentines = await getValentinesByPair(device.pair_id, 1);
-        const latest = valentines[0];
-        if (latest && latest.id !== lastId) {
-          lastId = latest.id;
-          write(`event: valentine\ndata: ${JSON.stringify({ id: latest.id })}\n\n`);
-        } else {
-          write(': ping\n\n');
+        if (cursor === null) {
+          // Fresh connection, or a resume id that no longer resolves. Announce
+          // the newest one only — the companion already knows everything older
+          // than its own state, and replaying the whole history would just be
+          // a reconnect storm.
+          const [latest] = await getValentinesByPair(device.pair_id, 1);
+          if (!latest) {
+            write(': ping\n\n');
+            return;
+          }
+          announce(latest);
+          cursor = cursorFromRow(latest);
+          return;
         }
+
+        const page = await getValentinesSince(device.pair_id, cursor.ts, STREAM_BATCH);
+        const { fresh, next } = advanceStreamCursor(cursor, page);
+        if (fresh.length === 0) {
+          write(': ping\n\n');
+          return;
+        }
+        for (const row of fresh) announce(row);
+        cursor = next;
       } catch (error) {
         write(`event: error\ndata: ${JSON.stringify({ message: 'db error' })}\n\n`);
+        console.error('Companion stream poll failed:', error);
       }
-    }, 5000);
+    };
 
-    request.raw.on('close', () => {
+    const timer = setInterval(() => {
+      void pump();
+    }, STREAM_POLL_MS);
+    // The first frame should not wait a full tick, and a reconnect has to be
+    // caught up with immediately rather than after 5 seconds.
+    void pump();
+
+    const stop = () => {
+      if (closed) return;
       closed = true;
       clearInterval(timer);
-    });
+    };
+    request.raw.on('close', stop);
+    raw.on('error', stop);
   });
 }

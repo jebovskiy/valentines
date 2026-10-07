@@ -540,8 +540,53 @@ export async function generateRecapSummary(agg: RecapAggregates): Promise<RecapS
   return parsed;
 }
 
-const ACTIVITY_LIMIT = 2000;
-const MOVIE_LIMIT = 500;
+// PostgREST has no "every row" mode: a query either carries an explicit limit
+// or the server's default. Reading a period in pages keeps a single payload
+// bounded without silently clipping the answer.
+const PAGE_SIZE = 500;
+// Safety valve, not a target: past this the recap is a summary anyway, and we
+// would rather say so out loud than quietly understate the numbers.
+const MAX_ROWS_PER_SOURCE = 20_000;
+
+interface PagedResponse<T> {
+  data: T[] | null;
+  error: { message: string } | null;
+}
+
+/**
+ * Читает строки периода страницами.
+ *
+ * Раньше тут стоял один `.limit(N)`: PostgREST отдавал N самых свежих строк и
+ * никогда не сообщал, что что-то отрезал, поэтому у пары с длинной историей
+ * цифры в сводке молча занижались. Обрезку теперь видно — в предупреждении
+ * лога.
+ *
+ * Страницы смещением (`.range`), а не keyset-курсор по `(ts, id)`, — нарочно:
+ * ключ отсортированной пары пришлось бы протаскивать обратно через строку
+ * запроса, а микросекунды, которые PostgREST отдаёт в `timestamptz`, шире, чем
+ * умеет хранить JS Date, так что округление расширило бы границу страницы и
+ * строки бы терялись. Смещение — просто целые числа, а сортировка ниже
+ * тотальная, поэтому страницы не пересекаются и не пропускают строк.
+ */
+export async function fetchAllPages<T>(
+  fetchPage: (offset: number, limit: number) => PromiseLike<PagedResponse<T>>,
+  source: string,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (;;) {
+    const page = await fetchPage(rows.length, PAGE_SIZE);
+    if (page.error) throw page.error;
+    const chunk = page.data ?? [];
+    rows.push(...chunk);
+    if (chunk.length < PAGE_SIZE) return rows;
+    if (rows.length >= MAX_ROWS_PER_SOURCE) {
+      console.warn(
+        `[recap] ${source} reached the ${MAX_ROWS_PER_SOURCE}-row ceiling for this period; the recap numbers are truncated`,
+      );
+      return rows;
+    }
+  }
+}
 
 export async function fetchRecapRawData(
   pairId: string,
@@ -552,53 +597,68 @@ export async function fetchRecapRawData(
 ): Promise<RecapRawData> {
   const from = periodStart ? periodStart.toISOString() : null;
 
-  let valentinesQuery = supabase
-    .from('valentines')
-    .select('sender_telegram_id, sent_at')
-    .eq('pair_id', pairId)
-    .order('sent_at', { ascending: false })
-    .limit(ACTIVITY_LIMIT);
-  if (from) valentinesQuery = valentinesQuery.gte('sent_at', from);
+  const valentines = fetchAllPages<ActivityRow>((offset, limit) => {
+    let query = supabase
+      .from('valentines')
+      .select('id, sender_telegram_id, sent_at')
+      .eq('pair_id', pairId)
+      .order('sent_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (from) query = query.gte('sent_at', from);
+    return query;
+  }, 'valentines');
 
-  let greetingsQuery = supabase
-    .from('greetings')
-    .select('type, sent_at')
-    .eq('pair_id', pairId)
-    .order('sent_at', { ascending: false })
-    .limit(ACTIVITY_LIMIT);
-  if (from) greetingsQuery = greetingsQuery.gte('sent_at', from);
+  const greetings = fetchAllPages<GreetingRow>((offset, limit) => {
+    let query = supabase
+      .from('greetings')
+      .select('id, type, sent_at')
+      .eq('pair_id', pairId)
+      .order('sent_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (from) query = query.gte('sent_at', from);
+    return query;
+  }, 'greetings');
 
-  let datesQuery = supabase
-    .from('date_sessions')
-    .select('match, created_at')
-    .eq('pair_id', pairId)
-    .eq('status', 'done')
-    .not('match', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(MOVIE_LIMIT);
-  if (from) datesQuery = datesQuery.gte('created_at', from);
+  const dates = fetchAllPages<DateSessionRow>((offset, limit) => {
+    let query = supabase
+      .from('date_sessions')
+      .select('id, match, created_at')
+      .eq('pair_id', pairId)
+      .eq('status', 'done')
+      .not('match', 'is', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (from) query = query.gte('created_at', from);
+    return query;
+  }, 'date_sessions');
 
-  const moviesQuery = supabase
-    .from('movies')
-    .select('id, watched_at, added_at')
-    .eq('pair_id', pairId)
-    .eq('status', 'watched')
-    .order('watched_at', { ascending: false })
-    .limit(MOVIE_LIMIT);
+  // `watched_at` can still be null on a row that is already `watched`, and the
+  // aggregation judges such a movie by `added_at` instead — so the period
+  // filter has to keep those rows and let the pure side narrow them down.
+  const movies = fetchAllPages<WatchedMovieRow>((offset, limit) => {
+    let query = supabase
+      .from('movies')
+      .select('id, watched_at, added_at')
+      .eq('pair_id', pairId)
+      .eq('status', 'watched')
+      .order('watched_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (from) query = query.or(`watched_at.gte.${from},watched_at.is.null`);
+    return query;
+  }, 'movies');
 
-  const [valentines, greetings, movies, dates] = await Promise.all([
-    valentinesQuery,
-    greetingsQuery,
-    moviesQuery,
-    datesQuery,
+  const [valentineRows, greetingRows, movieRows, dateRows] = await Promise.all([
+    valentines,
+    greetings,
+    movies,
+    dates,
   ]);
 
-  if (valentines.error) throw valentines.error;
-  if (greetings.error) throw greetings.error;
-  if (movies.error) throw movies.error;
-  if (dates.error) throw dates.error;
-
-  const watchedRows = (movies.data ?? []) as WatchedMovieRow[];
+  const watchedRows = movieRows;
   const movieIds = watchedRows.map((m) => m.id);
 
   let reviews: ReviewRow[] = [];
@@ -626,12 +686,12 @@ export async function fetchRecapRawData(
     pair,
     periodKey,
     periodStart,
-    valentines: (valentines.data ?? []) as ActivityRow[],
-    greetings: (greetings.data ?? []) as GreetingRow[],
+    valentines: valentineRows,
+    greetings: greetingRows,
     watchedMovies: watchedRows,
     reviews,
     insights,
-    dateSessions: (dates.data ?? []) as DateSessionRow[],
+    dateSessions: dateRows,
     tzOffsetMinutes,
   };
 }
