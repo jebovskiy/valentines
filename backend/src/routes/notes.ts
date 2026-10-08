@@ -1,24 +1,24 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getNotes, createNote, updateNote, deleteNote, getPartnerTelegramId } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { sendNewNoteNotification } from '../services/telegramNotifier';
 import { dispatchNotePushes } from '../services/pushDispatcher';
 
-const NOTE_CATEGORIES = ['idea', 'todo', 'memory', 'wish'];
+const NOTE_CATEGORIES = ['idea', 'todo', 'memory', 'wish'] as const;
 
 const createNoteSchema = z.object({
   content: z.string().min(1).max(2000),
-  category: z.enum(['idea', 'todo', 'memory', 'wish']).default('idea'),
+  category: z.enum(NOTE_CATEGORIES).default('idea'),
 });
 
 const updateNoteSchema = z.object({
   content: z.string().min(1).max(2000).optional(),
-  category: z.enum(['idea', 'todo', 'memory', 'wish']).optional(),
+  category: z.enum(NOTE_CATEGORIES).optional(),
   is_pinned: z.boolean().optional(),
 });
 
-export async function notesRoutes(app: FastifyInstance) {
+export function notesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
@@ -45,12 +45,12 @@ export async function notesRoutes(app: FastifyInstance) {
         content: note.content,
         category: note.category,
         author_name: authorName,
-      }).catch((e) => app.log.error('Note Telegram notification failed:', e));
+      }).catch((e: unknown) => app.log.error('Note Telegram notification failed: %s', e));
     }
     void dispatchNotePushes(pair.id, request.telegramUser!.id, {
       content: note.content,
       category: note.category,
-    }, authorName).catch((e) => app.log.error('Note push failed:', e));
+    }, authorName).catch((e: unknown) => app.log.error('Note push failed: %s', e));
 
     return reply.code(201).send({ note });
   });

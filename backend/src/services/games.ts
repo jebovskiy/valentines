@@ -23,7 +23,7 @@ export interface GameSessionRow {
   initiator_id: number;
   game_id: GameId;
   mood: Mood | null;
-  rounds: any[]; // We'll keep as any for now; could be typed more precisely
+  rounds: GameRound[];
   status: 'active' | 'done';
   created_at: string;
   updated_at: string;
@@ -44,7 +44,7 @@ export async function getActiveGameSession(pairId: string): Promise<GameSessionR
 
   if (error) throw error;
   if (!data) return null;
-  return { ...data, answers: await getGameAnswers(data.id) } as GameSessionRow;
+  return { ...data, answers: await getGameAnswers(data.id as string) } as GameSessionRow;
 }
 
 export async function getGameSessionById(sessionId: string): Promise<GameSessionRow | null> {
@@ -56,7 +56,7 @@ export async function getGameSessionById(sessionId: string): Promise<GameSession
 
   if (error) throw error;
   if (!data) return null;
-  return { ...data, answers: await getGameAnswers(data.id) } as GameSessionRow;
+  return { ...data, answers: await getGameAnswers(data.id as string) } as GameSessionRow;
 }
 
 export async function getRecentGameSessions(pairId: string, limit = 3): Promise<{ id: string }[]> {
@@ -68,7 +68,7 @@ export async function getRecentGameSessions(pairId: string, limit = 3): Promise<
     .limit(limit);
 
   if (error) throw error;
-  return (data ?? []).map(row => ({ id: row.id }));
+  return (data ?? []).map(row => ({ id: row.id as string }));
 }
 
 export async function deleteActiveGameSessions(pairId: string): Promise<void> {
@@ -85,7 +85,7 @@ export async function createGameSessionRow(
   initiatorId: number,
   gameId: GameId,
   mood: Mood | null,
-  rounds: any[]
+  rounds: GameRound[]
 ): Promise<GameSessionRow> {
   const { data, error } = await supabase
     .from('game_sessions')
@@ -143,6 +143,12 @@ interface RawRound {
   options: string[];
   truth?: string;
   dare?: string;
+}
+
+/** RawRound plus the client-facing metadata added by decorateRounds. */
+export interface GameRound extends RawRound {
+  type: 'text' | 'choice' | 'truth_dare';
+  category?: string;
 }
 
 const KNOW_ME_WARMUP: RawRound[] = [
@@ -397,7 +403,7 @@ function buildStaticRounds(gameId: GameId, mood: Mood | null): RawRound[] {
  * either the AI generator or the static banks, so the miniapp can render
  * labels and the final card correctly.
  */
-function decorateRounds(gameId: GameId, raw: RawRound[]): any[] {
+function decorateRounds(gameId: GameId, raw: RawRound[]): GameRound[] {
   return raw.map((r, i) => {
     switch (gameId) {
       case 'KNOW_ME': {

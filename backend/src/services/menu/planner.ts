@@ -199,7 +199,7 @@ export async function generateMenu(
       if (servings <= 0) continue;
       const { scale, scaledIngredients, unknownIngredients } = scaleForServings(recipe, servings);
 
-      const { rejected, rejectedReason, allergens } = filterRecipe(
+      const { rejected } = filterRecipe(
         recipe, scaledIngredients, unknownIngredients, request, customTerms, dislikedTerms, counters
       );
       if (rejected) continue;
@@ -393,7 +393,7 @@ async function toRecipeChoice(
   storeId: StoreId,
   now: Date,
   providers: MenuProviders,
-  fullyPricedOverride?: boolean
+  _fullyPricedOverride?: boolean
 ): Promise<RecipeChoice> {
   const requiredCookware = [...new Set([...(recipe.cookware ?? []), ...inferCookware(recipe)])];
   const pricing = priceRecipe(scaledIngredients, offers, storeId, servings, now);
@@ -775,7 +775,7 @@ export async function listSlotVariants(
     const servings = perMeal[meal];
     const { scaledIngredients, unknownIngredients } = scaleForServings(recipe, servings);
 
-    const { rejected, allergens } = filterRecipe(
+    const { rejected } = filterRecipe(
       recipe, scaledIngredients, unknownIngredients, request, customTerms, dislikedTerms,
       { allergenExcluded: 0, unknownAllergenCount: 0, customAllergenExcluded: 0, dislikedExcluded: 0, cookwareExcluded: 0, priceMissingRecipes: 0, staleMissing: 0, totalRecipes: 0 }
     );

@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getDeviceByUserAndPlatform } from '../services/database';
 import { localDay, readStoredStreak, rebuildPairStreak } from '../services/streak';
@@ -35,7 +35,7 @@ const completePairingSchema = z.object({
   push_token: z.string().min(1),
 });
 
-export async function pairsRoutes(app: FastifyInstance) {
+export function pairsRoutes(app: FastifyInstance) {
   const privateRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
 
   app.get('/me', privateRoutes, async (request, reply) => {

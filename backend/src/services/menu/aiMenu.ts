@@ -12,7 +12,7 @@ import {
   MENU_WEEK_DAYS,
   minBudgetFor,
 } from './config';
-import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe, type ExistingStock, type ShoppingListInput } from './costing';
+import { buildShoppingList, convertQuantity, isFreshOffer, priceRecipe, type ShoppingListInput } from './costing';
 import { MENU_COOKWARE, describeCookware, inferCookware, type CookwareInfo } from './cookware';
 import { defaultProviders, type MenuProviders } from './providers';
 import { computeRecipeNutrition, per100g, perServing } from './nutrition';

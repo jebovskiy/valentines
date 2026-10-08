@@ -1,4 +1,4 @@
-import { supabase } from '../../utils/supabase';
+import { supabase, type QueryResult } from '../../utils/supabase';
 import type { MenuRequest, MenuResult, StoreId } from './types';
 
 export interface StoredMenu {
@@ -15,38 +15,38 @@ export async function createStoredMenu(
   params: MenuRequest,
   result: MenuResult
 ): Promise<StoredMenu> {
-  const { data, error } = await supabase
+  const { data, error } = (await supabase
     .from('menus')
     .upsert(
       { id: result.id, pair_id: pairId, store_id: params.storeId, params, result },
       { onConflict: 'id' }
     )
     .select()
-    .single();
+    .single()) as QueryResult<StoredMenu>;
   if (error) throw error;
-  return data as StoredMenu;
+  return data;
 }
 
 export async function getStoredMenuForPair(menuId: string, pairId: string): Promise<StoredMenu | null> {
-  const { data, error } = await supabase
+  const { data, error } = (await supabase
     .from('menus')
     .select('*')
     .eq('id', menuId)
     .eq('pair_id', pairId)
-    .maybeSingle();
+    .maybeSingle()) as QueryResult<StoredMenu | null>;
   if (error) throw error;
   return (data as StoredMenu) ?? null;
 }
 
 /** The most recently created stored menu for a pair (the saved week plan). */
 export async function getLatestStoredMenuForPair(pairId: string): Promise<StoredMenu | null> {
-  const { data, error } = await supabase
+  const { data, error } = (await supabase
     .from('menus')
     .select('*')
     .eq('pair_id', pairId)
     .order('created_at', { ascending: false })
     .limit(1)
-    .maybeSingle();
+    .maybeSingle()) as QueryResult<StoredMenu | null>;
   if (error) throw error;
   return (data as StoredMenu) ?? null;
 }

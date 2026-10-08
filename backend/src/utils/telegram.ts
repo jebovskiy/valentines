@@ -47,7 +47,7 @@ export function validateTelegramInitData(initData: string, opts: { maxAgeSec?: n
   if (!userParam) return null;
 
   try {
-    const user = JSON.parse(userParam);
+    const user = JSON.parse(userParam) as TelegramInitData['user'];
     return {
       user,
       auth_date: authDate,

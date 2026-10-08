@@ -49,12 +49,36 @@ export interface PoiskkinoPart {
   type: string | null;
 }
 
+// Raw Kinopoisk-style payloads. Fields are optional because the upstream API
+// omits them freely; the casts below keep the previous (permissive) runtime
+// behaviour while staying statically checkable.
+interface RawKpMovie {
+  id: number;
+  name?: string | null;
+  enName?: string | null;
+  alternativeName?: string | null;
+  year?: number | null;
+  poster?: { url?: string | null };
+  rating?: { kp?: number | null; imdb?: number | null };
+  genres?: { name?: string | null }[];
+  countries?: { name?: string | null }[];
+  type?: string | null;
+  description?: string | null;
+  shortDescription?: string | null;
+  movieLength?: number | null;
+  externalId?: { imdb?: string | null };
+  sequelsAndPrequels?: RawKpMovie[];
+}
+
+const named = (items: { name?: string | null }[] | undefined): string[] =>
+  (items ?? []).map((i) => i.name).filter((n): n is string => typeof n === 'string');
+
 export async function searchPoiskkino(query: string): Promise<PoiskkinoCandidate[]> {
   if (!config.POISKKINO_API_KEY) throw new Error('POISKKINO_API_KEY is not configured');
   const url = `${BASE}/v1.5/movie/search?query=${encodeURIComponent(query)}&page=1&limit=10`;
   const res = await fetchWithTimeout(url, { headers: headers() });
   if (!res.ok) throw new Error(`Poiskkino search failed: ${res.status}`);
-  const body = (await res.json()) as { docs?: any[]; error?: string };
+  const body = (await res.json()) as { docs?: RawKpMovie[]; error?: string };
   if (!body.docs) throw new Error(body.error || 'No results');
   return body.docs.map((m) => ({
     kp_id: m.id,
@@ -64,7 +88,7 @@ export async function searchPoiskkino(query: string): Promise<PoiskkinoCandidate
     poster_url: m.poster?.url ?? null,
     rating_kp: m.rating?.kp ?? null,
     rating_imdb: m.rating?.imdb ?? null,
-    genres: (m.genres || []).map((g: any) => g.name).filter(Boolean),
+    genres: named(m.genres),
     type: m.type ?? null,
   }));
 }
@@ -77,7 +101,7 @@ export async function getPoiskkinoDetail(kpId: number): Promise<PoiskkinoDetail 
     if (res.status === 404) return null;
     throw new Error(`Poiskkino detail failed: ${res.status}`);
   }
-  const m = (await res.json()) as any;
+  const m = (await res.json()) as RawKpMovie;
   if (!m || !m.id) return null;
   return {
     kp_id: m.id,
@@ -87,14 +111,14 @@ export async function getPoiskkinoDetail(kpId: number): Promise<PoiskkinoDetail 
     poster_url: m.poster?.url ?? null,
     rating_kp: m.rating?.kp ?? null,
     rating_imdb: m.rating?.imdb ?? null,
-    genres: (m.genres || []).map((g: any) => g.name).filter(Boolean),
+    genres: named(m.genres),
     description: m.description ?? m.shortDescription ?? null,
     short_description: m.shortDescription ?? null,
     movie_length: m.movieLength ?? null,
-    countries: (m.countries || []).map((c: any) => c.name).filter(Boolean),
+    countries: named(m.countries),
     type: m.type ?? null,
     imdb_id: m.externalId?.imdb ?? null,
-    parts: (m.sequelsAndPrequels || []).map((p: any) => ({
+    parts: (m.sequelsAndPrequels ?? []).map((p) => ({
       kp_id: p.id,
       name: p.name ?? null,
       alternative_name: p.alternativeName ?? p.enName ?? null,

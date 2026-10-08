@@ -636,8 +636,8 @@ export function suggestIngredientName(query: string): string | null {
 }
 
 function levenshtein(a: string, b: string): number {
-  const prev = new Array(b.length + 1).fill(0).map((_, i) => i);
-  const curr = new Array(b.length + 1).fill(0);
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  const curr = Array.from({ length: b.length + 1 }, () => 0);
   for (let i = 0; i < a.length; i += 1) {
     curr[0] = i + 1;
     for (let j = 0; j < b.length; j += 1) {

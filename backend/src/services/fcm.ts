@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import type { Message, Messaging } from 'firebase-admin/messaging';
+import type { ServiceAccount } from 'firebase-admin/app';
 import { config } from '../config';
 
 let messagingInstance: Messaging | null = null;
@@ -15,7 +16,7 @@ let messagingInstance: Messaging | null = null;
 function getMessagingInstance(): Messaging {
   if (!messagingInstance) {
     if (getApps().length === 0) {
-      const serviceAccount = JSON.parse(config.FCM_SERVICE_ACCOUNT_JSON);
+      const serviceAccount = JSON.parse(config.FCM_SERVICE_ACCOUNT_JSON) as ServiceAccount;
       initializeApp({ credential: cert(serviceAccount) });
     }
     messagingInstance = getMessaging();

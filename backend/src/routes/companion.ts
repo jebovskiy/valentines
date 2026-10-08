@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { updateDevicePushToken, updateDevicePushPermission, updateDeviceWidgetAdded, getDeviceById, getValentinesByPair, getValentinesSince, getValentineById, getPairById } from '../services/database';
 import type { Valentine } from '../services/database';
@@ -94,7 +94,7 @@ const latestValentineSchema = z.object({
   device_id: z.string().uuid(),
 });
 
-export async function companionRoutes(app: FastifyInstance) {
+export function companionRoutes(app: FastifyInstance) {
   app.post('/push-token', async (request, reply) => {
     const body = pushTokenSchema.parse(request.body);
     const device = await getDeviceById(body.device_id);

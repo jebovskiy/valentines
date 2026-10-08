@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getCoupleEvents, createCoupleEvent, deleteCoupleEvent, getCoupleEventById, markCoupleEventNotified, getPairById } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
@@ -17,7 +17,7 @@ const dispatchEventSchema = z.object({
   event_id: z.string().uuid(),
 });
 
-export async function eventsRoutes(app: FastifyInstance) {
+export function eventsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {

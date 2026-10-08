@@ -1,11 +1,12 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import type {
+  GreetingType} from '../services/database';
 import {
   getPairByUser,
   createGreeting,
   getLatestGreetingForType,
-  getLatestGreetings,
-  GreetingType,
+  getLatestGreetings
 } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { dispatchGreetingPushes } from '../services/pushDispatcher';
@@ -14,7 +15,7 @@ const sendGreetingSchema = z.object({
   type: z.enum(['morning', 'night', 'luck', 'day', 'evening', 'care']),
 });
 
-export async function greetingsRoutes(app: FastifyInstance) {
+export function greetingsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
@@ -37,8 +38,8 @@ export async function greetingsRoutes(app: FastifyInstance) {
     const greeting = await createGreeting(pair.id, request.telegramUser!.id, type);
 
     // Notify the partner's companion apps right away (data-only push).
-    void dispatchGreetingPushes(pair.id, request.telegramUser!.id, greeting.type).catch((e) => {
-      app.log.error('Greeting push dispatch failed:', e);
+    void dispatchGreetingPushes(pair.id, request.telegramUser!.id, greeting.type).catch((e: unknown) => {
+      app.log.error('Greeting push dispatch failed: %s', e);
     });
 
     return { greeting, previous: previous?.id ?? null };

@@ -80,7 +80,7 @@ const CLASSIFICATION_SCHEMA = {
 } as const;
 
 const ASPECT_NAMES = ['Визуал/картинка', 'Сюжет', 'Актёрская игра', 'Музыка', 'Атмосфера', 'Юмор'] as const;
-const aspectKeys: (keyof MovieReviewInput & string)[] = ['visuals', 'plot', 'acting', 'music', 'atmosphere', 'humor'];
+const aspectKeys: (keyof MovieReviewInput)[] = ['visuals', 'plot', 'acting', 'music', 'atmosphere', 'humor'];
 
 const GEMINI_TIMEOUT_MS = 20_000;
 
@@ -903,7 +903,7 @@ export async function generateAiGameRounds(input: AiGameRoundsInput): Promise<Ai
   const cleaned = text.trim().replace(/^```json\s*/, '').replace(/```$/, '').trim();
   let parsed: unknown;
   try {
-    const parsedRaw = JSON.parse(cleaned);
+    const parsedRaw = JSON.parse(cleaned) as unknown;
     const result = aiRoundsSchema.safeParse(parsedRaw);
     if (!result.success) {
       console.warn(`[gemini] game rounds schema violation for ${input.gameId}: ${result.error.message}`);

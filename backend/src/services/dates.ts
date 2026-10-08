@@ -53,7 +53,7 @@ export async function getLatestDateSession(pairId: string): Promise<DateSessionR
 
   if (error) throw error;
   if (!data) return null;
-  return { ...data, votes: await getDateSessionVotes(data.id) } as DateSessionRow;
+  return { ...data, votes: await getDateSessionVotes(data.id as string) } as DateSessionRow;
 }
 
 export async function getRecentSessionPlaces(pairId: string, limit = 3): Promise<{ id: string }[]> {
@@ -109,7 +109,7 @@ export async function getDateSessionById(sessionId: string): Promise<DateSession
 
   if (error) throw error;
   if (!data) return null;
-  return { ...data, votes: await getDateSessionVotes(data.id) } as DateSessionRow;
+  return { ...data, votes: await getDateSessionVotes(data.id as string) } as DateSessionRow;
 }
 
 export async function getDateSessionVotes(sessionId: string): Promise<DateVote[]> {

@@ -1,4 +1,4 @@
-﻿import { FastifyInstance } from 'fastify';
+﻿import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { getPairByUser } from '../services/database';
@@ -29,7 +29,7 @@ async function withAnswers(session: GameSessionRow): Promise<GameSessionRow> {
   return session;
 }
 
-export async function gamesRoutes(app: FastifyInstance) {
+export function gamesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/active', { preHandler: requireTelegramAuth }, async (request, reply) => {

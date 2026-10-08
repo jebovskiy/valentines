@@ -1,10 +1,10 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId } from '../services/database';
 import { recordValentineActivity, rebuildPairStreak } from '../services/streak';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { userRateLimit } from '../middleware/rateLimit';
-import { config, isKnownAnimationType } from '../config';
+import { isKnownAnimationType } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
 import { dispatchDirectValentinePushes, dispatchStreakPushes } from '../services/pushDispatcher';
 import { uploadValentinePhoto } from '../utils/storage';
@@ -36,7 +36,7 @@ const sendValentineSchema = z.object({
   tz_offset_minutes: z.number().int().min(-840).max(840).optional(),
 });
 
-export async function valentinesRoutes(app: FastifyInstance) {
+export function valentinesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
@@ -115,8 +115,8 @@ export async function valentinesRoutes(app: FastifyInstance) {
       pair.max_streak = streak.max;
       if (streak.newRecord && streak.advanced) {
         // Celebrate a new milestone with a companion push.
-        void dispatchStreakPushes(pair.id, streak.max).catch((e) => {
-          app.log.error('Streak push failed:', e);
+        void dispatchStreakPushes(pair.id, streak.max).catch((e: unknown) => {
+          app.log.error('Streak push failed: %s', e);
         });
       }
     } catch (e) {
@@ -125,8 +125,8 @@ export async function valentinesRoutes(app: FastifyInstance) {
 
     // Notify the companion widget right away: pushes are dispatched inline
     // (independent of the DB trigger / push_jobs pipeline).
-    void dispatchDirectValentinePushes(valentine).catch((e) => {
-      app.log.error('Direct push dispatch failed:', e);
+    void dispatchDirectValentinePushes(valentine).catch((e: unknown) => {
+      app.log.error('Direct push dispatch failed: %s', e);
     });
 
     // Notify the recipient: partner by default, or the sender himself (recipient === 'self')
@@ -138,8 +138,8 @@ export async function valentinesRoutes(app: FastifyInstance) {
         ? (userId === pair.telegram_user_a ? pair.user_a_name : pair.user_b_name)
         : (pair.telegram_user_a === userId ? pair.user_a_name : pair.user_b_name);
       // Non-blocking: valentine is already saved
-      await sendNewValentineNotification(recipientId, valentine.id, senderName).catch((e) => {
-        app.log.error(`Telegram notification failed:`, e);
+      await sendNewValentineNotification(recipientId, valentine.id, senderName).catch((e: unknown) => {
+        app.log.error(`Telegram notification failed: %s`, e);
       });
     }
 

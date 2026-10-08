@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { getPairByUser } from '../services/database';
@@ -75,7 +75,7 @@ async function withVotes(session: DateSessionRow): Promise<DateSessionRow> {
   return session;
 }
 
-export async function datesRoutes(app: FastifyInstance) {
+export function datesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/active', { preHandler: requireTelegramAuth }, async (request, reply) => {

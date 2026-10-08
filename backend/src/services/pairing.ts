@@ -1,5 +1,5 @@
 import { createPairingToken, consumePairingToken, getPairByUser, createPair, registerDevice, getPartnerTelegramId, createInviteCode, consumeInviteCode, getPairingTokenByValue } from './database';
-import { validateTelegramInitData, TelegramInitData } from '../utils/telegram';
+import { validateTelegramInitData } from '../utils/telegram';
 
 export interface PairingInitResult {
   pairingUrl: string;
@@ -14,14 +14,9 @@ export async function initiatePairing(initData: string): Promise<PairingInitResu
   const userId = telegramData.user.id;
   const existingPair = await getPairByUser(userId);
 
-  let pairId: string;
-  if (existingPair) {
-    pairId = existingPair.id;
-  } else {
-    // For MVP, we'll create a pair when the second user joins
-    // This is a simplified approach - in reality you'd need a matching flow
-    throw new Error('No existing pair found. Pair creation requires both users.');
-  }
+  // For MVP, pairing only resumes a pair that already exists; creating one
+  // requires both users to have joined.
+  if (!existingPair) throw new Error('No existing pair found. Pair creation requires both users.');
 
   const tokenData = await createPairingToken(userId);
   const pairingUrl = `https://valentines-sigma-neon.vercel.app/c/${tokenData.token}`;

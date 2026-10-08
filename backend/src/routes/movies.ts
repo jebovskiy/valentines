@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   getPairByUser,
@@ -22,9 +22,11 @@ import {
   abandonMovieInsight,
   isUniqueViolation,
 } from '../services/database';
-import { searchPoiskkino, getPoiskkinoDetail, PoiskkinoDetail, PoiskkinoPart } from '../services/poiskkino';
+import type { PoiskkinoDetail} from '../services/poiskkino';
+import { searchPoiskkino, getPoiskkinoDetail } from '../services/poiskkino';
 import { mapConcurrent } from '../utils/concurrency';
-import { generateMovieInsights, classifyMovieAspects, MovieReviewInput } from '../services/gemini';
+import type { MovieReviewInput } from '../services/gemini';
+import { generateMovieInsights, classifyMovieAspects } from '../services/gemini';
 import { computeCompatibility, normalizeWeights, DEFAULT_ASPECT_WEIGHTS } from '../services/taste';
 import {
   getTasteProfile,
@@ -195,7 +197,7 @@ function backfillAspectScores(movies: { id: string; aspect_scores: unknown }[], 
  */
 const BATCH_DETAIL_CONCURRENCY = 4;
 
-export async function moviesRoutes(app: FastifyInstance) {
+export function moviesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {
@@ -388,8 +390,8 @@ export async function moviesRoutes(app: FastifyInstance) {
       requestAspectScores(movie.id, app);
 
       if (partnerId) {
-        void sendMovieAddedNotification(partnerId, movie, authorName).catch((e) =>
-          app.log.error('Movie added Telegram notification failed:', e),
+        void sendMovieAddedNotification(partnerId, movie, authorName).catch((e: unknown) =>
+          app.log.error('Movie added Telegram notification failed: %s', e),
         );
       }
       void dispatchMoviePushes(
@@ -401,7 +403,7 @@ export async function moviesRoutes(app: FastifyInstance) {
           message: `«${movie.year ? `${movie.title} (${movie.year})` : movie.title}»`,
           movie_title: movie.title,
         },
-      ).catch((e) => app.log.error('Movie added push failed:', e));
+      ).catch((e: unknown) => app.log.error('Movie added push failed: %s', e));
     }
 
     return reply.code(201).send({ added: addedMovies, duplicates });
@@ -435,7 +437,6 @@ export async function moviesRoutes(app: FastifyInstance) {
     if (!title) return reply.code(400).send({ error: 'Title is required' });
 
     const genreStr = detail?.genres?.length ? detail.genres.join(', ') : null;
-    const countryStr = detail?.countries?.length ? detail.countries.join(', ') : null;
     const plot = detail?.description || detail?.short_description || null;
     const posterUrl = detail?.poster_url || null;
     const runtimeStr = detail?.movie_length ? `${detail.movie_length} мин` : null;
@@ -474,8 +475,8 @@ export async function moviesRoutes(app: FastifyInstance) {
       pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name : pair.user_b_name;
     const partnerId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
     if (partnerId) {
-      void sendMovieAddedNotification(partnerId, movie, authorName).catch((e) =>
-        app.log.error('Movie added Telegram notification failed:', e),
+      void sendMovieAddedNotification(partnerId, movie, authorName).catch((e: unknown) =>
+        app.log.error('Movie added Telegram notification failed: %s', e),
       );
     }
     void dispatchMoviePushes(
@@ -487,7 +488,7 @@ export async function moviesRoutes(app: FastifyInstance) {
         message: `«${movie.year ? `${movie.title} (${movie.year})` : movie.title}»`,
         movie_title: movie.title,
       },
-    ).catch((e) => app.log.error('Movie added push failed:', e));
+    ).catch((e: unknown) => app.log.error('Movie added push failed: %s', e));
 
     return reply.code(201).send({ movie });
   });
@@ -538,8 +539,8 @@ export async function moviesRoutes(app: FastifyInstance) {
     if (partnerId && !partnerReviewed) {
       const authorName =
         pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name : pair.user_b_name;
-      void sendMovieWatchedNotification(partnerId, movie, authorName).catch((e) =>
-        app.log.error('Movie watched Telegram notification failed:', e),
+      void sendMovieWatchedNotification(partnerId, movie, authorName).catch((e: unknown) =>
+        app.log.error('Movie watched Telegram notification failed: %s', e),
       );
     }
     void dispatchMoviePushes(
@@ -551,7 +552,7 @@ export async function moviesRoutes(app: FastifyInstance) {
         message: `«${movie.title}» − отметил(а), что посмотрел(а)`,
         movie_title: movie.title,
       },
-    ).catch((e) => app.log.error('Movie watched push failed:', e));
+    ).catch((e: unknown) => app.log.error('Movie watched push failed: %s', e));
 
     return { movie, watches: watches.map((w) => w.author_telegram_id), bothReviewed: partnerId !== null && partnerReviewed };
   });
@@ -587,8 +588,8 @@ export async function moviesRoutes(app: FastifyInstance) {
     if (partnerId && !partnerReviewed) {
       const partnerName =
         pair.telegram_user_a === partnerId ? pair.user_a_name : pair.user_b_name;
-      void sendMovieReviewRequestNotification(partnerId, movie, partnerName).catch((e) =>
-        app.log.error('Review request Telegram notification failed:', e),
+      void sendMovieReviewRequestNotification(partnerId, movie, partnerName).catch((e: unknown) =>
+        app.log.error('Review request Telegram notification failed: %s', e),
       );
       void dispatchMoviePushes(
         pair.id,
@@ -599,7 +600,7 @@ export async function moviesRoutes(app: FastifyInstance) {
           message: `Партнёр оставил отзыв на «${movie.title}» — ваша очередь!`,
           movie_title: movie.title,
         },
-      ).catch((e) => app.log.error('Review request push failed:', e));
+      ).catch((e: unknown) => app.log.error('Review request push failed: %s', e));
     }
 
     if (bothReviewed) {
@@ -636,8 +637,8 @@ export async function moviesRoutes(app: FastifyInstance) {
             const authorSet = new Set(reviews.map((r) => r.author_telegram_id));
             for (const chatId of [pair.telegram_user_a, pair.telegram_user_b]) {
               if (authorSet.has(chatId)) {
-                void sendMovieInsightReadyNotification(chatId, movie, summary).catch((e) =>
-                  app.log.error('Insight Telegram notification failed:', e),
+                void sendMovieInsightReadyNotification(chatId, movie, summary).catch((e: unknown) =>
+                  app.log.error('Insight Telegram notification failed: %s', e),
                 );
               }
             }
@@ -646,7 +647,7 @@ export async function moviesRoutes(app: FastifyInstance) {
               title: 'Анализ фильма готов',
               message: `Общий отзыв по «${movie.title}» готов${summary ? `: ${summary}` : ''}`,
               movie_title: movie.title,
-            }).catch((e) => app.log.error('Insight push failed:', e));
+            }).catch((e: unknown) => app.log.error('Insight push failed: %s', e));
           } catch (error) {
             app.log.error(`Insight generation failed: ${(error as Error).message}`);
           } finally {
@@ -690,8 +691,8 @@ export async function moviesRoutes(app: FastifyInstance) {
       pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name : pair.user_b_name;
     const partnerId = await getPartnerTelegramId(pair.id, request.telegramUser!.id);
     if (partnerId) {
-      await sendMovieShareNotification(partnerId, movie, authorName).catch((e) =>
-        app.log.error('Movie share Telegram notification failed:', e),
+      await sendMovieShareNotification(partnerId, movie, authorName).catch((e: unknown) =>
+        app.log.error('Movie share Telegram notification failed: %s', e),
       );
     }
     void dispatchMoviePushes(
@@ -703,7 +704,7 @@ export async function moviesRoutes(app: FastifyInstance) {
         message: `Партнёр предлагает посмотреть «${movie.title}»`,
         movie_title: movie.title,
       },
-    ).catch((e) => app.log.error('Movie share push failed:', e));
+    ).catch((e: unknown) => app.log.error('Movie share push failed: %s', e));
     return { ok: true };
   });
 }

@@ -56,7 +56,7 @@ async function start() {
   await app.register(helmet);
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
 
-  app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+  app.get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
   await ensureStorageBucket();
 
@@ -71,7 +71,10 @@ async function start() {
   await app.register(eventsRoutes, { prefix: '/api/events' });
   await app.register(moviesRoutes, { prefix: '/api/movies' });
   await app.register(placesRoutes, { prefix: '/api/places' });
-  
+  // Public photo route (no Telegram auth) — <img src> can't send the
+  // Authorization header, so it lives in its own encapsulated context.
+  await app.register(placesPhotoRoutes, { prefix: '/api/places' });
+
   await app.register(datesRoutes, { prefix: '/api/dates' });
   await app.register(recapRoutes, { prefix: '/api/recap' });
   

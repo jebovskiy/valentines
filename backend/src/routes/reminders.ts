@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getReminders, createReminder, deleteReminder, getReminderById, markReminderSent, rescheduleRecurringReminder, getPairById } from '../services/database';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
@@ -28,7 +28,7 @@ function nextRecurrence(recurrence: string, from: Date): Date {
   return next;
 }
 
-export async function remindersRoutes(app: FastifyInstance) {
+export function remindersRoutes(app: FastifyInstance) {
   const privateRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
 
   app.get('/', privateRoutes, async (request, reply) => {

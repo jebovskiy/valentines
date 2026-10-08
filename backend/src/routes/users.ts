@@ -1,4 +1,4 @@
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getUserProfile, upsertUserProfile, updateUserDisplayName, updatePairUserName } from '../services/database';
 import { resolveAvatarSource, avatarProxyPath } from '../services/telegramAvatar';
@@ -18,13 +18,13 @@ const updateNameSchema = z.object({
 // simultaneous outbound sockets to Telegram.
 const avatarRateLimit = userRateLimit({ key: 'avatar', max: 60, timeWindowMs: 60_000 });
 
-export async function usersRoutes(app: FastifyInstance) {
+export function usersRoutes(app: FastifyInstance) {
   const protectedRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
 
   // Short-lived and cheap; the client caches it until shortly before expiry.
   const realtimeTokenRateLimit = userRateLimit({ key: 'realtime-token', max: 10, timeWindowMs: 60_000 });
 
-  app.get('/me', protectedRoutes, async (request, reply) => {
+  app.get('/me', protectedRoutes, async (request) => {
     const userId = request.telegramUser!.id;
 
     const pair = await getPairByUser(userId);
