@@ -22,10 +22,26 @@
 --
 -- APPLY:  psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f 027_streak_rpcs.sql
 -- VERIFY:
---   select last_active_date, current_streak, max_streak from public.pairs
---    where id = 'a4948be-c221-412b-adb6-9e7e02b74e3e';
---   select current_streak, max_streak, advanced, new_record
---     from public.register_valentine_activity('a4948be-c221-412b-adb6-9e7e02b74e3e'::uuid, 180);
+--   select proname, pg_get_function_identity_arguments(oid)
+--     from pg_proc
+--    where proname in ('register_valentine_activity', 'recompute_pair_streak');
+--   -- two rows, both: (p_pair_id uuid, p_tz_offset_minutes integer)
+--
+--   -- No hard-coded id to copy: take the pair with the most history and
+--   -- recompute it. -180 is UTC+3 under the minutes-west-of-UTC convention.
+--   -- This is the same self-heal PATCH /api/pairs/streak runs, so writing is
+--   -- safe -- it can only move a pair towards the values its history implies.
+--   select r.*
+--     from (select pair_id from public.valentines
+--            group by pair_id order by count(*) desc limit 1) best,
+--          lateral public.recompute_pair_streak(best.pair_id, -180) r;
+--
+--   -- and the three columns the read path uses, for the busiest pairs:
+--   select p.id, p.last_active_date, p.current_streak, p.max_streak,
+--          (select count(*) from public.valentines v where v.pair_id = p.id) as valentines
+--     from public.pairs p
+--    order by valentines desc
+--    limit 3;
 -- ROLLBACK:
 --   drop function if exists public.register_valentine_activity(uuid, integer);
 --   drop function if exists public.recompute_pair_streak(uuid, integer);

@@ -10,8 +10,9 @@
 --    where schemaname = 'public'
 --      and indexname in ('idx_movie_watches_movie', 'idx_couple_events_pending_date');
 --   select obj_description('public.valentines.sent_at'::regclass::oid);
---   select pg_get_functiondoc(p.oid) from pg_proc p
---    where p.proname in ('register_valentine_activity', 'claim_unnotified_events');
+--   select proname, pg_get_function_identity_arguments(oid)
+--     from pg_proc
+--    where proname in ('register_valentine_activity', 'claim_unnotified_events');
 -- ROLLBACK:
 --   drop index if exists public.idx_movie_watches_movie;
 --   drop index if exists public.idx_couple_events_pending_date;
