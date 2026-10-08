@@ -20,6 +20,8 @@ interface SkyStar {
   size: 0 | 1 | 2;
   x: number;
   y: number;
+  twinklePhase: number;
+  hueShift: number;
 }
 
 interface DustDot {
@@ -29,12 +31,27 @@ interface DustDot {
   delay: number;
 }
 
+interface Comet {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  delay: number;
+  duration: number;
+  width: number;
+}
+
 const ME_COLOR = '#F2C16B';
 const PARTNER_COLOR = '#F29BBD';
+const ME_GLOW = '#FFE08A';
+const PARTNER_GLOW = '#F7C5D6';
+const PHOTO_COLOR = '#E8EBFA';
+const PHOTO_GLOW = '#F5F5FF';
 const STAR_RADIUS = [3.2, 4.4, 5.6];
 const SKY_W = 300;
 const SKY_H = 330;
-const DUST_COUNT = 46;
+const DUST_COUNT = 54;
+const COMET_COUNT = 2;
 const LAYOUT_SEED = 7;
 const SERIES_DAYS = 7;
 const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
@@ -62,7 +79,7 @@ function starParts(iso: string): { day: string; dayKey: number; time: string } {
 }
 
 /** Deterministic layout: stars spread left→right, dust keeps the same seed as the mockup. */
-function buildSky(valentines: ValentineWithSender[]): { stars: SkyStar[]; dust: DustDot[] } {
+function buildSky(valentines: ValentineWithSender[]): { stars: SkyStar[]; dust: DustDot[]; comets: Comet[] } {
   const rnd = mulberry32(LAYOUT_SEED);
   const stars: SkyStar[] = [];
   const n = valentines.length;
@@ -88,6 +105,8 @@ function buildSky(valentines: ValentineWithSender[]): { stars: SkyStar[]; dust: 
       size,
       x,
       y,
+      twinklePhase: rnd() * Math.PI * 2,
+      hueShift: (rnd() - 0.5) * 12,
     });
   });
 
@@ -98,7 +117,17 @@ function buildSky(valentines: ValentineWithSender[]): { stars: SkyStar[]; dust: 
     delay: rnd() * 3,
   }));
 
-  return { stars, dust };
+  const comets: Comet[] = Array.from({ length: COMET_COUNT }, () => ({
+    startX: -40 + rnd() * 60,
+    startY: 60 + rnd() * 120,
+    endX: SKY_W + 40 - rnd() * 60,
+    endY: SKY_H - 60 - rnd() * 120,
+    delay: rnd() * 8,
+    duration: 6 + rnd() * 3,
+    width: 1.5 + rnd() * 1,
+  }));
+
+  return { stars, dust, comets };
 }
 
 function sparkPath(x: number, y: number, r: number): string {
@@ -154,7 +183,7 @@ export function SkyScreen() {
       ),
     [valentines],
   );
-  const { stars, dust } = useMemo(() => buildSky(sorted), [sorted]);
+  const { stars, dust, comets } = useMemo(() => buildSky(sorted), [sorted]);
 
   const uniqueDays = useMemo(() => {
     const days: number[] = [];
@@ -287,29 +316,52 @@ export function SkyScreen() {
               role="img"
               aria-label="Звёздное небо валентинок"
             >
-              <rect width={SKY_W} height={SKY_H} fill="#0F1530" />
-              {dust.map((d, i) =>
-                i % 3 === 0 ? (
+              <defs>
+                <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="2" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <rect width={SKY_W} height={SKY_H} fill="#0B0F24" />
+              {dust.map((d, i) => {
+                const isBright = i % 4 === 0;
+                const color = isBright ? '#B8C4F0' : '#7A86B8';
+                const opacity = isBright ? 0.9 : 0.25;
+                return (
                   <circle
                     key={`d${i}`}
-                    className="sky-twinkle"
+                    className={isBright ? 'sky-twinkle' : 'sky-twinkle-slow'}
                     cx={d.x.toFixed(1)}
                     cy={d.y.toFixed(1)}
                     r={d.r.toFixed(1)}
-                    fill="#AAB4E8"
+                    fill={color}
+                    opacity={opacity}
                     style={{ animationDelay: `${d.delay.toFixed(1)}s` }}
                   />
-                ) : (
-                  <circle
-                    key={`d${i}`}
-                    cx={d.x.toFixed(1)}
-                    cy={d.y.toFixed(1)}
-                    r={d.r.toFixed(1)}
-                    fill="#AAB4E8"
-                    opacity={0.3}
-                  />
-                ),
-              )}
+                );
+              })}
+              {comets.map((c, i) => (
+                <line
+                  key={`comet-${i}`}
+                  className="sky-comet"
+                  x1={c.startX.toFixed(1)}
+                  y1={c.startY.toFixed(1)}
+                  x2={c.endX.toFixed(1)}
+                  y2={c.endY.toFixed(1)}
+                  stroke="#E8EBFA"
+                  strokeWidth={c.width.toFixed(1)}
+                  strokeLinecap="round"
+                  opacity={0.7}
+                  style={{
+                    animationDelay: `${c.delay.toFixed(1)}s`,
+                    animationDuration: `${c.duration.toFixed(1)}s`,
+                    filter: 'drop-shadow(0 0 3px #E8EBFA)',
+                  }}
+                />
+              ))}
 
               {showSeries && seriesPoints && (
                 <polyline
@@ -324,39 +376,63 @@ export function SkyScreen() {
 
               {stars.map((s) => {
                 const color = s.who === 'm' ? ME_COLOR : PARTNER_COLOR;
+                const glow = s.who === 'm' ? ME_GLOW : PARTNER_GLOW;
+                const isPhoto = s.size === 2;
+                const photoColor = isPhoto ? PHOTO_COLOR : color;
+                const photoGlow = isPhoto ? PHOTO_GLOW : glow;
                 const r = STAR_RADIUS[s.size];
                 const unseen = !s.valentine.is_own && !s.valentine.seen_at;
                 const inFilter = filter === 'all' || s.who === filter;
                 const isSelected = selected?.id === s.id;
                 return (
-                  <g key={s.id} opacity={inFilter ? 1 : 0.18}>
+                  <g key={s.id} className="sky-star" opacity={inFilter ? 1 : 0.18} style={{ animationDelay: `${(s.twinklePhase / (Math.PI * 2) * 6).toFixed(2)}s` }}>
+                    <defs>
+                      <radialGradient id={`grad-${s.id}`} cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stopColor={isPhoto ? PHOTO_COLOR : glow} stopOpacity={0.9} />
+                        <stop offset="70%" stopColor={photoColor} stopOpacity={0.7} />
+                        <stop offset="100%" stopColor={photoColor} stopOpacity={0} />
+                      </radialGradient>
+                      <radialGradient id={`glow-${s.id}`} cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stopColor={photoGlow} stopOpacity={0.6} />
+                        <stop offset="100%" stopColor={photoColor} stopOpacity={0} />
+                      </radialGradient>
+                    </defs>
                     {unseen && (
                       <circle
                         className="sky-pulse"
                         cx={s.x.toFixed(1)}
                         cy={s.y.toFixed(1)}
-                        r={r + 3}
+                        r={r + 4}
                         fill="none"
                         stroke={color}
-                        strokeWidth={1}
+                        strokeWidth={1.5}
                       />
                     )}
-                    {s.size === 2 ? (
+                    <circle
+                      className="sky-twinkle"
+                      cx={s.x.toFixed(1)}
+                      cy={s.y.toFixed(1)}
+                      r={(r * 2.2).toFixed(1)}
+                      fill={`url(#glow-${s.id})`}
+                      style={{ animationDelay: `${(s.twinklePhase / (Math.PI * 2) * 3).toFixed(2)}s` }}
+                    />
+                    {isPhoto ? (
                       <>
-                        <path d={sparkPath(s.x, s.y, r * 2)} fill={color} />
-                        <circle cx={s.x.toFixed(1)} cy={s.y.toFixed(1)} r={(r * 0.6).toFixed(1)} fill="#FFF6E0" />
+                        <path d={sparkPath(s.x, s.y, r * 2.4)} fill={photoColor} opacity={0.9} />
+                        <circle cx={s.x.toFixed(1)} cy={s.y.toFixed(1)} r={(r * 1.3).toFixed(1)} fill={`url(#grad-${s.id})`} />
+                        <circle cx={s.x.toFixed(1)} cy={s.y.toFixed(1)} r={(r * 0.5).toFixed(1)} fill="#FFF8E8" />
                       </>
                     ) : (
-                      <circle cx={s.x.toFixed(1)} cy={s.y.toFixed(1)} r={r} fill={color} />
+                      <circle cx={s.x.toFixed(1)} cy={s.y.toFixed(1)} r={r} fill={`url(#grad-${s.id})`} />
                     )}
                     {isSelected && (
                       <circle
                         cx={s.x.toFixed(1)}
                         cy={s.y.toFixed(1)}
-                        r={r + 8}
+                        r={r + 9}
                         fill="none"
                         stroke="#E8EBFA"
-                        strokeWidth={1}
+                        strokeWidth={1.5}
                       />
                     )}
                   </g>
@@ -429,10 +505,10 @@ export function SkyScreen() {
                 <div
                   style={{
                     ...styles.cardText,
-                    color: selected.valentine.message ? '#E8EBFA' : '#8E97C4',
+                    color: selected.valentine.message ? '#E8EBFA' : selected.valentine.photo_url ? '#C9D0F0' : '#8E97C4',
                   }}
                 >
-                  {selected.valentine.message || 'Без текста'}
+                  {selected.valentine.message || (selected.valentine.photo_url ? 'изображение' : 'Без текста')}
                 </div>
                 <div style={styles.cardFooter}>
                   <span style={styles.cardHint}>

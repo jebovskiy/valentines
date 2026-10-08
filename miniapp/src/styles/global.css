@@ -227,22 +227,49 @@ textarea:focus-visible {
 
 /* Экран «Наше небо»: мерцание фоновых звёзд и пульс непрочитанных. */
 @keyframes starTwinkle {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 0.9; }
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.15); }
+}
+
+@keyframes starTwinkleSlow {
+  0%, 100% { opacity: 0.15; transform: scale(0.9); }
+  50% { opacity: 0.7; transform: scale(1.1); }
 }
 
 @keyframes starPulse {
   from { transform: scale(0.6); opacity: 0.9; }
-  to { transform: scale(2); opacity: 0; }
+  to { transform: scale(2.4); opacity: 0; }
 }
 
-.sky-twinkle { animation: starTwinkle 3.2s ease-in-out infinite; }
+@keyframes comet {
+  0% { opacity: 0; transform: translateX(-100px) translateY(100px) rotate(-45deg) scale(0.3); }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(400px) translateY(-400px) rotate(-45deg) scale(0.3); }
+}
+
+@keyframes starFloat {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  25% { transform: translateY(-2px) translateX(1px); }
+  50% { transform: translateY(0) translateX(-1px); }
+  75% { transform: translateY(2px) translateX(0); }
+}
+
+.sky-twinkle { animation: starTwinkle 2.8s ease-in-out infinite; }
+.sky-twinkle-slow { animation: starTwinkleSlow 4.2s ease-in-out infinite; }
 
 .sky-pulse {
-  animation: starPulse 2s ease-out infinite;
+  animation: starPulse 1.8s ease-out infinite;
   transform-box: fill-box;
   transform-origin: center;
 }
+
+.sky-comet {
+  animation: comet 8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.sky-star { animation: starFloat 6s ease-in-out infinite; }
 
 .sky-hit { cursor: pointer; outline: none; }
 
