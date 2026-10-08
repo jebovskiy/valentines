@@ -9,7 +9,18 @@
 --   select indexname from pg_indexes
 --    where schemaname = 'public'
 --      and indexname in ('idx_movie_watches_movie', 'idx_couple_events_pending_date');
---   select obj_description('public.valentines.sent_at'::regclass::oid);
+--   -- column comments: obj_description() only reads relation (table) comments,
+--   -- so a column has to go through col_description(rel, attnum):
+--   select n.nspname || '.' || c.relname || '.' || a.attname as col,
+--          col_description(c.oid, a.attnum) as comment
+--     from pg_attribute a
+--     join pg_class c     on c.oid = a.attrelid
+--     join pg_namespace n on n.oid = c.relnamespace
+--    where n.nspname = 'public'
+--      and not a.attisdropped
+--      and (c.relname, a.attname) in (('valentines', 'sent_at'),
+--                                     ('pairs', 'last_active_date'),
+--                                     ('couple_events', 'event_date'));
 --   select proname, pg_get_function_identity_arguments(oid)
 --     from pg_proc
 --    where proname in ('register_valentine_activity', 'claim_unnotified_events');
@@ -66,6 +77,13 @@ COMMENT ON FUNCTION public.register_valentine_activity(uuid, integer) IS
 -- select indexname from pg_indexes
 --  where schemaname = 'public'
 --    and indexname in ('idx_movie_watches_movie', 'idx_couple_events_pending_date');
--- select obj_description('public.valentines.sent_at'::regclass::oid);
--- select obj_description('public.pairs.last_active_date'::regclass::oid);
--- select obj_description('public.couple_events.event_date'::regclass::oid);
+-- select n.nspname || '.' || c.relname || '.' || a.attname as col,
+--        col_description(c.oid, a.attnum) as comment
+--   from pg_attribute a
+--   join pg_class c     on c.oid = a.attrelid
+--   join pg_namespace n on n.oid = c.relnamespace
+--  where n.nspname = 'public'
+--    and not a.attisdropped
+--    and (c.relname, a.attname) in (('valentines', 'sent_at'),
+--                                   ('pairs', 'last_active_date'),
+--                                   ('couple_events', 'event_date'));
