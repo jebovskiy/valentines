@@ -16,9 +16,15 @@
 -- VERIFY:
 --   select movie_id, status, claimed_at, now() - claimed_at as age
 --     from public.movie_insights where status = 'generating' order by claimed_at;
---   -- force one to be stale and watch the next GET reclaim it:
---   update public.movie_insights set claimed_at = now() - interval '1 hour'
---    where movie_id = '<some-movie-uuid>';
+--   -- force the oldest outstanding claim to go stale and watch the next GET
+--   -- take it over (no id to look up: pick it from the data):
+--   update public.movie_insights m
+--      set claimed_at = now() - interval '1 hour'
+--     where m.movie_id = (select i.movie_id
+--                           from public.movie_insights i
+--                          where i.status = 'generating'
+--                          order by i.claimed_at nulls first
+--                          limit 1);
 -- ROLLBACK:
 --   drop function if exists public.claim_movie_insight(uuid, interval);
 --   drop function if exists public.finish_movie_insight(uuid, jsonb);
@@ -55,9 +61,9 @@ AS $$
           created_at = now()
       WHERE m.status = 'generating'
         AND (m.claimed_at IS NULL OR m.claimed_at < now() - p_stale_after)
-    RETURNING 1 AS won
+    RETURNING 1
   )
-  SELECT coalesce(bool_or(won), false) FROM attempt;
+  SELECT EXISTS (SELECT 1 FROM attempt);
 $$;
 
 -- Only the row that still holds the claim can finish it: a late worker whose
