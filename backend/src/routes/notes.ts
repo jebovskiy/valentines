@@ -18,7 +18,7 @@ const updateNoteSchema = z.object({
   is_pinned: z.boolean().optional(),
 });
 
-export function notesRoutes(app: FastifyInstance) {
+export async function notesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {

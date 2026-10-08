@@ -29,7 +29,7 @@ async function withAnswers(session: GameSessionRow): Promise<GameSessionRow> {
   return session;
 }
 
-export function gamesRoutes(app: FastifyInstance) {
+export async function gamesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/active', { preHandler: requireTelegramAuth }, async (request, reply) => {

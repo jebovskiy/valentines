@@ -17,7 +17,7 @@ const dispatchEventSchema = z.object({
   event_id: z.string().uuid(),
 });
 
-export function eventsRoutes(app: FastifyInstance) {
+export async function eventsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {

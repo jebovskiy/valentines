@@ -25,7 +25,7 @@ const recapQuerySchema = z.object({
   tz_offset_minutes: z.coerce.number().int().min(-840).max(840).optional(),
 });
 
-export function recapRoutes(app: FastifyInstance) {
+export async function recapRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get(

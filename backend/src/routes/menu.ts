@@ -91,7 +91,7 @@ const replaceSchema = z.object({
     .max(21),
 });
 
-export function menuRoutes(app: FastifyInstance) {
+export async function menuRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   const providersOptions = (existingStock?: GenerateMenuAiOptions['existingStock']): GenerateMenuAiOptions => ({

@@ -9,7 +9,7 @@ const pushDispatchSchema = z.object({
   channel: z.enum(['visible', 'data']),
 });
 
-export function pushRoutes(app: FastifyInstance) {
+export async function pushRoutes(app: FastifyInstance) {
   app.addHook('preHandler', verifyWebhookSignature);
 
   app.post('/dispatch', async (request) => {

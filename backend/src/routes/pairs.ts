@@ -35,7 +35,7 @@ const completePairingSchema = z.object({
   push_token: z.string().min(1),
 });
 
-export function pairsRoutes(app: FastifyInstance) {
+export async function pairsRoutes(app: FastifyInstance) {
   const privateRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
 
   app.get('/me', privateRoutes, async (request, reply) => {

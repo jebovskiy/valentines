@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { config } from '../config';
 
-export function integrationsRoutes(app: FastifyInstance) {
+export async function integrationsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, () => {

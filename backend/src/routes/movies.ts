@@ -197,7 +197,7 @@ function backfillAspectScores(movies: { id: string; aspect_scores: unknown }[], 
  */
 const BATCH_DETAIL_CONCURRENCY = 4;
 
-export function moviesRoutes(app: FastifyInstance) {
+export async function moviesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {

@@ -14,7 +14,7 @@ const searchSchema = z.object({
   count: z.number().int().min(1).max(20).optional(),
 });
 
-export function placesRoutes(app: FastifyInstance) {
+export async function placesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.post('/search', { preHandler: requireTelegramAuth }, async (request, reply) => {
@@ -49,7 +49,7 @@ export function placesRoutes(app: FastifyInstance) {
 // Public route (no Telegram auth): <img src> can't send the Authorization
 // header, so place photos are served like avatars and protected by the
 // global rate limiter + the in-memory cache in fetchPlacePhoto.
-export function placesPhotoRoutes(app: FastifyInstance) {
+export async function placesPhotoRoutes(app: FastifyInstance) {
   app.get('/photo', async (request, reply) => {
     const { name } = request.query as { name?: string };
     if (!name || !name.startsWith('places/')) {

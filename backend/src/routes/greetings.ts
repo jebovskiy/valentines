@@ -15,7 +15,7 @@ const sendGreetingSchema = z.object({
   type: z.enum(['morning', 'night', 'luck', 'day', 'evening', 'care']),
 });
 
-export function greetingsRoutes(app: FastifyInstance) {
+export async function greetingsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {

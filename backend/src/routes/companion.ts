@@ -94,7 +94,7 @@ const latestValentineSchema = z.object({
   device_id: z.string().uuid(),
 });
 
-export function companionRoutes(app: FastifyInstance) {
+export async function companionRoutes(app: FastifyInstance) {
   app.post('/push-token', async (request, reply) => {
     const body = pushTokenSchema.parse(request.body);
     const device = await getDeviceById(body.device_id);

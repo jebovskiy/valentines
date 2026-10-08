@@ -36,7 +36,7 @@ const sendValentineSchema = z.object({
   tz_offset_minutes: z.number().int().min(-840).max(840).optional(),
 });
 
-export function valentinesRoutes(app: FastifyInstance) {
+export async function valentinesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/', { preHandler: requireTelegramAuth }, async (request, reply) => {

@@ -18,7 +18,7 @@ const updateNameSchema = z.object({
 // simultaneous outbound sockets to Telegram.
 const avatarRateLimit = userRateLimit({ key: 'avatar', max: 60, timeWindowMs: 60_000 });
 
-export function usersRoutes(app: FastifyInstance) {
+export async function usersRoutes(app: FastifyInstance) {
   const protectedRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
 
   // Short-lived and cheap; the client caches it until shortly before expiry.

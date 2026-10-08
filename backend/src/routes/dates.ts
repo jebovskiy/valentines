@@ -75,7 +75,7 @@ async function withVotes(session: DateSessionRow): Promise<DateSessionRow> {
   return session;
 }
 
-export function datesRoutes(app: FastifyInstance) {
+export async function datesRoutes(app: FastifyInstance) {
   app.addHook('preHandler', telegramAuthMiddleware);
 
   app.get('/active', { preHandler: requireTelegramAuth }, async (request, reply) => {

@@ -28,7 +28,7 @@ function nextRecurrence(recurrence: string, from: Date): Date {
   return next;
 }
 
-export function remindersRoutes(app: FastifyInstance) {
+export async function remindersRoutes(app: FastifyInstance) {
   const privateRoutes = { preHandler: [telegramAuthMiddleware, requireTelegramAuth] };
 
   app.get('/', privateRoutes, async (request, reply) => {
