@@ -16,6 +16,7 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { CompanionRedirect } from './screens/CompanionRedirect';
 import { DeepValentineScreen } from './screens/DeepValentineScreen';
 import { DatePlacesScreen } from './screens/DatePlacesScreen';
+import { SkyScreen } from './screens/SkyScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { RecapScreen } from './screens/RecapScreen';
 import { GamesScreen } from './screens/GamesScreen';
@@ -96,6 +97,7 @@ function App() {
           <Route path="movies" element={<MoviesScreen />} />
           <Route path="movies/taste" element={<TasteProfileScreen />} />
           <Route path="date" element={<DatePlacesScreen />} />
+          <Route path="sky" element={<SkyScreen />} />
           <Route path="games" element={<GamesScreen />} />
           <Route path="games/play" element={<GamePlayScreen />} />
           <Route path="menu" element={<MenuRootScreen />} />

@@ -224,3 +224,29 @@ textarea:focus-visible {
 @keyframes flyLeft {
   to { transform: translateX(-140%) rotate(-12deg); opacity: 0; }
 }
+
+/* Экран «Наше небо»: мерцание фоновых звёзд и пульс непрочитанных. */
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.9; }
+}
+
+@keyframes starPulse {
+  from { transform: scale(0.6); opacity: 0.9; }
+  to { transform: scale(2); opacity: 0; }
+}
+
+.sky-twinkle { animation: starTwinkle 3.2s ease-in-out infinite; }
+
+.sky-pulse {
+  animation: starPulse 2s ease-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.sky-hit { cursor: pointer; outline: none; }
+
+.sky-hit:focus-visible {
+  stroke: #e8ebfa;
+  stroke-width: 1;
+}
