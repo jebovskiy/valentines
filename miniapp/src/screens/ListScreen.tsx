@@ -319,9 +319,48 @@ export function ListScreen() {
               hapticFeedback('impact', 'light');
               navigate('/sky');
             }}
+            onContextMenu={(e) => e.preventDefault()}
+            onTouchStart={() => {
+              const t = window.setTimeout(() => {
+                hapticFeedback('impact', 'heavy');
+                navigate('/sky');
+              }, 600);
+              (window as any).__skyLp = t;
+            }}
+            onTouchEnd={() => {
+              if ((window as any).__skyLp) {
+                clearTimeout((window as any).__skyLp);
+                delete (window as any).__skyLp;
+              }
+            }}
+            onTouchMove={() => {
+              if ((window as any).__skyLp) {
+                clearTimeout((window as any).__skyLp);
+                delete (window as any).__skyLp;
+              }
+            }}
+            onMouseDown={() => {
+              const t = window.setTimeout(() => {
+                hapticFeedback('impact', 'heavy');
+                navigate('/sky');
+              }, 600);
+              (window as any).__skyLp = t;
+            }}
+            onMouseUp={() => {
+              if ((window as any).__skyLp) {
+                clearTimeout((window as any).__skyLp);
+                delete (window as any).__skyLp;
+              }
+            }}
+            onMouseLeave={() => {
+              if ((window as any).__skyLp) {
+                clearTimeout((window as any).__skyLp);
+                delete (window as any).__skyLp;
+              }
+            }}
             style={styles.skyEntryBtn}
             aria-label="Наше небо"
-            title="Наше небо"
+            title="Долгое нажатие — immersive небо"
           >
             ✦
           </button>
@@ -759,7 +798,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   feedHeaderRow: {
     display: 'grid',
-    gridTemplateColumns: '1fr auto 1fr',
+    gridTemplateColumns: 'auto 1fr auto',
     alignItems: 'center',
     width: '100%',
   },
@@ -769,16 +808,17 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     background: '#0F1530',
     color: '#F2C16B',
-    border: '1px solid var(--hairline)',
+    border: '1px solid rgba(255,255,255,0.15)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '18px',
+    fontSize: '20px',
     lineHeight: 1,
     padding: 0,
     cursor: 'pointer',
     justifySelf: 'start',
     WebkitAppearance: 'none' as const,
+    boxShadow: '0 6px 24px -8px rgba(242, 193, 107, 0.9)',
   },
   widgetBtn: {
     width: '40px',

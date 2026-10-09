@@ -208,10 +208,50 @@ export function SkyScreen() {
   );
   const selected = visible.find((s) => s.id === selectedId) ?? visible[visible.length - 1] ?? null;
 
+  const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [lastTouchDist, setLastTouchDist] = useState(0);
+
   const openValentine = (v: ValentineWithSender) => {
     hapticFeedback('impact', 'light');
     if (!v.seen_at) void markSeen(v.id);
     navigate(`/valentine/${v.id}`);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      setLastTouchDist(Math.hypot(dx, dy));
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      if (lastTouchDist > 0) {
+        const ns = Math.max(0.6, Math.min(1.8, scale * (dist / lastTouchDist)));
+        setScale(ns);
+      }
+      setLastTouchDist(dist);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setLastTouchDist(0);
+    if (scale < 0.8) {
+      setScale(1);
+      setPan({ x: 0, y: 0 });
+    }
+  };
+
+  const handleDoubleClick = () => {
+    hapticFeedback('selection');
+    setScale(1);
+    setPan({ x: 0, y: 0 });
   };
 
   if (isLoading && stars.length === 0) {
@@ -241,10 +281,21 @@ export function SkyScreen() {
   const seriesLen = Math.min(uniqueDays.length, SERIES_DAYS);
 
   return (
-    <div style={styles.container}>
+    <div style={styles.containerImmersive}>
       <div style={styles.topBar}>
         <BackButton />
         <span style={styles.title}>Наше небо</span>
+        <button
+          onClick={() => {
+            hapticFeedback('selection');
+            setScale(1);
+            setPan({ x: 0, y: 0 });
+          }}
+          style={styles.resetBtn}
+          aria-label="Сбросить масштаб"
+        >
+          ⟳
+        </button>
       </div>
 
       {stars.length > 0 && (
@@ -253,7 +304,7 @@ export function SkyScreen() {
         </div>
       )}
 
-      <div style={styles.panel}>
+      <div style={styles.panelImmersive}>
         {stars.length === 0 ? (
           <div style={styles.emptyBox}>
             <div style={styles.emptyTitle}>Небо пока пустое</div>
@@ -312,7 +363,17 @@ export function SkyScreen() {
             <svg
               viewBox={`0 0 ${SKY_W} ${SKY_H}`}
               width="100%"
-              style={{ display: 'block' }}
+              height="100%"
+              style={{
+                display: 'block',
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+                transformOrigin: 'center center',
+                willChange: 'transform',
+              }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onDoubleClick={handleDoubleClick}
               role="img"
               aria-label="Звёздное небо валентинок"
             >
@@ -546,6 +607,18 @@ const styles: Record<string, CSSProperties> = {
     minHeight: '100%',
     boxSizing: 'border-box',
   },
+  containerImmersive: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    padding: '10px 12px 12px',
+    height: '100dvh',
+    maxHeight: '100dvh',
+    width: '100%',
+    margin: '0 auto',
+    boxSizing: 'border-box',
+    background: '#070A1C',
+  },
   topBar: {
     display: 'flex',
     alignItems: 'center',
@@ -570,12 +643,39 @@ const styles: Record<string, CSSProperties> = {
     textAlign: 'center',
     marginTop: -4,
   },
+  resetBtn: {
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    width: 30,
+    height: 30,
+    borderRadius: '50%',
+    background: 'rgba(232,235,250,0.1)',
+    color: '#E8EBFA',
+    border: '1px solid rgba(232,235,250,0.2)',
+    fontSize: 16,
+    lineHeight: 1,
+    padding: 0,
+    cursor: 'pointer',
+    zIndex: 2,
+    WebkitAppearance: 'none' as const,
+  },
   panel: {
     background: '#0F1530',
     border: '1px solid #1B1F33',
     borderRadius: 24,
     padding: '12px 0',
     overflow: 'hidden',
+  },
+  panelImmersive: {
+    background: '#070A1C',
+    border: '1px solid #151937',
+    borderRadius: 18,
+    padding: 0,
+    overflow: 'hidden',
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
   },
   chips: {
     display: 'flex',
