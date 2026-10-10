@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuSlotReplacement, MenuSlotVariant, MenuLeftover, MenuLeftoverSuggestion, MenuIngredientGroup, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId, MenuMember, MenuMealId, MealComponentId, MealComponents } from '../types';
+import type { Pair, Valentine, ValentineWithSender, TelegramUser, UserProfile, Greeting, GreetingType, Note, NoteCategory, Reminder, Recurrence, CoupleEvent, CoupleEventType, MovieListItem, MovieReview, PoiskkinoCandidate, PoiskkinoPart, TasteProfile, DateParams, DateSession, DateChoice, Integration, GameSession, GameId, GameMood, HotLevel, PairSettings, MenuStoreInfo, MenuAllergenInfo, MenuRequest, MenuResult, MenuHistoryEntry, MenuSlotReplacement, MenuSlotVariant, MenuLeftover, MenuLeftoverSuggestion, MenuIngredientGroup, MenuGenerationIssue, MenuStoreId, MenuAllergenId, MenuCookwareId, MenuMember, MenuMealId, MealComponentId, MealComponents } from '../types';
 import { api } from '../api/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { subscribeToValentines, unsubscribeFromValentines, subscribeToDateSessions, unsubscribeFromDateSessions, subscribeToGameSessions, unsubscribeFromGameSessions } from '../api/supabase';
@@ -91,6 +91,7 @@ interface ValentinesState {
   isLoading: boolean;
   error: string | null;
   realtimeChannel: RealtimeChannel | null;
+  pairSettings: PairSettings | null;
 
   fetchPair: () => Promise<void>;
   gameSession: GameSession | null;
@@ -111,6 +112,10 @@ interface ValentinesState {
   fetchProfile: () => Promise<void>;
   updateMyName: (name: string) => Promise<boolean>;
   updatePartnerName: (name: string) => void;
+  fetchPairSettings: () => Promise<void>;
+  updateMyHotLevel: (level: HotLevel) => Promise<void>;
+  updateMyHot18Confirmed: (confirmed: boolean) => Promise<void>;
+  setHot18Enabled: (enabled: boolean) => Promise<void>;
   refreshPairingStatus: () => Promise<void>;
   setupRealtime: (pairId: string) => void;
   cleanupRealtime: () => void;
@@ -329,6 +334,7 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
   gameSessionLoading: false,
   gameRealtimeChannel: null,
   integrations: [],
+  pairSettings: null,
 
   fetchPair: async () => {
     set({ isLoading: true, error: null });
@@ -412,6 +418,40 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     const pair = get().pair;
     if (!pair) return;
     setPartnerOverride(pair.id, name);
+  },
+
+  fetchPairSettings: async () => {
+    const { pair } = get();
+    if (!pair) return;
+    const result = await api.getPairSettings(pair.id);
+    if (result.error) return;
+    set({ pairSettings: result.data!.settings });
+  },
+
+  updateMyHotLevel: async (level: HotLevel) => {
+    const { pair, pairSettings, currentUser } = get();
+    if (!pair || !pairSettings || !currentUser) return;
+    const isA = pair.telegram_user_a === currentUser.id;
+    const result = await api.updateHotLevel(pair.id, isA ? 'a' : 'b', level);
+    if (result.error) return;
+    set({ pairSettings: { ...pairSettings, [isA ? 'hot_level_a' : 'hot_level_b']: level } });
+  },
+
+  updateMyHot18Confirmed: async (confirmed: boolean) => {
+    const { pair, pairSettings, currentUser } = get();
+    if (!pair || !pairSettings || !currentUser) return;
+    const isA = pair.telegram_user_a === currentUser.id;
+    const result = await api.updateHot18Confirmed(pair.id, isA ? 'a' : 'b', confirmed);
+    if (result.error) return;
+    set({ pairSettings: { ...pairSettings, [isA ? 'hot_18_confirmed_a' : 'hot_18_confirmed_b']: confirmed } });
+  },
+
+  setHot18Enabled: async (enabled: boolean) => {
+    const { pair, pairSettings } = get();
+    if (!pair || !pairSettings) return;
+    const result = await api.setHot18Enabled(pair.id, enabled);
+    if (result.error) return;
+    set({ pairSettings: { ...pairSettings, hot_18_enabled: enabled } });
   },
 
   refreshPairingStatus: async () => {

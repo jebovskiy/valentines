@@ -2,7 +2,7 @@ import { shallow } from 'zustand/shallow';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
-import { GameId, GameMood } from '../types';
+import { GameId, GameMood, HotLevel } from '../types';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
 
@@ -281,12 +281,132 @@ const styles: Record<string, React.CSSProperties> = {
   loadingEmoji: { fontSize: 56, marginBottom: 16 },
   loadingTitle: { fontSize: 18, fontWeight: 700, color: '#E8EBFA', marginBottom: 8 },
   loadingSub: { fontSize: 13, color: '#8E97C4', lineHeight: '19px' },
+
+  settingsSection: {
+    marginTop: 18,
+    marginBottom: 16,
+  },
+  settingsHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px 14px',
+    background: 'var(--surface-card)',
+    borderRadius: 14,
+    border: '1px solid var(--hairline)',
+    cursor: 'pointer',
+  },
+  settingsTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: 'var(--ink)',
+  },
+  settingsChevron: {
+    fontSize: 14,
+    color: 'var(--ash)',
+    transition: 'transform 150ms ease',
+  },
+  settingsContent: {
+    marginTop: 10,
+    padding: '12px 14px',
+    background: 'var(--surface-card)',
+    borderRadius: 14,
+    border: '1px solid var(--hairline)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 14,
+  },
+  settingRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  settingInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  settingLabel: {
+    display: 'block',
+    fontSize: 14,
+    fontWeight: 700,
+    color: 'var(--ink)',
+    marginBottom: 2,
+  },
+  settingDesc: {
+    display: 'block',
+    fontSize: 12,
+    lineHeight: '16px',
+    color: 'var(--ash)',
+  },
+  toggleBtnOn: {
+    height: 32,
+    padding: '0 14px',
+    borderRadius: 999,
+    background: 'var(--primary)',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 700,
+    border: 'none',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  toggleBtnOff: {
+    height: 32,
+    padding: '0 14px',
+    borderRadius: 999,
+    background: 'var(--secondary-bg)',
+    color: 'var(--ink)',
+    fontSize: 12,
+    fontWeight: 700,
+    border: '1px solid var(--hairline)',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  heatLevelGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: 8,
+  },
+  heatLevelBtn: {
+    padding: '12px',
+    borderRadius: 12,
+    border: '1px solid var(--hairline)',
+    background: 'var(--secondary-bg)',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    textAlign: 'center',
+    transition: 'border-color 120ms ease, box-shadow 120ms ease',
+  },
+  heatLevelBtnSelected: {
+    borderColor: 'var(--primary)',
+    boxShadow: '0 0 0 1px var(--primary)',
+    background: 'var(--grad-heart)',
+  },
+  heatLevelEmoji: { fontSize: 20 },
+  heatLevelLabel: { fontSize: 12, fontWeight: 700, color: 'var(--ink)' },
+  heatLevelDesc: { fontSize: 10, color: 'var(--ash)', lineHeight: '12px' },
+  confirmBtn: {
+    height: 32,
+    padding: '0 16px',
+    borderRadius: 999,
+    background: 'var(--primary)',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 700,
+    border: 'none',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
 };
 
 export function GamesScreen() {
   const navigate = useNavigate();
-  const { pair, gameSession, createGameSession, fetchGameSession, setupGameRealtime, cleanupGameRealtime, } = useValentinesStore(
-    (s) => ({ pair: s.pair, gameSession: s.gameSession, createGameSession: s.createGameSession, fetchGameSession: s.fetchGameSession, setupGameRealtime: s.setupGameRealtime, cleanupGameRealtime: s.cleanupGameRealtime }),
+  const { pair, gameSession, createGameSession, fetchGameSession, setupGameRealtime, cleanupGameRealtime, fetchPairSettings, pairSettings, updateMyHot18Confirmed, updateMyHotLevel, setHot18Enabled, } = useValentinesStore(
+    (s) => ({ pair: s.pair, gameSession: s.gameSession, createGameSession: s.createGameSession, fetchGameSession: s.fetchGameSession, setupGameRealtime: s.setupGameRealtime, cleanupGameRealtime: s.cleanupGameRealtime, fetchPairSettings: s.fetchPairSettings, pairSettings: s.pairSettings, updateMyHot18Confirmed: s.updateMyHot18Confirmed, updateMyHotLevel: s.updateMyHotLevel, setHot18Enabled: s.setHot18Enabled }),
     shallow,
   );
 
@@ -295,7 +415,28 @@ export function GamesScreen() {
   const [starting, setStarting] = useState(false);
   const [screenError, setScreenError] = useState<string | null>(null);
   const [showHot18Modal, setShowHot18Modal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [loadingTip, setLoadingTip] = useState('');
+
+  // Determine if current user is partner A or B
+  const isPartnerA = pair?.telegram_user_a === useValentinesStore.getState().currentUser?.id;
+  const myHotLevel = isPartnerA ? pairSettings?.hot_level_a : pairSettings?.hot_level_b;
+  const myHot18Confirmed = isPartnerA ? pairSettings?.hot_18_confirmed_a : pairSettings?.hot_18_confirmed_b;
+  const hot18Enabled = pairSettings?.hot_18_enabled ?? true;
+
+  // Heat level labels for UI
+  const HOT_LEVEL_LABELS: Record<HotLevel, { label: string; emoji: string; desc: string }> = {
+    flirt: { label: 'Флирт', emoji: '💋', desc: 'Лёгкий флирт, поцелуи' },
+    warm: { label: 'Тёплое', emoji: '🔥', desc: 'Страсть, прикосновения' },
+    bold: { label: 'Смелое', emoji: '🌶️', desc: 'Откровенные вопросы и действия' },
+    wild: { label: 'Дикое', emoji: '🌪️', desc: 'Максимальная откровенность' },
+  };
+
+  useEffect(() => {
+    if (pair) {
+      fetchPairSettings();
+    }
+  }, [pair, fetchPairSettings]);
 
   const TIPS = [
     '💡 ИИ подбирает вопросы именно под ваше настроение',
@@ -332,11 +473,17 @@ export function GamesScreen() {
 
   const start = async () => {
     if (starting) return;
-    // Для TRUTH_DARE + погорячее — спрашиваем 18+
+    // Для TRUTH_DARE + погорячее — проверяем 18+
     if (selectedGame === 'TRUTH_DARE' && mood === 'погорячее') {
-      hapticFeedback('selection');
-      setShowHot18Modal(true);
-      return;
+      if (!hot18Enabled) {
+        setScreenError('Категория 18+ отключена в настройках');
+        return;
+      }
+      if (!myHot18Confirmed) {
+        hapticFeedback('selection');
+        setShowHot18Modal(true);
+        return;
+      }
     }
     hapticFeedback('impact', 'light');
     setStarting(true);
@@ -352,6 +499,12 @@ export function GamesScreen() {
 
   const startWithHot18 = async (is18: boolean) => {
     setShowHot18Modal(false);
+    if (is18) {
+      // User confirms they are 18+
+      await updateMyHot18Confirmed(true);
+      // Re-fetch to get updated settings
+      await fetchPairSettings();
+    }
     hapticFeedback('impact', 'light');
     setStarting(true);
     setScreenError(null);
@@ -445,6 +598,91 @@ export function GamesScreen() {
       <button onClick={start} disabled={starting} style={styles.primaryBtnBig}>
         {starting ? 'Собираем карточки…' : 'Начать игру'}
       </button>
+
+      {/* Settings section */}
+      <div style={styles.settingsSection}>
+        <div style={styles.settingsHeader} onClick={() => setShowSettings(!showSettings)}>
+          <span style={styles.settingsTitle}>⚙️ Настройки игр</span>
+          <span style={styles.settingsChevron}>{showSettings ? '▲' : '▼'}</span>
+        </div>
+        {showSettings && (
+          <div style={styles.settingsContent}>
+            {/* 18+ toggle */}
+            <div style={styles.settingRow}>
+              <div style={styles.settingInfo}>
+                <span style={styles.settingLabel}>🌶️ Категория 18+</span>
+                <span style={styles.settingDesc}>
+                  Откровенные вопросы и задания для взрослых. Оба партнёра должны подтвердить возраст.
+                </span>
+              </div>
+              <button
+                style={{ ...styles.toggleBtn, ...(hot18Enabled ? styles.toggleBtnOn : styles.toggleBtnOff) }}
+                onClick={() => setHot18Enabled(!hot18Enabled)}
+                disabled={starting}
+              >
+                {hot18Enabled ? 'Включено' : 'Выключено'}
+              </button>
+            </div>
+
+            {/* Heat level selector (only visible if 18+ enabled) */}
+            {hot18Enabled ? (
+              <div style={styles.settingRow}>
+                <div style={styles.settingInfo}>
+                  <span style={styles.settingLabel}>🌡️ Уровень жара</span>
+                  <span style={styles.settingDesc}>
+                    Ваш личный максимум. Партнёр не видит ваш выбор. Игра использует меньший из двух уровней.
+                  </span>
+                </div>
+                <div style={styles.heatLevelGrid}>
+                  {(['flirt', 'warm', 'bold', 'wild'] as HotLevel[]).map((level) => {
+                    const isSelected = myHotLevel === level;
+                    const info = HOT_LEVEL_LABELS[level];
+                    return (
+                      <button
+                        key={level}
+                        style={{
+                          ...styles.heatLevelBtn,
+                          ...(isSelected ? styles.heatLevelBtnSelected : {}),
+                        }}
+                        onClick={() => !starting && updateMyHotLevel(level)}
+                        disabled={starting}
+                      >
+                        <span style={styles.heatLevelEmoji}>{info.emoji}</span>
+                        <span style={styles.heatLevelLabel}>{info.label}</span>
+                        <span style={styles.heatLevelDesc}>{info.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {/* 18+ confirmation status */}
+            <div style={styles.settingRow}>
+              <div style={styles.settingInfo}>
+                <span style={styles.settingLabel}>✅ Подтверждение 18+</span>
+                <span style={styles.settingDesc}>
+                  {myHot18Confirmed
+                    ? 'Вы подтвердили возраст. Можно играть в 18+ режим.'
+                    : 'Для 18+ режима нужно подтвердить возраст при старте игры.'}
+                </span>
+              </div>
+              {hot18Enabled && !myHot18Confirmed && (
+                <button
+                  style={styles.confirmBtn}
+                  onClick={() => {
+                    hapticFeedback('selection');
+                    setShowHot18Modal(true);
+                  }}
+                  disabled={starting}
+                >
+                  Подтвердить 18+
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {showHot18Modal && (
         <div style={styles.modalOverlay} onClick={() => setShowHot18Modal(false)}>

@@ -402,6 +402,17 @@ export type PoiskkinoPart = Pick<PoiskkinoCandidate, 'kp_id' | 'name' | 'alterna
 
 export type GameId = 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS' | 'TRUTH_DARE';
 export type GameMood = 'нежное' | 'веселое' | 'погорячее' | 'погорячее 18+' | 'поговорить' | 'спокойное';
+export type HotLevel = 'flirt' | 'warm' | 'bold' | 'wild';
+
+export interface PairSettings {
+  pair_id: string;
+  hot_level_a: HotLevel;
+  hot_level_b: HotLevel;
+  hot_18_confirmed_a: boolean;
+  hot_18_confirmed_b: boolean;
+  hot_18_enabled: boolean;
+  updated_at: string;
+}
 
 export interface GameAnswer {
   session_id: string;

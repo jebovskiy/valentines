@@ -5,6 +5,7 @@ import { localDay, readStoredStreak, rebuildPairStreak } from '../services/strea
 import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite, getPairingStatus } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { userRateLimit } from '../middleware/rateLimit';
+import { supabase } from '../utils/supabase';
 
 const pairingCompleteRateLimit = userRateLimit({ key: 'pairing-complete', max: 10, timeWindowMs: 60_000 });
 const pairingInitiateRateLimit = userRateLimit({ key: 'pairing-initiate', max: 10, timeWindowMs: 60_000 });
@@ -163,5 +164,99 @@ export async function pairsRoutes(app: FastifyInstance) {
     } catch (error) {
       return reply.code(400).send({ error: (error as Error).message });
     }
+  });
+
+  // Pair settings
+  app.get('/:pairId/settings', privateRoutes, async (request, reply) => {
+    const params = z.object({ pairId: z.string().uuid() }).parse(request.params);
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair || pair.id !== params.pairId) {
+      return reply.code(403).send({ error: 'Not your pair' });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const { data, error } = await supabase
+      .from('pair_settings')
+      .select('*')
+      .eq('pair_id', params.pairId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      return reply.code(404).send({ error: 'Settings not found' });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return { settings: data };
+  });
+
+  const updateHotLevelSchema = z.object({
+    partner: z.enum(['a', 'b']),
+    level: z.enum(['flirt', 'warm', 'bold', 'wild']),
+  });
+
+  app.patch('/:pairId/settings/hot-level', privateRoutes, async (request, reply) => {
+    const params = z.object({ pairId: z.string().uuid() }).parse(request.params);
+    const body = updateHotLevelSchema.parse(request.body);
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair || pair.id !== params.pairId) {
+      return reply.code(403).send({ error: 'Not your pair' });
+    }
+    const isA = pair.telegram_user_a === request.telegramUser!.id;
+    const isB = pair.telegram_user_b === request.telegramUser!.id;
+    const targetPartner = body.partner;
+    if ((targetPartner === 'a' && !isA) || (targetPartner === 'b' && !isB)) {
+      return reply.code(403).send({ error: 'Can only update your own heat level' });
+    }
+    const column = targetPartner === 'a' ? 'hot_level_a' : 'hot_level_b';
+    const { error } = await supabase
+      .from('pair_settings')
+      .update({ [column]: body.level, updated_at: new Date().toISOString() })
+      .eq('pair_id', params.pairId);
+    if (error) throw error;
+    return { success: true };
+  });
+
+  const updateHot18ConfirmedSchema = z.object({
+    partner: z.enum(['a', 'b']),
+    confirmed: z.boolean(),
+  });
+
+  app.patch('/:pairId/settings/hot-18-confirmed', privateRoutes, async (request, reply) => {
+    const params = z.object({ pairId: z.string().uuid() }).parse(request.params);
+    const body = updateHot18ConfirmedSchema.parse(request.body);
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair || pair.id !== params.pairId) {
+      return reply.code(403).send({ error: 'Not your pair' });
+    }
+    const isA = pair.telegram_user_a === request.telegramUser!.id;
+    const isB = pair.telegram_user_b === request.telegramUser!.id;
+    const targetPartner = body.partner;
+    if ((targetPartner === 'a' && !isA) || (targetPartner === 'b' && !isB)) {
+      return reply.code(403).send({ error: 'Can only update your own 18+ confirmation' });
+    }
+    const column = targetPartner === 'a' ? 'hot_18_confirmed_a' : 'hot_18_confirmed_b';
+    const { error } = await supabase
+      .from('pair_settings')
+      .update({ [column]: body.confirmed, updated_at: new Date().toISOString() })
+      .eq('pair_id', params.pairId);
+    if (error) throw error;
+    return { success: true };
+  });
+
+  const setHot18EnabledSchema = z.object({
+    enabled: z.boolean(),
+  });
+
+  app.patch('/:pairId/settings/hot-18-enabled', privateRoutes, async (request, reply) => {
+    const params = z.object({ pairId: z.string().uuid() }).parse(request.params);
+    const body = setHot18EnabledSchema.parse(request.body);
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair || pair.id !== params.pairId) {
+      return reply.code(403).send({ error: 'Not your pair' });
+    }
+    const { error } = await supabase
+      .from('pair_settings')
+      .update({ hot_18_enabled: body.enabled, updated_at: new Date().toISOString() })
+      .eq('pair_id', params.pairId);
+    if (error) throw error;
+    return { success: true };
   });
 }

@@ -32,6 +32,8 @@ import type {
   GameId,
   GameMood,
   GameSession,
+  HotLevel,
+  PairSettings,
   MenuStoreInfo,
   MenuAllergenInfo,
   MenuRequest,
@@ -149,6 +151,25 @@ export const api = {
   getPairingStatus: (token: string) =>
     fetchWithAuth<{ status: 'pending' | 'completed' | 'expired' }>(`/api/pairs/pairing/${token}/status`),
   getStreak: () => fetchWithAuth<{ streak: { current: number; max: number } }>('/api/pairs/streak'),
+
+  // Pair settings
+  getPairSettings: (pairId: string) =>
+    fetchWithAuth<{ settings: PairSettings }>(`/api/pairs/${pairId}/settings`),
+  updateHotLevel: (pairId: string, partner: 'a' | 'b', level: HotLevel) =>
+    fetchWithAuth<{ success: boolean }>(`/api/pairs/${pairId}/settings/hot-level`, {
+      method: 'PATCH',
+      body: JSON.stringify({ partner, level }),
+    }),
+  updateHot18Confirmed: (pairId: string, partner: 'a' | 'b', confirmed: boolean) =>
+    fetchWithAuth<{ success: boolean }>(`/api/pairs/${pairId}/settings/hot-18-confirmed`, {
+      method: 'PATCH',
+      body: JSON.stringify({ partner, confirmed }),
+    }),
+  setHot18Enabled: (pairId: string, enabled: boolean) =>
+    fetchWithAuth<{ success: boolean }>(`/api/pairs/${pairId}/settings/hot-18-enabled`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled }),
+    }),
 
   // Recap («Итоги»)
   // Час активности считается в местном времени устройства, поэтому шлём смещение.
