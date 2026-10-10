@@ -807,7 +807,8 @@ export async function createGameSession(
   // Для 'погорячее 18+' вызываем ИИ с указанием уровня жара,
   // чтобы вопросы генерировались каждый раз по-новому.
   // Если ИИ выдаст контент выше выбранного уровня — мы его отсеем позже.
-  if (names && (mood !== HOT_MOOD || gameId === 'TRUTH_DARE')) {
+  // Для режима «hard» ИИ не вызываем — только статический контент.
+  if (names && (mood !== HOT_MOOD || gameId === 'TRUTH_DARE') && heat !== 'hard') {
     const ai = await generateAiGameRounds({ gameId, mood, names, heat: effectiveHeat });
     raw = ai ? ai.map((r) => ({ text: r.text, options: r.options, truth: r.truth, dare: r.dare, truthB: r.truth2, dareB: r.dare2, level: r.level })) : null;
     if (ai && gameId === 'TRUTH_DARE') {
