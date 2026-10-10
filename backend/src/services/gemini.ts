@@ -855,13 +855,9 @@ function sanitizeAiRounds(raw: unknown, gameId: AiGameRoundsInput['gameId'], con
   for (const item of roundsRaw) {
     if (!item || typeof item !== 'object') continue;
     const o = item as Record<string, unknown>;
-    if (typeof o.text !== 'string') continue;
-    const text = o.text.trim().replace(/\s+/g, ' ').slice(0, 300);
-    if (!text) continue;
-    let options: string[] = [];
-    if (gameId === 'SPEED_FACTS') {
-      options = ['✅ Да', '❌ Нет'];
-    } else if (gameId === 'TRUTH_DARE') {
+
+    // TRUTH_DARE: text is empty, content is in truth/dare/truth2/dare2 fields
+    if (gameId === 'TRUTH_DARE') {
       const truth = typeof o.truth === 'string' ? o.truth.trim().replace(/\s+/g, ' ').slice(0, 300) : '';
       const dare = typeof o.dare === 'string' ? o.dare.trim().replace(/\s+/g, ' ').slice(0, 300) : '';
       const truth2 = typeof o.truth2 === 'string' ? o.truth2.trim().replace(/\s+/g, ' ').slice(0, 300) : '';
@@ -876,6 +872,16 @@ function sanitizeAiRounds(raw: unknown, gameId: AiGameRoundsInput['gameId'], con
         dare2: dare2 || dare,
       });
       continue;
+    }
+
+    // For all other games, text field is required
+    if (typeof o.text !== 'string') continue;
+    const text = o.text.trim().replace(/\s+/g, ' ').slice(0, 300);
+    if (!text) continue;
+
+    let options: string[] = [];
+    if (gameId === 'SPEED_FACTS') {
+      options = ['✅ Да', '❌ Нет'];
     } else if (Array.isArray(o.options)) {
       options = o.options
         .filter((x): x is string => typeof x === 'string')
@@ -891,7 +897,6 @@ function sanitizeAiRounds(raw: unknown, gameId: AiGameRoundsInput['gameId'], con
   const sliced = rounds.slice(0, config.count);
 
   if (gameId === 'KNOW_ME') {
-    // ensure the last round is a free-text final question
     const last = sliced[sliced.length - 1];
     if (last) last.options = [];
   }
