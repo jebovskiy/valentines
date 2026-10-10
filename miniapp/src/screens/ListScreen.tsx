@@ -105,6 +105,9 @@ export function ListScreen() {
   const forcedGreeting = useRef<GreetingScene | null>(null);
   const forcedResolved = useRef(false);
 
+  const [skyPullY, setSkyPullY] = useState(0);
+  const skyPullStartY = useRef<number | null>(null);
+
   useEffect(() => {
     const sp = (window.Telegram?.WebApp as any)?.initDataUnsafe?.start_param;
     if (sp === 'greeting_morning') forcedGreeting.current = 'morning';
@@ -319,48 +322,9 @@ export function ListScreen() {
               hapticFeedback('impact', 'light');
               navigate('/sky');
             }}
-            onContextMenu={(e) => e.preventDefault()}
-            onTouchStart={() => {
-              const t = window.setTimeout(() => {
-                hapticFeedback('impact', 'heavy');
-                navigate('/sky');
-              }, 600);
-              (window as any).__skyLp = t;
-            }}
-            onTouchEnd={() => {
-              if ((window as any).__skyLp) {
-                clearTimeout((window as any).__skyLp);
-                delete (window as any).__skyLp;
-              }
-            }}
-            onTouchMove={() => {
-              if ((window as any).__skyLp) {
-                clearTimeout((window as any).__skyLp);
-                delete (window as any).__skyLp;
-              }
-            }}
-            onMouseDown={() => {
-              const t = window.setTimeout(() => {
-                hapticFeedback('impact', 'heavy');
-                navigate('/sky');
-              }, 600);
-              (window as any).__skyLp = t;
-            }}
-            onMouseUp={() => {
-              if ((window as any).__skyLp) {
-                clearTimeout((window as any).__skyLp);
-                delete (window as any).__skyLp;
-              }
-            }}
-            onMouseLeave={() => {
-              if ((window as any).__skyLp) {
-                clearTimeout((window as any).__skyLp);
-                delete (window as any).__skyLp;
-              }
-            }}
             style={styles.skyEntryBtn}
             aria-label="Наше небо"
-            title="Долгое нажатие — immersive небо"
+            title="Наше небо"
           >
             ✦
           </button>
@@ -519,6 +483,37 @@ export function ListScreen() {
       >
         ＋
       </button>
+
+      <div
+        style={{
+          ...styles.skyPullHandle,
+          transform: skyPullY > 0 ? `translateY(${-skyPullY}px)` : undefined,
+          opacity: skyPullY > 0 ? Math.max(0.35, 1 - skyPullY / 160) : 1,
+          transition: skyPullStartY.current === null ? 'transform 220ms ease, opacity 220ms ease' : 'none',
+        }}
+        onTouchStart={(e) => {
+          if (e.touches.length !== 1) return;
+          skyPullStartY.current = e.touches[0].clientY;
+        }}
+        onTouchMove={(e) => {
+          if (skyPullStartY.current === null || e.touches.length !== 1) return;
+          const dy = skyPullStartY.current - e.touches[0].clientY;
+          if (dy > 0) setSkyPullY(Math.min(dy, 140));
+        }}
+        onTouchEnd={() => {
+          if (skyPullY > 70) {
+            hapticFeedback('impact', 'light');
+            navigate('/sky');
+          }
+          setSkyPullY(0);
+          skyPullStartY.current = null;
+        }}
+        role="button"
+        aria-label="Потяните вверх — наше небо"
+      >
+        <div style={styles.skyPullGrip} />
+        <span style={styles.skyPullLabel}>✦ наше небо · потяните вверх</span>
+      </div>
 
       {greetingEnabled && greetingOpen && (
         <GreetingOverlay
@@ -801,6 +796,32 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: 'auto 1fr auto',
     alignItems: 'center',
     width: '100%',
+  },
+  skyPullHandle: {
+    position: 'fixed',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: '10px 16px calc(8px + var(--app-bottom-inset))',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    background: 'linear-gradient(180deg, rgba(11,15,36,0) 0%, rgba(11,15,36,0.9) 45%, #0B0F24 100%)',
+    touchAction: 'pan-x',
+    cursor: 'grab',
+    zIndex: 900,
+  },
+  skyPullGrip: {
+    width: 40,
+    height: 5,
+    borderRadius: 999,
+    background: 'rgba(232,235,250,0.35)',
+  },
+  skyPullLabel: {
+    fontSize: 12,
+    color: '#B8C4F0',
+    letterSpacing: 0.2,
   },
   skyEntryBtn: {
     width: '40px',
