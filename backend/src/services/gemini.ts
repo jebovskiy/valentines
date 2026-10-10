@@ -1,6 +1,8 @@
 import { config } from '../config';
 import { z } from 'zod';
 
+export type HotLevel = 'flirt' | 'warm' | 'bold' | 'wild';
+
 export interface MovieReviewInput {
   author_name: string;
   visuals: number;
@@ -702,6 +704,7 @@ export interface AiGameRoundsInput {
   gameId: 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS' | 'TRUTH_DARE';
   mood: string | null;
   names: { me: string; partner: string };
+  heat?: HotLevel;
 }
 
 export interface AiGameRound {
@@ -711,6 +714,7 @@ export interface AiGameRound {
   dare?: string;
   truth2?: string;
   dare2?: string;
+  level?: HotLevel;
 }
 
 export interface AiGameConfig {
@@ -830,6 +834,7 @@ ${personal}
 Все тексты на русском, позитивные.`;
     case 'TRUTH_DARE':
       return `Ты создаёшь карточки для игры «Правда или действие» для пар.${moodHint}${moodGuide}
+Стиль: ${mood === 'погорячее 18+' ? 'Откровенные, страстные, взрослые. Разрешено: близость, фантазии, тело, желание. Без крайностей, насилия и унижения — только взаимное удовольствие и доверие.' : 'по настроению вечера'}.
 Задача: сгенерировать ${AI_GAME_CONFIGS.TRUTH_DARE.count} раундов.
 Каждый раунд — объект с четырьмя текстами:
 - truth — вопрос «правда» для первого партнёра;
@@ -862,6 +867,7 @@ function sanitizeAiRounds(raw: unknown, gameId: AiGameRoundsInput['gameId'], con
       const dare = typeof o.dare === 'string' ? o.dare.trim().replace(/\s+/g, ' ').slice(0, 300) : '';
       const truth2 = typeof o.truth2 === 'string' ? o.truth2.trim().replace(/\s+/g, ' ').slice(0, 300) : '';
       const dare2 = typeof o.dare2 === 'string' ? o.dare2.trim().replace(/\s+/g, ' ').slice(0, 300) : '';
+      const level = typeof o.level === 'string' && ['flirt', 'warm', 'bold', 'wild'].includes(o.level) ? o.level as HotLevel : undefined;
       if (!truth || !dare) continue;
       rounds.push({
         text: '',
@@ -870,6 +876,7 @@ function sanitizeAiRounds(raw: unknown, gameId: AiGameRoundsInput['gameId'], con
         dare,
         truth2: truth2 || truth,
         dare2: dare2 || dare,
+        level,
       });
       continue;
     }
