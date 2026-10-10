@@ -1,9 +1,8 @@
 import { shallow } from 'zustand/shallow';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
-import { BackButton } from '../components/BackButton';
 import { hapticFeedback, setBackButton, setMainButton } from '../utils/telegram';
 import { getAnimation } from '../types';
 import type { ValentineWithSender } from '../types';
@@ -254,12 +253,35 @@ export function SkyScreen() {
     setPan({ x: 0, y: 0 });
   };
 
+  // Свайп вниз за верхнюю ручку — закрыть небо.
+  const [pullY, setPullY] = useState(0);
+  const pullStartY = useRef<number | null>(null);
+
+  const handlePullStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    pullStartY.current = e.touches[0].clientY;
+  };
+  const handlePullMove = (e: React.TouchEvent) => {
+    if (pullStartY.current === null || e.touches.length !== 1) return;
+    const dy = e.touches[0].clientY - pullStartY.current;
+    if (dy > 0) setPullY(Math.min(dy, 160));
+  };
+  const handlePullEnd = () => {
+    if (pullY > 80) {
+      hapticFeedback('impact', 'light');
+      navigate('/');
+    } else {
+      setPullY(0);
+    }
+    pullStartY.current = null;
+  };
+
   if (isLoading && stars.length === 0) {
     return (
-      <div style={styles.container}>
+      <div style={styles.containerImmersive}>
         <div style={styles.centerBox}>
           <div style={styles.spinner} />
-          <p style={styles.mutedText}>Загружаем наше небо...</p>
+          <p style={styles.mutedTextDark}>Загружаем наше небо...</p>
         </div>
       </div>
     );
@@ -267,9 +289,9 @@ export function SkyScreen() {
 
   if (error && stars.length === 0 && !error.toLowerCase().includes('pair not found')) {
     return (
-      <div style={styles.container}>
+      <div style={styles.containerImmersive}>
         <div style={styles.centerBox}>
-          <p style={styles.mutedText}>{error}</p>
+          <p style={styles.mutedTextDark}>{error}</p>
           <button onClick={() => void fetchValentines()} style={styles.retryButton}>
             Попробовать снова
           </button>
@@ -281,26 +303,28 @@ export function SkyScreen() {
   const seriesLen = Math.min(uniqueDays.length, SERIES_DAYS);
 
   return (
-    <div style={styles.containerImmersive}>
-      <div style={styles.topBar}>
-        <BackButton />
+    <div
+      style={{
+        ...styles.containerImmersive,
+        transform: pullY > 0 ? `translateY(${pullY}px)` : undefined,
+        opacity: pullY > 0 ? Math.max(0.4, 1 - pullY / 220) : 1,
+        transition: pullStartY.current === null ? 'transform 260ms ease, opacity 260ms ease' : 'none',
+      }}
+    >
+      <div
+        style={styles.pullHandleArea}
+        onTouchStart={handlePullStart}
+        onTouchMove={handlePullMove}
+        onTouchEnd={handlePullEnd}
+      >
         <span style={styles.title}>Наше небо</span>
-        <button
-          onClick={() => {
-            hapticFeedback('selection');
-            setScale(1);
-            setPan({ x: 0, y: 0 });
-          }}
-          style={styles.resetBtn}
-          aria-label="Сбросить масштаб"
-        >
-          ⟳
-        </button>
+        <div style={styles.pullGrip} />
       </div>
 
       {stars.length > 0 && (
         <div style={styles.subtitle}>
           {stars.length} {starsWord(stars.length)} · серия {seriesLen} {daysWord(seriesLen)}
+          {' · '}свайп вниз — назад
         </div>
       )}
 
@@ -389,7 +413,7 @@ export function SkyScreen() {
                   </feMerge>
                 </filter>
               </defs>
-              <rect width={SKY_W} height={SKY_H} fill="#0B0F24" />
+              <rect width={SKY_W} height={SKY_H} fill="transparent" />
               {dust.map((d, i) => {
                 const isBright = i % 4 === 0;
                 const color = isBright ? '#B8C4F0' : '#7A86B8';
@@ -614,14 +638,35 @@ const styles: Record<string, CSSProperties> = {
   containerImmersive: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
-    padding: '10px 12px 12px',
+    gap: 6,
+    padding: '6px 12px calc(10px + var(--app-bottom-inset))',
     height: '100dvh',
     maxHeight: '100dvh',
     width: '100%',
     margin: '0 auto',
     boxSizing: 'border-box',
-    background: '#070A1C',
+    background: 'radial-gradient(120% 90% at 50% 0%, #111736 0%, #0B0F24 45%, #070A1C 100%)',
+  },
+  pullHandleArea: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 6,
+    padding: '6px 0 2px',
+    touchAction: 'none',
+    cursor: 'grab',
+  },
+  pullGrip: {
+    width: 40,
+    height: 5,
+    borderRadius: 999,
+    background: 'rgba(232,235,250,0.28)',
+  },
+  mutedTextDark: {
+    color: '#C9D0F0',
+    fontSize: 14,
+    maxWidth: 280,
+    lineHeight: 1.5,
   },
   topBar: {
     display: 'flex',
@@ -630,22 +675,19 @@ const styles: Record<string, CSSProperties> = {
     position: 'relative',
   },
   title: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
     textAlign: 'center',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 800,
-    color: 'var(--ink)',
+    color: '#E8EBFA',
     fontFamily: 'var(--font-display)',
-    zIndex: 1,
     pointerEvents: 'none',
+    textShadow: '0 0 14px rgba(184,196,240,0.35)',
   },
   subtitle: {
     fontSize: 12,
-    color: 'var(--text-faint)',
+    color: '#8E97C4',
     textAlign: 'center',
-    marginTop: -4,
+    marginTop: -2,
   },
   resetBtn: {
     position: 'absolute',
@@ -672,10 +714,10 @@ const styles: Record<string, CSSProperties> = {
     overflow: 'hidden',
   },
   panelImmersive: {
-    background: '#070A1C',
-    border: '1px solid #151937',
-    borderRadius: 18,
-    padding: '8px 0 10px',
+    background: 'transparent',
+    border: 'none',
+    borderRadius: 0,
+    padding: 0,
     overflow: 'hidden',
     flex: 1,
     minHeight: 0,
