@@ -426,10 +426,10 @@ export function GamesScreen() {
 
   // Heat level labels for UI
   const HOT_LEVEL_LABELS: Record<HotLevel, { label: string; emoji: string; desc: string }> = {
-    flirt: { label: 'Флирт', emoji: '💋', desc: 'Лёгкий флирт, поцелуи' },
-    warm: { label: 'Тёплое', emoji: '🔥', desc: 'Страсть, прикосновения' },
-    bold: { label: 'Смелое', emoji: '🌶️', desc: 'Откровенные вопросы и действия' },
-    wild: { label: 'Дикое', emoji: '🌪️', desc: 'Максимальная откровенность' },
+    flirt: { label: 'Уровень 1: Флирт', emoji: '💋', desc: 'Лёгкий флирт, поцелуи' },
+    warm: { label: 'Уровень 2: Тёплое', emoji: '🔥', desc: 'Страсть, прикосновения' },
+    bold: { label: 'Уровень 3: Смелое', emoji: '🌶️', desc: 'Откровенные вопросы и действия' },
+    wild: { label: 'Уровень 4: Дикое', emoji: '🌪️', desc: 'Максимальная откровенность' },
   };
 
   useEffect(() => {
@@ -644,7 +644,9 @@ export function GamesScreen() {
                           ...styles.heatLevelBtn,
                           ...(isSelected ? styles.heatLevelBtnSelected : {}),
                         }}
-                        onClick={() => !starting && updateMyHotLevel(level)}
+                        onClick={() => {
+                          if (!starting) updateMyHotLevel(level);
+                        }}
                         disabled={starting}
                       >
                         <span style={styles.heatLevelEmoji}>{info.emoji}</span>
@@ -670,9 +672,10 @@ export function GamesScreen() {
               {hot18Enabled && !myHot18Confirmed && (
                 <button
                   style={styles.confirmBtn}
-                  onClick={() => {
+                  onClick={async () => {
                     hapticFeedback('selection');
-                    setShowHot18Modal(true);
+                    await updateMyHot18Confirmed(true);
+                    await fetchPairSettings();
                   }}
                   disabled={starting}
                 >
