@@ -18,7 +18,7 @@ import {
 const createSessionSchema = z.object({
   game_id: z.enum(['KNOW_ME', 'CHOOSE_ONE', 'ASSOCIATIONS', 'COMPLIMENTS', 'SPEED_FACTS', 'TRUTH_DARE']),
   mood: z.enum(['нежное', 'веселое', 'погорячее', 'погорячее 18+', 'поговорить', 'спокойное']).nullable().optional(),
-  heat: z.enum(['flirt', 'warm', 'bold', 'wild']).optional(),
+  heat: z.enum(['flirt', 'warm', 'bold', 'wild', 'hard']).optional(),
 });
 
 const answerSchema = z.object({
