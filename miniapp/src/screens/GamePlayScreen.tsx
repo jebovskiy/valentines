@@ -423,6 +423,14 @@ export function GamePlayScreen() {
     setSending(false);
   };
 
+  const submitSkip = async () => {
+    if (!round || sending) return;
+    hapticFeedback('selection');
+    setSending(true);
+    await answerGame(revealIdx, '__SKIP__');
+    setSending(false);
+  };
+
   const submitText = async () => {
     if (!round || sending || textDraft.trim().length === 0) return;
     hapticFeedback('impact', 'light');
@@ -508,6 +516,18 @@ export function GamePlayScreen() {
                       {opt}
                     </button>
                   ))}
+                  <button
+                    onClick={submitSkip}
+                    disabled={sending}
+                    style={{
+                      ...styles.option,
+                      background: 'var(--secondary-bg)',
+                      color: 'var(--ash)',
+                      borderColor: 'var(--hairline)',
+                    }}
+                  >
+                    Пропустить
+                  </button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
