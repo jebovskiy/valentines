@@ -749,7 +749,7 @@ const AI_GAME_CONFIGS: Record<AiGameRoundsInput['gameId'], AiGameConfig> = {
   TRUTH_DARE: { count: 10, min: 8 },
 };
 
-const AI_GAME_TIMEOUT_MS = 25_000;
+const AI_GAME_TIMEOUT_MS = 12_000;
 
 const aiRoundsSchema = z.object({
   rounds: z

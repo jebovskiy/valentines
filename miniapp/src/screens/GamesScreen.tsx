@@ -626,7 +626,7 @@ export function GamesScreen() {
 
             {/* Heat level selector (only visible if 18+ enabled) */}
             {hot18Enabled ? (
-              <div style={styles.settingRow}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={styles.settingInfo}>
                   <span style={styles.settingLabel}>🌡️ Уровень жара</span>
                   <span style={styles.settingDesc}>
@@ -645,7 +645,7 @@ export function GamesScreen() {
                           ...(isSelected ? styles.heatLevelBtnSelected : {}),
                         }}
                         onClick={() => {
-                          if (!starting) updateMyHotLevel(level);
+                          if (!starting) void updateMyHotLevel(level);
                         }}
                         disabled={starting}
                       >

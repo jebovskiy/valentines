@@ -689,11 +689,11 @@ export async function createGameSession(
     if (!allows18) {
       throw new Error('18+ category not enabled or not confirmed by both partners');
     }
-    // Get effective heat level (min of both partners)
+    // Get effective heat level (min of both partners), returned as text
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { data: dbHeat, error: errHeat } = await supabase.rpc('get_effective_heat_level', { p_pair_id: pairId });
     if (errHeat) throw errHeat;
-    effectiveHeat = HOT_LEVEL_ORDER[dbHeat as number - 1] ?? DEFAULT_HOT_LEVEL;
+    effectiveHeat = isHotLevel(dbHeat) ? dbHeat : DEFAULT_HOT_LEVEL;
   } else if (heat) {
     effectiveHeat = heat;
   }
