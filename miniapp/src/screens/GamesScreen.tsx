@@ -430,6 +430,7 @@ export function GamesScreen() {
     warm: { label: 'Уровень 2: Тёплое', emoji: '🔥', desc: 'Страсть, прикосновения' },
     bold: { label: 'Уровень 3: Смелое', emoji: '🌶️', desc: 'Откровенные вопросы и действия' },
     wild: { label: 'Уровень 4: Дикое', emoji: '🌪️', desc: 'Максимальная откровенность' },
+    hard: { label: 'Уровень 5: Жёсткий', emoji: '🔒', desc: 'Режим с фиксацией и контролем' },
   };
 
   useEffect(() => {
@@ -634,7 +635,7 @@ export function GamesScreen() {
                   </span>
                 </div>
                 <div style={styles.heatLevelGrid}>
-                  {(['flirt', 'warm', 'bold', 'wild'] as HotLevel[]).map((level) => {
+                  {(['flirt', 'warm', 'bold', 'wild', 'hard'] as HotLevel[]).map((level) => {
                     const isSelected = myHotLevel === level;
                     const info = HOT_LEVEL_LABELS[level];
                     return (

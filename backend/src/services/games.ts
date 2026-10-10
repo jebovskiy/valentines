@@ -209,6 +209,12 @@ interface RawRound {
   dareB?: string;
   /** Heat level for this round (used in TRUTH_DARE 18+ rising heat mode). */
   level?: HotLevel;
+  /** Rules screen shown before the game starts (hard mode only). */
+  rules?: string[];
+  /** Post-scene text shown after the game finishes (hard mode only). */
+  postScene?: string;
+  /** Final question without truth/dare choice (hard mode only). */
+  finalQuestion?: string;
 }
 
 /** RawRound plus the client-facing metadata added by decorateRounds. */
@@ -599,6 +605,21 @@ const TRUTH_DARE_HOT: LeveledBank<{ truth: string; dare: string }> = {
   ],
 };
 
+/** Правила и финальные тексты для режима «hard» (без ИИ, только статика). */
+const HARD_RULES: string[] = [
+  'Перед выбором правда или действие обсудите правила:',
+  '1. Обсудите сцену за день до неё на трезвую голову.',
+  '2. Светофор («зелёный», «жёлтый», «красный») и невербальный сигнал (например, уроненный из руки предмет).',
+  '3. Проверка каждые 10-15 минут: цвет и чувствительность пальцев, самочувствие.',
+  '4. Ножницы с закруглёнными концами и ключ от наручников всегда на виду, связанного не оставлять одного.',
+  '5. Без алкоголя и веществ.',
+  '6. Стоп-слово «красный» действует всегда.',
+];
+
+const HARD_FINAL_QUESTION = 'Дневник сцены. Каждый письменно отвечает: что понравилось, что вызвало дискомфорт, что изменить.';
+
+const HARD_POST_SCENE = 'После сцены — вода, еда, тепло, объятия, разговор. Спад может прийти через 24-48 часов, поэтому проверьте друг друга на следующий день.\nЕсли одному хочется жёстче, а другому нет, вернитесь на ступень ниже.';
+
 /**
  * Нарастающий жар.
  * Берёт уровни от 'flirt' до maxLevel включительно.
@@ -690,6 +711,17 @@ export function buildStaticRounds(gameId: GameId, mood: Mood | null, heat: HotLe
       return shuffle(facts).map((text) => ({ text, options: ['✅ Да', '❌ Нет'] }));
     }
     case 'TRUTH_DARE': {
+      if (m === HOT_MOOD && heat === 'hard') {
+        const rounds: RawRound[] = [];
+        rounds.push({ text: 'Правила', options: [], rules: HARD_RULES });
+        const shuffled = shuffle(TRUTH_DARE_HOT.hard).slice(0, 18);
+        for (const p of shuffled) {
+          rounds.push({ text: '', options: [], truth: p.truth, dare: p.dare, truthB: p.truth, dareB: p.dare, level: 'hard' });
+        }
+        rounds.push({ text: HARD_FINAL_QUESTION, options: [], finalQuestion: HARD_FINAL_QUESTION });
+        rounds.push({ text: '', options: [], postScene: HARD_POST_SCENE });
+        return rounds;
+      }
       if (m === HOT_MOOD) {
         return rampUpWithLevel(TRUTH_DARE_HOT, heat, 6).map((p) => ({ text: '', options: [], truth: p.truth, dare: p.dare, truthB: p.truth, dareB: p.dare, level: p.level }));
       }

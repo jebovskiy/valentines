@@ -29,6 +29,7 @@ const HOT_LEVEL_LABELS: Record<HotLevel, { label: string; emoji: string; desc: s
   warm: { label: 'Тёплое', emoji: '🔥', desc: 'Страсть, прикосновения' },
   bold: { label: 'Смелое', emoji: '🌶️', desc: 'Откровенные вопросы и действия' },
   wild: { label: 'Дикое', emoji: '🌪️', desc: 'Максимальная откровенность' },
+  hard: { label: 'Жёсткий', emoji: '🔒', desc: 'Режим с фиксацией и контролем' },
 };
 
 const GAME_TITLES: Record<GameId, string> = {
@@ -389,6 +390,10 @@ export function GamePlayScreen() {
   const rounds = gameSession?.rounds ?? [];
   const total = rounds.length;
   const isInitiator = gameSession?.initiator_id === currentUser?.id;
+  const isHardMode = gameSession?.heat_level_used === 'hard';
+  const hardRules = rounds.find(r => r.rules)?.rules ?? [];
+  const postSceneText = rounds.find(r => r.postScene)?.postScene ?? '';
+  const [rulesAccepted, setRulesAccepted] = useState(false);
 
   const answers = gameSession?.answers ?? [];
 
@@ -403,7 +408,17 @@ export function GamePlayScreen() {
   const myByIndex = useMemo(() => new Map(myAnswers.map((a) => [a.round_index, a.answer])), [myAnswers]);
   const partByIndex = useMemo(() => new Map(partnerAnswers.map((a) => [a.round_index, a.answer])), [partnerAnswers]);
 
-  const bothAnsweredCount = rounds.filter((_, i) => myByIndex.has(i) && partByIndex.has(i)).length;
+  const bothAnsweredCount = useMemo(() => {
+    let count = 0;
+    for (let i = 0; i < rounds.length; i++) {
+      if (isHardMode && (rounds[i].rules || rounds[i].postScene)) {
+        count++;
+      } else if (myByIndex.has(i) && partByIndex.has(i)) {
+        count++;
+      }
+    }
+    return count;
+  }, [rounds, myByIndex, partByIndex, isHardMode]);
   const allDone = total > 0 && bothAnsweredCount >= total && revealIdx >= total;
 
   const round = revealIdx < total ? rounds[revealIdx] : null;
@@ -493,7 +508,30 @@ export function GamePlayScreen() {
           gameId={gameSession.game_id}
           mood={gameSession.mood}
           onFinish={finish}
+          postSceneText={postSceneText}
         />
+      ) : isHardMode && !rulesAccepted ? (
+        <div style={styles.container}>
+          <div style={styles.topBar}>
+            <BackButton />
+            <span style={styles.title}>Правила</span>
+          </div>
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 16, lineHeight: '1.5', color: 'var(--ink)' }}>
+              {hardRules.map((rule, index) => (
+                <div key={index} style={{ marginBottom: 12 }}>
+                  {rule}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setRulesAccepted(true)}
+              style={{ ...styles.primaryBtn, marginTop: 24 }}
+            >
+              Понято, начинаем
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <div style={styles.progressRow}>
@@ -638,6 +676,7 @@ function FinalCard({
   gameId,
   mood,
   onFinish,
+  postSceneText,
 }: {
   rounds: GameRound[];
   myByIndex: Map<number, string>;
@@ -645,6 +684,7 @@ function FinalCard({
   gameId: GameId;
   mood: GameMood | null;
   onFinish: () => void;
+  postSceneText?: string;
 }) {
   let matchedChoice = 0;
   let choiceCount = 0;
@@ -814,6 +854,12 @@ function FinalCard({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {postSceneText && (
+        <div style={{ marginTop: 16, padding: '16px', background: 'var(--secondary-bg)', borderRadius: 12, fontSize: 14, lineHeight: 1.6, color: 'var(--ink)', whiteSpace: 'pre-line' }}>
+          {postSceneText}
         </div>
       )}
 

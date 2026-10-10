@@ -402,7 +402,7 @@ export type PoiskkinoPart = Pick<PoiskkinoCandidate, 'kp_id' | 'name' | 'alterna
 
 export type GameId = 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS' | 'TRUTH_DARE';
 export type GameMood = 'нежное' | 'веселое' | 'погорячее' | 'погорячее 18+' | 'поговорить' | 'спокойное';
-export type HotLevel = 'flirt' | 'warm' | 'bold' | 'wild';
+export type HotLevel = 'flirt' | 'warm' | 'bold' | 'wild' | 'hard';
 
 export interface PairSettings {
   pair_id: string;
@@ -432,6 +432,9 @@ export interface GameRound {
   truthB?: string; // вариант правды для партнёра (чтобы не совпадали)
   dareB?: string; // вариант действия для партнёра
   level?: HotLevel; // уровень жара для режима «нарастающий жар»
+  rules?: string[]; // hard mode only: rules shown before the game starts
+  postScene?: string; // hard mode only: aftercare text shown in final screen
+  finalQuestion?: string; // hard mode only: final question without truth/dare choice
 }
 
 export interface GameSession {
