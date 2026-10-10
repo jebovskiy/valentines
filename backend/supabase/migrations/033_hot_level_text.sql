@@ -1,4 +1,4 @@
--- Migration: switch hot levels to text enums ('flirt'|'warm'|'bold'|'wild')
+-- Migration: switch hot levels to text enums ('flirt'|'warm'|'bold'|'wild'|'hard')
 -- The DB stored hot_level_a/b and heat_level_used as smallint (1-4), but the
 -- backend/miniapp use string levels. This converts existing smallint values and
 -- enforces the string domain going forward.
@@ -15,12 +15,13 @@ ALTER TABLE public.game_sessions
         WHEN 2 THEN 'warm'
         WHEN 3 THEN 'bold'
         WHEN 4 THEN 'wild'
+        WHEN 5 THEN 'hard'
         ELSE NULL
     END;
 
 ALTER TABLE public.game_sessions
     ADD CONSTRAINT game_sessions_heat_level_used_check
-    CHECK (heat_level_used IN ('flirt', 'warm', 'bold', 'wild') OR heat_level_used IS NULL);
+    CHECK (heat_level_used IN ('flirt', 'warm', 'bold', 'wild', 'hard') OR heat_level_used IS NULL);
 
 -- 2. Convert pair_settings.hot_level_a (smallint 1-4 -> text)
 ALTER TABLE public.pair_settings
@@ -41,7 +42,7 @@ ALTER TABLE public.pair_settings
 
 ALTER TABLE public.pair_settings
     ADD CONSTRAINT pair_settings_hot_level_a_check
-    CHECK (hot_level_a IN ('flirt', 'warm', 'bold', 'wild'));
+    CHECK (hot_level_a IN ('flirt', 'warm', 'bold', 'wild', 'hard'));
 
 -- 3. Convert pair_settings.hot_level_b
 ALTER TABLE public.pair_settings
@@ -62,7 +63,7 @@ ALTER TABLE public.pair_settings
 
 ALTER TABLE public.pair_settings
     ADD CONSTRAINT pair_settings_hot_level_b_check
-    CHECK (hot_level_b IN ('flirt', 'warm', 'bold', 'wild'));
+    CHECK (hot_level_b IN ('flirt', 'warm', 'bold', 'wild', 'hard'));
 
 -- 4. Update get_effective_heat_level to return the min level as text
 DROP FUNCTION IF EXISTS public.get_effective_heat_level(uuid);
@@ -77,21 +78,23 @@ BEGIN
     FROM public.pair_settings
     WHERE pair_id = p_pair_id;
 
-    -- Order: flirt < warm < bold < wild
+    -- Order: flirt < warm < bold < wild < hard
     IF a IS NULL THEN RETURN COALESCE(b, 'warm'); END IF;
     IF b IS NULL THEN RETURN a; END IF;
 
     RETURN CASE
-        WHEN a IN ('flirt') AND b IN ('warm','bold','wild') THEN 'flirt'
-        WHEN b IN ('flirt') AND a IN ('warm','bold','wild') THEN 'flirt'
-        WHEN a IN ('flirt','warm') AND b IN ('bold','wild') THEN 'warm'
-        WHEN b IN ('flirt','warm') AND a IN ('bold','wild') THEN 'warm'
-        WHEN a IN ('flirt','warm','bold') AND b = 'wild' THEN 'bold'
-        WHEN b IN ('flirt','warm','bold') AND a = 'wild' THEN 'bold'
+        WHEN a IN ('flirt') AND b IN ('warm','bold','wild','hard') THEN 'flirt'
+        WHEN b IN ('flirt') AND a IN ('warm','bold','wild','hard') THEN 'flirt'
+        WHEN a IN ('flirt','warm') AND b IN ('bold','wild','hard') THEN 'warm'
+        WHEN b IN ('flirt','warm') AND a IN ('bold','wild','hard') THEN 'warm'
+        WHEN a IN ('flirt','warm','bold') AND b IN ('wild','hard') THEN 'bold'
+        WHEN b IN ('flirt','warm','bold') AND a IN ('wild','hard') THEN 'bold'
+        WHEN a IN ('flirt','warm','bold','wild') AND b = 'hard' THEN 'wild'
+        WHEN b IN ('flirt','warm','bold','wild') AND a = 'hard' THEN 'wild'
         WHEN a = b THEN a
         ELSE 'warm'
     END;
 END;
 $$;
 
-COMMENT ON FUNCTION public.get_effective_heat_level(uuid) IS 'Returns min(hot_level_a, hot_level_b) as text (flirt|warm|bold|wild).';
+COMMENT ON FUNCTION public.get_effective_heat_level(uuid) IS 'Returns min(hot_level_a, hot_level_b) as text (flirt|warm|bold|wild|hard).';
