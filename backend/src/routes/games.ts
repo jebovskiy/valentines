@@ -11,6 +11,7 @@ import {
   touchGameSession,
   finishGameSession,
   getGameAnswers,
+  addLevelReady,
   type GameSessionRow,
 } from '../services/games';
 
@@ -98,6 +99,18 @@ export async function gamesRoutes(app: FastifyInstance) {
     if (!session || session.pair_id !== pair.id) return reply.code(404).send({ error: 'Session not found' });
 
     await finishGameSession(id);
+    return { ok: true };
+  });
+
+  app.post('/:id/level-ready', { preHandler: requireTelegramAuth }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) return reply.code(404).send({ error: 'Pair not found' });
+
+    const session = await getGameSessionById(id);
+    if (!session || session.pair_id !== pair.id) return reply.code(404).send({ error: 'Session not found' });
+
+    await addLevelReady(id, request.telegramUser!.id);
     return { ok: true };
   });
 }

@@ -173,6 +173,11 @@ export async function touchGameSession(sessionId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function addLevelReady(sessionId: string, userId: number): Promise<void> {
+  const { error } = await supabase.rpc('add_level_ready', { p_session_id: sessionId, p_user_id: userId });
+  if (error) throw error;
+}
+
 export async function finishGameSession(sessionId: string): Promise<void> {
   const { error } = await supabase
     .from('game_sessions')
