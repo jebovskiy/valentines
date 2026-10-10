@@ -35,7 +35,7 @@ describe('games service - pure functions', () => {
 
   describe('HOT_LEVEL_ORDER and DEFAULT_HOT_LEVEL', () => {
     it('has correct order', () => {
-      assert.deepEqual(HOT_LEVEL_ORDER, ['flirt', 'warm', 'bold', 'wild']);
+      assert.deepEqual(HOT_LEVEL_ORDER, ['flirt', 'warm', 'bold', 'wild', 'hard']);
     });
 
     it('DEFAULT_HOT_LEVEL is warm', () => {

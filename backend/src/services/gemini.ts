@@ -1,7 +1,7 @@
 import { config } from '../config';
 import { z } from 'zod';
 
-export type HotLevel = 'flirt' | 'warm' | 'bold' | 'wild';
+export type HotLevel = 'flirt' | 'warm' | 'bold' | 'wild' | 'hard';
 export const DEFAULT_HOT_LEVEL: HotLevel = 'warm';
 export const HOT_MOOD = 'погорячее 18+';
 
