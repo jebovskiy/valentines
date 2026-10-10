@@ -431,6 +431,7 @@ export interface GameRound {
   dare?: string; // truth-or-dare: «действие» prompt shown when the player picks it
   truthB?: string; // вариант правды для партнёра (чтобы не совпадали)
   dareB?: string; // вариант действия для партнёра
+  level?: HotLevel; // уровень жара для режима «нарастающий жар»
 }
 
 export interface GameSession {

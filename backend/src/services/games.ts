@@ -201,6 +201,8 @@ interface RawRound {
   /** Alternative variant for the partner, so both never get the same prompt. */
   truthB?: string;
   dareB?: string;
+  /** Heat level for this round (used in TRUTH_DARE 18+ rising heat mode). */
+  level?: HotLevel;
 }
 
 /** RawRound plus the client-facing metadata added by decorateRounds. */
@@ -567,6 +569,26 @@ function rampUp<T>(bank: LeveledBank<T>, maxLevel: HotLevel, total: number): T[]
 }
 
 /**
+ * Нарастающий жар с добавлением поля level для TRUTH_DARE.
+ */
+function rampUpWithLevel(bank: LeveledBank<{ truth: string; dare: string }>, maxLevel: HotLevel, total: number): ({ truth: string; dare: string; level: HotLevel })[] {
+  const maxIdx = HOT_LEVEL_ORDER.indexOf(maxLevel);
+  const levels = HOT_LEVEL_ORDER.slice(0, maxIdx + 1);
+  const base = Math.floor(total / levels.length);
+  const rem = total % levels.length;
+  const result: ({ truth: string; dare: string; level: HotLevel })[] = [];
+  for (let i = 0; i < levels.length; i++) {
+    const level = levels[i];
+    const count = base + (i >= levels.length - rem ? 1 : 0);
+    const items = shuffle(bank[level]).slice(0, count);
+    for (const item of items) {
+      result.push({ ...item, level });
+    }
+  }
+  return result;
+}
+
+/**
  * Fallback static bank of raw rounds for a game. Used when AI generation
  * fails or is disabled. Decorate afterwards with decorateRounds().
  */
@@ -617,7 +639,7 @@ export function buildStaticRounds(gameId: GameId, mood: Mood | null, heat: HotLe
     }
     case 'TRUTH_DARE': {
       if (m === HOT_MOOD) {
-        return rampUp(TRUTH_DARE_HOT, heat, 6).map((p) => ({ text: '', options: [], truth: p.truth, dare: p.dare, truthB: p.truth, dareB: p.dare }));
+        return rampUpWithLevel(TRUTH_DARE_HOT, heat, 6).map((p) => ({ text: '', options: [], truth: p.truth, dare: p.dare, truthB: p.truth, dareB: p.dare, level: p.level }));
       }
       const prompts = TRUTH_DARE_BANK[m];
       return shuffle(prompts).map((p) => ({ text: '', options: [], truth: p.truth, dare: p.dare, truthB: p.truthB, dareB: p.dareB }));
