@@ -216,6 +216,71 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     marginTop: 20,
   },
+  modalOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+    zIndex: 1000,
+    animation: 'fadeIn 150ms ease',
+  },
+  modalCard: {
+    background: 'var(--surface-card)',
+    borderRadius: 20,
+    padding: '24px',
+    maxWidth: 340,
+    width: '100%',
+    textAlign: 'center',
+    border: '1px solid var(--hairline)',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+  },
+  modalEmoji: { fontSize: 44, marginBottom: 8 },
+  modalTitle: { fontSize: 20, fontWeight: 800, color: 'var(--ink)', marginBottom: 8 },
+  modalText: { fontSize: 14, lineHeight: '20px', color: 'var(--mute)', marginBottom: 18 },
+  modalBtnRow: { display: 'flex', gap: 10 },
+  modalBtnPrimary: {
+    flex: 1,
+    height: 44,
+    borderRadius: 999,
+    background: 'var(--primary)',
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 700,
+    border: 'none',
+    cursor: 'pointer',
+  },
+  modalBtnSecondary: {
+    flex: 1,
+    height: 44,
+    borderRadius: 999,
+    background: 'var(--secondary-bg)',
+    color: 'var(--ink)',
+    fontSize: 14,
+    fontWeight: 700,
+    border: '1px solid var(--hairline)',
+    cursor: 'pointer',
+  },
+  loadingOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(7,10,28,0.95)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+    zIndex: 1000,
+    animation: 'fadeIn 150ms ease',
+  },
+  loadingCard: {
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  loadingEmoji: { fontSize: 56, marginBottom: 16 },
+  loadingTitle: { fontSize: 18, fontWeight: 700, color: '#E8EBFA', marginBottom: 8 },
+  loadingSub: { fontSize: 13, color: '#8E97C4', lineHeight: '19px' },
 };
 
 export function GamesScreen() {
@@ -229,6 +294,26 @@ export function GamesScreen() {
   const [mood, setMood] = useState<GameMood>('нежное');
   const [starting, setStarting] = useState(false);
   const [screenError, setScreenError] = useState<string | null>(null);
+  const [showHot18Modal, setShowHot18Modal] = useState(false);
+  const [loadingTip, setLoadingTip] = useState('');
+
+  const TIPS = [
+    '💡 ИИ подбирает вопросы именно под ваше настроение',
+    '💡 Ответы раскрываются одновременно — честнее так',
+    '💡 В «Правда или действие» у каждого свои варианты',
+    '💡 Можно писать до 2000 символов',
+    '💡 В конце — подробная статистика синхронности',
+  ];
+
+  useEffect(() => {
+    if (starting) {
+      setLoadingTip(TIPS[Math.floor(Math.random() * TIPS.length)]);
+      const t = window.setInterval(() => {
+        setLoadingTip(TIPS[Math.floor(Math.random() * TIPS.length)]);
+      }, 2500);
+      return () => window.clearInterval(t);
+    }
+  }, [starting]);
 
   useEffect(() => {
     void fetchGameSession();
@@ -247,10 +332,30 @@ export function GamesScreen() {
 
   const start = async () => {
     if (starting) return;
+    // Для TRUTH_DARE + погорячее — спрашиваем 18+
+    if (selectedGame === 'TRUTH_DARE' && mood === 'погорячее') {
+      hapticFeedback('selection');
+      setShowHot18Modal(true);
+      return;
+    }
     hapticFeedback('impact', 'light');
     setStarting(true);
     setScreenError(null);
     const session = await createGameSession(selectedGame, mood);
+    setStarting(false);
+    if (session) {
+      navigate('/games/play');
+    } else {
+      setScreenError(useValentinesStore.getState().error || 'Не удалось начать игру. Попробуйте ещё раз.');
+    }
+  };
+
+  const startWithHot18 = async (is18: boolean) => {
+    setShowHot18Modal(false);
+    hapticFeedback('impact', 'light');
+    setStarting(true);
+    setScreenError(null);
+    const session = await createGameSession(selectedGame, is18 ? 'погорячее 18+' : 'погорячее');
     setStarting(false);
     if (session) {
       navigate('/games/play');
@@ -340,6 +445,36 @@ export function GamesScreen() {
       <button onClick={start} disabled={starting} style={styles.primaryBtnBig}>
         {starting ? 'Собираем карточки…' : 'Начать игру'}
       </button>
+
+      {showHot18Modal && (
+        <div style={styles.modalOverlay} onClick={() => setShowHot18Modal(false)}>
+          <div style={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalEmoji}>🔥</div>
+            <div style={styles.modalTitle}>Погорячее 🌶️</div>
+            <div style={styles.modalText}>
+              Два варианта: обычный «погорячее» (флирт, поцелуи, страсть) или «погорячее 18+» (откровенные вопросы и задания для взрослых).
+            </div>
+            <div style={styles.modalBtnRow}>
+              <button onClick={() => startWithHot18(false)} style={styles.modalBtnSecondary}>
+                Обычное 🔥
+              </button>
+              <button onClick={() => startWithHot18(true)} style={styles.modalBtnPrimary}>
+                18+ 🌶️
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {starting && !showHot18Modal && (
+        <div style={styles.loadingOverlay}>
+          <div style={styles.loadingCard}>
+            <div className="animate-pulse" style={styles.loadingEmoji}>🎲</div>
+            <div style={styles.loadingTitle}>Собираем карточки...</div>
+            <div style={styles.loadingSub}>{loadingTip}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

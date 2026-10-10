@@ -10,6 +10,7 @@ const MOOD_EMOJI: Record<GameMood, string> = {
   'нежное': '🌸',
   'веселое': '🎉',
   'погорячее': '🔥',
+  'погорячее 18+': '🌶️',
   'поговорить': '💬',
   'спокойное': '🌙',
 };
@@ -18,6 +19,7 @@ const MOOD_LABEL: Record<GameMood, string> = {
   'нежное': 'теплый вечер',
   'веселое': 'веселый вечер',
   'погорячее': 'жаркий вечер',
+  'погорячее 18+': 'взрослый вечер',
   'поговорить': 'вечер разговоров',
   'спокойное': 'спокойный вечер',
 };
@@ -363,8 +365,23 @@ export function GamePlayScreen() {
     }
   }, [gameSession?.id]);
 
+  // Поллинг на случай потери realtime: пока ждём ответа партнёра — подтягиваем сессию.
+  useEffect(() => {
+    if (!gameSession || gameSession.status !== 'active') return;
+    const answers = gameSession.answers ?? [];
+    const myCount = answers.filter((a) => a.user_id === currentUser?.id).length;
+    const partnerCount = answers.filter((a) => a.user_id !== currentUser?.id).length;
+    const waiting = myCount > partnerCount && myCount <= rounds.length;
+    if (!waiting && myCount === partnerCount) return;
+    const t = window.setInterval(() => {
+      void fetchGameSession();
+    }, 2500);
+    return () => window.clearInterval(t);
+  }, [gameSession?.id, gameSession?.answers?.length, currentUser?.id, fetchGameSession]);
+
   const rounds = gameSession?.rounds ?? [];
   const total = rounds.length;
+  const isInitiator = gameSession?.initiator_id === currentUser?.id;
 
   const answers = gameSession?.answers ?? [];
 
@@ -385,6 +402,14 @@ export function GamePlayScreen() {
   const round = revealIdx < total ? rounds[revealIdx] : null;
   const mine = round ? myByIndex.get(revealIdx) : undefined;
   const partners = round ? partByIndex.get(revealIdx) : undefined;
+
+  // Свой вариант правды/действия: инициатор — A (truth/dare), партнёр — B (truthB/dareB).
+  const tdTextFor = (r: GameRound, byMe: boolean, answer: string): string => {
+    const pickedTruth = answer === r.options[0];
+    const myA = byMe === isInitiator;
+    if (pickedTruth) return (myA ? r.truth : (r.truthB ?? r.truth)) ?? '';
+    return (myA ? r.dare : (r.dareB ?? r.dare)) ?? '';
+  };
 
   const showReveal = !!round && bothAnsweredCount > revealIdx;
   const showWait = !!round && !showReveal && mine !== undefined;
@@ -486,12 +511,18 @@ export function GamePlayScreen() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <textarea
-                    value={textDraft}
-                    onChange={(e) => setTextDraft(e.target.value)}
-                    placeholder="Напишите, что бы вы хотели..."
-                    style={styles.textarea}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                    <textarea
+                      value={textDraft}
+                      onChange={(e) => setTextDraft(e.target.value.slice(0, 2000))}
+                      placeholder="Напишите, что бы вы хотели..."
+                      style={styles.textarea}
+                      maxLength={2000}
+                    />
+                    <span style={{ fontSize: 12, color: 'var(--ash)', whiteSpace: 'nowrap', marginBottom: 4 }}>
+                      {textDraft.length}/2000
+                    </span>
+                  </div>
                   <button
                     onClick={submitText}
                     disabled={sending || textDraft.trim().length === 0}
@@ -513,13 +544,13 @@ export function GamePlayScreen() {
                   <div style={styles.revealRow}>
                     <span style={styles.revealAvatar}>🙂</span>
                     <span style={styles.revealAnswer}>
-                      Вы: <strong>{mine}</strong> — {mine === round.options[0] ? `«${round.truth}»` : `«${round.dare}»`}
+                      Вы: <strong>{mine}</strong> — {tdTextFor(round, true, mine)}
                     </span>
                   </div>
                   <div style={styles.revealRow}>
                     <span style={styles.revealAvatar}>😊</span>
                     <span style={styles.revealAnswer}>
-                      Партнёр: <strong>{partners}</strong> — {partners === round.options[0] ? `«${round.truth}»` : `«${round.dare}»`}
+                      Партнёр: <strong>{partners}</strong> — {tdTextFor(round, false, partners)}
                     </span>
                   </div>
                 </div>
@@ -590,6 +621,12 @@ function FinalCard({
   let choiceCount = 0;
   let matchedText = 0;
   let textCount = 0;
+  let myTruths = 0;
+  let myDares = 0;
+  let partTruths = 0;
+  let partDares = 0;
+  let myChars = 0;
+  let partChars = 0;
   for (let i = 0; i < rounds.length; i++) {
     const mine = myByIndex.get(i);
     const partners = partByIndex.get(i);
@@ -597,11 +634,24 @@ function FinalCard({
     if (isChoiceRound(rounds[i])) {
       choiceCount++;
       if (mine === partners) matchedChoice++;
+      if (gameId === 'TRUTH_DARE') {
+        if (mine === rounds[i].options[0]) myTruths++;
+        else myDares++;
+        if (partners === rounds[i].options[0]) partTruths++;
+        else partDares++;
+      }
     } else if (rounds[i].type === 'text') {
       textCount++;
       if (normalizeAnswer(mine) === normalizeAnswer(partners)) matchedText++;
     }
+    if (mine) myChars += mine.length;
+    if (partners) partChars += partners.length;
   }
+
+  const totalAnswered = choiceCount + textCount;
+  const syncPct = totalAnswered > 0 ? Math.round((matchedChoice + matchedText) / totalAnswered * 100) : 0;
+  const longestMine = [...myByIndex.values()].reduce((m, s) => Math.max(m, s.length), 0);
+  const longestPart = [...partByIndex.values()].reduce((m, s) => Math.max(m, s.length), 0);
 
   let emoji = '💘';
   let title = 'Идеальная пара';
@@ -649,8 +699,9 @@ function FinalCard({
   } else if (gameId === 'TRUTH_DARE') {
     emoji = '🎲';
     title = 'Отлично сыграно!';
-    sub = 'Вы отвечали честно и выполняли задания — вечер точно запомнится.';
-    countValue = null;
+    sub = `Правда: вы ${myTruths} / партнёр ${partTruths}  ·  Действие: вы ${myDares} / партнёр ${partDares}. Синхронность ${syncPct}%.`;
+    countValue = `${myTruths + myDares} раундов`;
+    countCaption = 'сыграно';
   } else {
     const pct = choiceCount > 0 ? matchedChoice / choiceCount : 0;
     if (gameId === 'SPEED_FACTS') {
@@ -671,7 +722,7 @@ function FinalCard({
       if (pct >= 0.75) {
         emoji = '🎯';
         title = 'Вы на одной волне!';
-        sub = 'Совпали почти во всём — ваши вкусы очень близки.';
+        sub = 'Совпали почти во всём — ваши вкусы очень близкие.';
       } else if (pct >= 0.4) {
         emoji = '💫';
         title = 'Хорошая синхронность';
@@ -704,6 +755,13 @@ function FinalCard({
           {MOOD_EMOJI[mood]} Ваш {MOOD_LABEL[mood]} прошёл.
         </div>
       )}
+      <div style={{ marginTop: 6, padding: '10px 12px', background: 'var(--secondary-bg)', borderRadius: 12, fontSize: 12, color: 'var(--ink)', lineHeight: 1.6 }}>
+        <div><strong>Статистика:</strong> всего раундов {totalAnswered}, синхронность {syncPct}%</div>
+        <div>Ваши символы: {myChars} (макс {longestMine})  ·  Партнёра: {partChars} (макс {longestPart})</div>
+        {gameId === 'TRUTH_DARE' && (
+          <div>Правда — вы: {myTruths}, партнёр: {partTruths}  ·  Действие — вы: {myDares}, партнёр: {partDares}</div>
+        )}
+      </div>
 
       {showList && (
         <div style={styles.finalAnswers}>

@@ -401,7 +401,7 @@ export interface Integration {
 export type PoiskkinoPart = Pick<PoiskkinoCandidate, 'kp_id' | 'name' | 'alternative_name' | 'year' | 'poster_url' | 'rating_imdb' | 'type'>;// --- Games ----------------------------------------------------------------------
 
 export type GameId = 'KNOW_ME' | 'CHOOSE_ONE' | 'ASSOCIATIONS' | 'COMPLIMENTS' | 'SPEED_FACTS' | 'TRUTH_DARE';
-export type GameMood = 'нежное' | 'веселое' | 'погорячее' | 'поговорить' | 'спокойное';
+export type GameMood = 'нежное' | 'веселое' | 'погорячее' | 'погорячее 18+' | 'поговорить' | 'спокойное';
 
 export interface GameAnswer {
   session_id: string;
@@ -418,6 +418,8 @@ export interface GameRound {
   category?: string; // e.g., 'warmup', 'personal', 'final', 'binary', 'surprise'
   truth?: string; // truth-or-dare: «правда» prompt shown when the player picks it
   dare?: string; // truth-or-dare: «действие» prompt shown when the player picks it
+  truthB?: string; // вариант правды для партнёра (чтобы не совпадали)
+  dareB?: string; // вариант действия для партнёра
 }
 
 export interface GameSession {

@@ -16,12 +16,12 @@ import {
 
 const createSessionSchema = z.object({
   game_id: z.enum(['KNOW_ME', 'CHOOSE_ONE', 'ASSOCIATIONS', 'COMPLIMENTS', 'SPEED_FACTS', 'TRUTH_DARE']),
-  mood: z.enum(['нежное', 'веселое', 'погорячее', 'поговорить', 'спокойное']).nullable().optional(),
+  mood: z.enum(['нежное', 'веселое', 'погорячее', 'погорячее 18+', 'поговорить', 'спокойное']).nullable().optional(),
 });
 
 const answerSchema = z.object({
   round_index: z.number().int().min(0),
-  answer: z.string().trim().min(1).max(500),
+  answer: z.string().trim().min(1).max(2000),
 });
 
 async function withAnswers(session: GameSessionRow): Promise<GameSessionRow> {
