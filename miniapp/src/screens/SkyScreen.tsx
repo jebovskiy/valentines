@@ -360,23 +360,26 @@ export function SkyScreen() {
               </button>
             </div>
 
-            <svg
-              viewBox={`0 0 ${SKY_W} ${SKY_H}`}
-              width="100%"
-              height="100%"
-              style={{
-                display: 'block',
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-                transformOrigin: 'center center',
-                willChange: 'transform',
-              }}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onDoubleClick={handleDoubleClick}
-              role="img"
-              aria-label="Звёздное небо валентинок"
-            >
+            <div style={{ flex: 1, minHeight: 240, position: 'relative' }}>
+              <svg
+                viewBox={`0 0 ${SKY_W} ${SKY_H}`}
+                width="100%"
+                height="100%"
+                preserveAspectRatio="xMidYMid meet"
+                style={{
+                  display: 'block',
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+                  transformOrigin: 'center center',
+                  willChange: 'transform',
+                  touchAction: 'none',
+                }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onDoubleClick={handleDoubleClick}
+                role="img"
+                aria-label="Звёздное небо валентинок"
+              >
               <defs>
                 <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
                   <feGaussianBlur stdDeviation="2" result="blur" />
@@ -528,7 +531,8 @@ export function SkyScreen() {
                   />
                 );
               })}
-            </svg>
+              </svg>
+            </div>
 
             <div style={styles.legend}>
               <span style={styles.legendItem}>
@@ -671,11 +675,12 @@ const styles: Record<string, CSSProperties> = {
     background: '#070A1C',
     border: '1px solid #151937',
     borderRadius: 18,
-    padding: 0,
+    padding: '8px 0 10px',
     overflow: 'hidden',
     flex: 1,
     minHeight: 0,
     display: 'flex',
+    flexDirection: 'column',
   },
   chips: {
     display: 'flex',
