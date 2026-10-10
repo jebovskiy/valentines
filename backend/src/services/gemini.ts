@@ -2,6 +2,8 @@ import { config } from '../config';
 import { z } from 'zod';
 
 export type HotLevel = 'flirt' | 'warm' | 'bold' | 'wild';
+export const DEFAULT_HOT_LEVEL: HotLevel = 'warm';
+export const HOT_MOOD = 'погорячее 18+';
 
 export interface MovieReviewInput {
   author_name: string;
@@ -771,7 +773,7 @@ const aiRoundsSchema = z.object({
 });
 
 function gameRoundsPrompt(input: AiGameRoundsInput): string {
-  const { gameId, mood, names } = input;
+  const { gameId, mood, names, heat } = input;
   // Free-text user input is data, never instructions: fence it so the model
   // can't be steered by prompt injection hidden in the couple's mood/names.
   const fenced = (v: string | null | undefined): string =>
@@ -833,8 +835,17 @@ ${personal}
 ${personal}
 Все тексты на русском, позитивные.`;
     case 'TRUTH_DARE':
-      return `Ты создаёшь карточки для игры «Правда или действие» для пар.${moodHint}${moodGuide}
-Стиль: ${mood === 'погорячее 18+' ? 'Откровенные, страстные, взрослые. Разрешено: близость, фантазии, тело, желание. Без крайностей, насилия и унижения — только взаимное удовольствие и доверие.' : 'по настроению вечера'}.
+      {
+        const heatStyle = mood === HOT_MOOD ? 
+          `Уровень жара: ${heat ?? 'warm'}. ` +
+          (heat === 'flirt' ? 'Романтично и нежно: вопросы о прикосновениях, взглядах, воспоминаниях.' :
+           heat === 'warm' ? 'Страстно и откровенно: вопросы о желаниях, фантазиях, близости.' :
+           heat === 'bold' ? 'Смело и напрямую: вопросы о смелых фантазиях, ролевых играх, экспериментах.' :
+           heat === 'wild' ? 'Очень смело, границы: вопросы о самых смелых fantasies, границах комфорта.' :
+           '') : 
+          'по настроению вечера';
+        return `Ты создаёшь карточки для игры «Правда или действие» для пар.${moodHint}${moodGuide}
+Стиль: ${heatStyle}
 Задача: сгенерировать ${AI_GAME_CONFIGS.TRUTH_DARE.count} раундов.
 Каждый раунд — объект с четырьмя текстами:
 - truth — вопрос «правда» для первого партнёра;
@@ -846,6 +857,7 @@ ${personal}
 Задания безопасные, уместные и без подготовки: не унизительные, не опасные, без денег, чужих паролей и личных данных. Всё выполнимо вдвоём прямо сейчас.${sharedDareNote}
 ${personal}
 Все тексты на русском, без канцелярита.`;
+      }
     default:
       return '';
   }
