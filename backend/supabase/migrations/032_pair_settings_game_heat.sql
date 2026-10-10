@@ -133,6 +133,8 @@ CREATE INDEX IF NOT EXISTS idx_game_answers_expires_at ON public.game_answers(ex
 -- RLS on game_answers: only pair members can read answers for their game sessions
 ALTER TABLE public.game_answers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Pair members can read game_answers" ON public.game_answers;
+
 CREATE POLICY "Pair members can read game_answers"
     ON public.game_answers
     FOR SELECT
@@ -175,17 +177,13 @@ CREATE OR REPLACE FUNCTION public.encrypt_answer(
     p_user_id bigint
 ) RETURNS bytea LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-    v_key bytea;
-    v_iv  bytea;
-    v_ct  bytea;
+    v_passphrase text;
 BEGIN
-    -- Derive key from session_id + user_id + server secret
+    -- Derive passphrase from session_id + user_id + server secret
     -- In production, store secret in Supabase Vault: vault.get_secret('answer_enc_key')
-    v_key := encode(hmac((p_session_id || ':' || p_user_id)::bytea, current_setting('app.answer_enc_key', true)::bytea, 'sha256'), 'hex');
-    v_key := decode(substr(v_key, 1, 64), 'hex'); -- 32 bytes for AES-256
-    v_iv := gen_random_bytes(12); -- 96-bit IV for AES-GCM
-    v_ct := pgp_sym_encrypt(p_answer, v_key || v_iv, 'compress=0, cipher-algo=aes256');
-    RETURN v_iv || v_ct; -- prepend IV for decryption
+    v_passphrase := encode(hmac((p_session_id || ':' || p_user_id)::bytea, current_setting('app.answer_enc_key', true)::bytea, 'sha256'), 'hex');
+    -- pgp_sym_encrypt handles IV internally; returns encrypted bytea
+    RETURN pgp_sym_encrypt(p_answer, v_passphrase, 'compress=0, cipher-algo=aes256');
 END;
 $$;
 
@@ -195,17 +193,10 @@ CREATE OR REPLACE FUNCTION public.decrypt_answer(
     p_user_id bigint
 ) RETURNS text LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-    v_key bytea;
-    v_iv  bytea;
-    v_ct  bytea;
-    v_pt  text;
+    v_passphrase text;
 BEGIN
-    v_key := encode(hmac((p_session_id || ':' || p_user_id)::bytea, current_setting('app.answer_enc_key', true)::bytea, 'sha256'), 'hex');
-    v_key := decode(substr(v_key, 1, 64), 'hex');
-    v_iv := substr(p_encrypted, 1, 12);
-    v_ct := substr(p_encrypted, 13);
-    v_pt := pgp_sym_decrypt(v_iv || v_ct, v_key, 'compress=0, cipher-algo=aes256');
-    RETURN v_pt;
+    v_passphrase := encode(hmac((p_session_id || ':' || p_user_id)::bytea, current_setting('app.answer_enc_key', true)::bytea, 'sha256'), 'hex');
+    RETURN pgp_sym_decrypt(p_encrypted, v_passphrase, 'compress=0, cipher-algo=aes256');
 END;
 $$;
 
@@ -234,16 +225,22 @@ $$;
 
 -- ============ 6. Cron job for TTL cleanup (runs daily) ============
 -- Note: requires pg_cron extension enabled in Supabase
+-- First create a cleanup function, then schedule it
+CREATE OR REPLACE FUNCTION public.cleanup_expired_game_data()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    DELETE FROM public.game_answers WHERE expires_at IS NOT NULL AND expires_at < now();
+    DELETE FROM public.game_sessions WHERE expires_at IS NOT NULL AND expires_at < now();
+END;
+$$;
+
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
         PERFORM cron.schedule(
             'cleanup-expired-game-data',
             '0 3 * * *', -- 03:00 UTC daily
-            $$
-            DELETE FROM public.game_answers WHERE expires_at IS NOT NULL AND expires_at < now();
-            DELETE FROM public.game_sessions WHERE expires_at IS NOT NULL AND expires_at < now();
-            $$
+            'SELECT public.cleanup_expired_game_data();'
         );
         RAISE NOTICE 'Scheduled cron job cleanup-expired-game-data';
     ELSE
