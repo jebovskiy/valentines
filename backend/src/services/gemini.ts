@@ -973,6 +973,9 @@ export async function generateAiGameRounds(input: AiGameRoundsInput): Promise<Ai
     console.warn(`[gemini] game rounds unsatisfying payload for ${input.gameId}`);
     return null;
   }
+  if (input.gameId === 'TRUTH_DARE' && input.mood === HOT_MOOD) {
+    console.log(`[gemini] TRUTH_DARE ${input.mood} rounds generated: ${rounds.length} truth/dare pairs. First truth: "${rounds[0].truth}", first dare: "${rounds[0].dare}"`);
+  }
   console.log(`[gemini] game rounds generated via Gemini for ${input.gameId} (${rounds.length})`);
   return rounds;
 }

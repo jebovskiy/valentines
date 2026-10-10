@@ -2,7 +2,7 @@ import { shallow } from 'zustand/shallow';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useValentinesStore } from '../hooks/useValentinesStore';
-import { GameId, GameMood, GameRound } from '../types';
+import { GameId, GameMood, GameRound, HotLevel } from '../types';
 import { setMainButton, setBackButton, hapticFeedback } from '../utils/telegram';
 import { BackButton } from '../components/BackButton';
 
@@ -22,6 +22,13 @@ const MOOD_LABEL: Record<GameMood, string> = {
   'погорячее 18+': 'взрослый вечер',
   'поговорить': 'вечер разговоров',
   'спокойное': 'спокойный вечер',
+};
+
+const HOT_LEVEL_LABELS: Record<HotLevel, { label: string; emoji: string; desc: string }> = {
+  flirt: { label: 'Флирт', emoji: '💋', desc: 'Лёгкий флирт, поцелуи' },
+  warm: { label: 'Тёплое', emoji: '🔥', desc: 'Страсть, прикосновения' },
+  bold: { label: 'Смелое', emoji: '🌶️', desc: 'Откровенные вопросы и действия' },
+  wild: { label: 'Дикое', emoji: '🌪️', desc: 'Максимальная откровенность' },
 };
 
 const GAME_TITLES: Record<GameId, string> = {
@@ -474,6 +481,8 @@ export function GamePlayScreen() {
           {GAME_TITLES[gameSession.game_id]}
         </span>
         {gameSession.mood && <span style={styles.moodBadge}>{MOOD_EMOJI[gameSession.mood]}</span>}
+        {gameSession.mood === 'погорячее 18+' && <span style={{ fontSize: 20, marginLeft: 4, color: '#ff4444' }}>18+</span>}
+        {gameSession.heat_level_used && <span style={{ fontSize: 16, marginLeft: 4, color: '#ff8800' }}>{HOT_LEVEL_LABELS[gameSession.heat_level_used as HotLevel].emoji} {HOT_LEVEL_LABELS[gameSession.heat_level_used as HotLevel].label}</span>}
       </div>
 
       {allDone ? (

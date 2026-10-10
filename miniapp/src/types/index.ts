@@ -445,6 +445,8 @@ export interface GameSession {
   created_at: string;
   updated_at: string;
   answers?: GameAnswer[];
+  heat_level_used?: HotLevel | null;
+  is_hot_18?: boolean;
   level_ready?: number[]; // user IDs who pressed "Continue" for current level gate
 }
 

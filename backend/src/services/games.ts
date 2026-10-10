@@ -45,9 +45,10 @@ export interface GameSessionRow {
   created_at: string;
   updated_at: string;
   answers?: GameAnswer[];
+  heat_level_used?: HotLevel | null;
 }
 
-const SESSION_SELECT = 'id, pair_id, initiator_id, game_id, mood, rounds, status, created_at, updated_at';
+const SESSION_SELECT = 'id, pair_id, initiator_id, game_id, mood, rounds, status, created_at, updated_at, heat_level_used';
 
 export async function getActiveGameSession(pairId: string): Promise<GameSessionRow | null> {
   const { data, error } = await supabase
@@ -731,8 +732,13 @@ export async function createGameSession(
   if (names && (mood !== HOT_MOOD || gameId === 'TRUTH_DARE')) {
     const ai = await generateAiGameRounds({ gameId, mood, names, heat: effectiveHeat });
     raw = ai ? ai.map((r) => ({ text: r.text, options: r.options, truth: r.truth, dare: r.dare, truthB: r.truth2, dareB: r.dare2, level: r.level })) : null;
+    if (ai && gameId === 'TRUTH_DARE') {
+      console.log(`[createGameSession] AI generated ${ai.length} TRUTH_DARE rounds for mood=${mood}, heat=${effectiveHeat}`);
+    }
   }
   if (!raw) {
+    const source = gameId === 'TRUTH_DARE' ? 'TRUTH_DARE static bank' : 'static bank';
+    console.warn(`[createGameSession] fallback to ${source} for game=${gameId}, mood=${mood}, heat=${effectiveHeat}`);
     raw = buildStaticRounds(gameId, mood, effectiveHeat);
   }
 
