@@ -102,16 +102,18 @@ export async function createGameSessionRow(
   initiatorId: number,
   gameId: GameId,
   mood: Mood | null,
-  rounds: GameRound[]
+  rounds: GameRound[],
+  heatLevelUsed?: HotLevel
 ): Promise<GameSessionRow> {
   const { data, error } = await supabase
     .from('game_sessions')
-    .insert({ pair_id: pairId, initiator_id: initiatorId, game_id: gameId, mood, rounds })
-    .select(SESSION_SELECT)
+    .insert({ pair_id: pairId, initiator_id: initiatorId, game_id: gameId, mood, rounds, heat_level_used: heatLevelUsed })
+    .select(SESSION_SELECT + ', heat_level_used, expires_at')
     .single();
 
   if (error) throw error;
-  return data as GameSessionRow;
+  if (!data) throw new Error('Failed to create game session row');
+  return data as unknown as GameSessionRow;
 }
 
 export async function upsertGameAnswer(
@@ -120,8 +122,44 @@ export async function upsertGameAnswer(
   roundIndex: number,
   answer: string
 ): Promise<void> {
+  // Check if session is 18+ mood to decide encryption
+  const { data: session, error: sessionErr } = await supabase
+    .from('game_sessions')
+    .select('mood')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (sessionErr) throw sessionErr;
+  const isHot18 = session?.mood === HOT_MOOD;
+
+  const payload: Record<string, unknown> = {
+    session_id: sessionId,
+    user_id: userId,
+    round_index: roundIndex,
+  };
+
+  if (isHot18) {
+    // Encrypt with pgcrypto using a key derived from session_id + user_id
+    // The key is not stored; only the encrypted blob is saved.
+    // For decryption, the backend would need the same key derivation.
+    // Here we use a simple approach: encrypt with session_id as key (not production-grade, but meets TTL requirement).
+    // In production, use a proper key management system.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const { data: encData, error: encError } = await supabase.rpc('encrypt_answer', {
+      p_answer: answer,
+      p_session_id: sessionId,
+      p_user_id: userId,
+    });
+    if (encError) throw encError;
+    payload.encrypted_answer = encData;
+    payload.answer = null;
+  } else {
+    payload.answer = answer;
+    payload.encrypted_answer = null;
+  }
+
   const { error } = await supabase.from('game_answers').upsert(
-    [{ session_id: sessionId, user_id: userId, round_index: roundIndex, answer }],
+    [payload],
     { onConflict: 'session_id,user_id,round_index' },
   );
   if (error) throw error;
@@ -640,6 +678,26 @@ export async function createGameSession(
   heat?: HotLevel
 ): Promise<GameSessionRow> {
   let raw: RawRound[] | null = null;
+
+  // Resolve heat level from pair settings (server-side source of truth)
+  let effectiveHeat: HotLevel = heat ?? DEFAULT_HOT_LEVEL;
+  if (mood === HOT_MOOD) {
+    // Check 18+ permission
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const { data: allows18, error: err18 } = await supabase.rpc('pair_allows_hot_18', { p_pair_id: pairId });
+    if (err18) throw err18;
+    if (!allows18) {
+      throw new Error('18+ category not enabled or not confirmed by both partners');
+    }
+    // Get effective heat level (min of both partners)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const { data: dbHeat, error: errHeat } = await supabase.rpc('get_effective_heat_level', { p_pair_id: pairId });
+    if (errHeat) throw errHeat;
+    effectiveHeat = HOT_LEVEL_ORDER[dbHeat as number - 1] ?? DEFAULT_HOT_LEVEL;
+  } else if (heat) {
+    effectiveHeat = heat;
+  }
+
   // Для 'погорячее 18+' не вызываем ИИ: его промпт не знает про уровни жара,
   // и может выдать контент выше выбранного уровня.
   if (names && mood !== HOT_MOOD) {
@@ -647,10 +705,10 @@ export async function createGameSession(
     raw = ai ? ai.map((r) => ({ text: r.text, options: r.options, truth: r.truth, dare: r.dare, truthB: r.truth2, dareB: r.dare2 })) : null;
   }
   if (!raw) {
-    raw = buildStaticRounds(gameId, mood, heat ?? DEFAULT_HOT_LEVEL);
+    raw = buildStaticRounds(gameId, mood, effectiveHeat);
   }
 
   const rounds = decorateRounds(gameId, raw);
-  const session = await createGameSessionRow(pairId, initiatorId, gameId, mood, rounds);
+  const session = await createGameSessionRow(pairId, initiatorId, gameId, mood, rounds, effectiveHeat);
   return session;
 }
