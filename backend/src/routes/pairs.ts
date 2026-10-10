@@ -189,7 +189,7 @@ export async function pairsRoutes(app: FastifyInstance) {
 
   const updateHotLevelSchema = z.object({
     partner: z.enum(['a', 'b']),
-    level: z.enum(['flirt', 'warm', 'bold', 'wild']),
+    level: z.enum(['flirt', 'warm', 'bold', 'wild', 'hard']),
   });
 
   app.patch('/:pairId/settings/hot-level', privateRoutes, async (request, reply) => {
