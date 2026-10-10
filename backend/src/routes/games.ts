@@ -18,6 +18,7 @@ import {
 const createSessionSchema = z.object({
   game_id: z.enum(['KNOW_ME', 'CHOOSE_ONE', 'ASSOCIATIONS', 'COMPLIMENTS', 'SPEED_FACTS', 'TRUTH_DARE']),
   mood: z.enum(['нежное', 'веселое', 'погорячее', 'погорячее 18+', 'поговорить', 'спокойное']).nullable().optional(),
+  heat: z.enum(['flirt', 'warm', 'bold', 'wild']).optional(),
 });
 
 const answerSchema = z.object({
@@ -48,14 +49,14 @@ export async function gamesRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) return reply.code(404).send({ error: 'Pair not found' });
 
-    const { game_id, mood } = parsed.data;
+    const { game_id, mood, heat } = parsed.data;
     await deleteActiveGameSessions(pair.id);
     const initiatorIsA = pair.telegram_user_a === request.telegramUser!.id;
     const names = {
       me: initiatorIsA ? pair.user_a_name ?? 'Ты' : pair.user_b_name ?? 'Ты',
       partner: initiatorIsA ? pair.user_b_name ?? 'Партнёр' : pair.user_a_name ?? 'Партнёр',
     };
-    const session = await createGameSession(pair.id, request.telegramUser!.id, game_id, mood ?? null, names);
+    const session = await createGameSession(pair.id, request.telegramUser!.id, game_id, mood ?? null, names, heat);
     return reply.code(201).send({ session });
   });
 

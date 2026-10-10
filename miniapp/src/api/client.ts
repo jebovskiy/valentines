@@ -316,10 +316,10 @@ export const api = {
     fetchWithAuth<{ ok: boolean }>(`/api/dates/${sessionId}/done`, { method: 'POST' }),
 
   getActiveGameSession: () => fetchWithAuth<{ session: GameSession | null }>('/api/games/active'),
-  createGameSession: (gameId: GameId, mood: GameMood | null) =>
+  createGameSession: (gameId: GameId, mood: GameMood | null, heat?: HotLevel) =>
     fetchWithAuth<{ session: GameSession }>('/api/games', {
       method: 'POST',
-      body: JSON.stringify({ game_id: gameId, mood: mood ?? null }),
+      body: JSON.stringify({ game_id: gameId, mood: mood ?? null, heat }),
     }),
   answerGame: (sessionId: string, roundIndex: number, answer: string) =>
     fetchWithAuth<{ session: GameSession }>(`/api/games/${sessionId}/answer`, {

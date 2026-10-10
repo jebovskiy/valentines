@@ -171,7 +171,7 @@ interface ValentinesState {
   setupDateRealtime: (pairId: string) => void;
   cleanupDateRealtime: () => void;
   fetchGameSession: () => Promise<void>;
-  createGameSession: (gameId: GameId, mood: GameMood | null) => Promise<GameSession | null>;
+  createGameSession: (gameId: GameId, mood: GameMood | null, heat?: HotLevel) => Promise<GameSession | null>;
   answerGame: (roundIndex: number, answer: string) => Promise<GameSession | null>;
   finishGameSession: (sessionId: string) => Promise<void>;
   addLevelReady: (sessionId: string, userId: number) => Promise<void>;
@@ -867,9 +867,9 @@ export const useValentinesStore = create<ValentinesState>((set, get) => ({
     set({ gameSession: result.data.session });
   },
 
-  createGameSession: async (gameId, mood) => {
+  createGameSession: async (gameId, mood, heat) => {
     set({ gameSessionLoading: true, error: null });
-    const result = await api.createGameSession(gameId, mood);
+    const result = await api.createGameSession(gameId, mood, heat);
     if (result.error || !result.data) {
       set({ gameSessionLoading: false, error: result.error });
       return null;

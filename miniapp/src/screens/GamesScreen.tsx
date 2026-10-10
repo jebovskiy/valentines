@@ -488,7 +488,7 @@ export function GamesScreen() {
     hapticFeedback('impact', 'light');
     setStarting(true);
     setScreenError(null);
-    const session = await createGameSession(selectedGame, mood);
+    const session = await createGameSession(selectedGame, mood, myHotLevel);
     setStarting(false);
     if (session) {
       navigate('/games/play');
@@ -508,7 +508,7 @@ export function GamesScreen() {
     hapticFeedback('impact', 'light');
     setStarting(true);
     setScreenError(null);
-    const session = await createGameSession(selectedGame, is18 ? 'погорячее 18+' : 'погорячее');
+    const session = await createGameSession(selectedGame, is18 ? 'погорячее 18+' : 'погорячее', myHotLevel);
     setStarting(false);
     if (session) {
       navigate('/games/play');
