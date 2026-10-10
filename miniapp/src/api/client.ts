@@ -328,6 +328,11 @@ export const api = {
     }),
   finishGameSession: (sessionId: string) =>
     fetchWithAuth<{ ok: boolean }>(`/api/games/${sessionId}/done`, { method: 'POST' }),
+  addLevelReady: (sessionId: string, userId: number) =>
+    fetchWithAuth<{ ok: boolean }>(`/api/games/${sessionId}/level-ready`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    }),
 
   // Меню и список покупок
   getMenuStores: () =>

@@ -555,19 +555,60 @@ const TRUTH_DARE_HOT: LeveledBank<{ truth: string; dare: string }> = {
 /**
  * Нарастающий жар.
  * Берёт уровни от 'flirt' до maxLevel включительно.
- * Делит total поровну; остаток отдаёт самым высоким уровням (с конца).
- * Внутри уровня shuffle(...).slice(0, count), между уровнями сохраняет порядок от мягкого к смелому.
+ * Остаток отдаёт самым высоким уровням (с конца).
+ * Внутри каждого уровня shuffle, уровень варьируется: для heat>=bold и total>=8:
+ *   - maxLevel: 50% от общего total (min 2)
+ *   - вторые самые высокие (большая из lower уровней): 30% от общего total (min 1)
+ *   - остальные: базово по остатку (min 1)
+ * При total<8: базово (min 1), всё, что осталось, отдаём самому высокому уровню.
  */
 function rampUp<T>(bank: LeveledBank<T>, maxLevel: HotLevel, total: number): T[] {
   const maxIdx = HOT_LEVEL_ORDER.indexOf(maxLevel);
   const levels = HOT_LEVEL_ORDER.slice(0, maxIdx + 1);
-  const base = Math.floor(total / levels.length);
-  const rem = total % levels.length;
   const result: T[] = [];
+  if (total < 8) {
+    // Для малого total: по 1 за уровень, плюс остаток самому высокому
+    for (let i = 0; i < levels.length && result.length < total; i++) {
+      const level = levels[i];
+      const items = shuffle(bank[level]).slice(0, 1);
+      result.push(...items);
+    }
+    const remaining = total - result.length;
+    if (remaining > 0) {
+      const items = shuffle(bank[maxLevel]).slice(0, remaining);
+      result.push(...items);
+    }
+    return result;
+  }
+  const MAX_WILD_SHARE = 0.5;
+  const SECOND_WILD_SHARE = 0.3;
+  const shares: Record<number, number> = {};
+  for (let i = 0; i < levels.length; i++) {
+    if (i === levels.length - 1 && levels.length >= 2) shares[i] = MAX_WILD_SHARE;
+    else if (i === levels.length - 2 && levels.length >= 2) shares[i] = SECOND_WILD_SHARE;
+    else shares[i] = 1;
+  }
+  const targetCounts: number[] = [];
+  for (let i = 0; i < levels.length; i++) {
+    const share = shares[i];
+    const exact = total * share;
+    const min = 1;
+    const max = Math.max(min, Math.floor(exact * 2));
+    targetCounts[i] = Math.max(min, Math.min(max, Math.round(exact)));
+  }
+  let sum = targetCounts.reduce((s, c) => s + c, 0);
+  let diff = total - sum;
+  if (diff !== 0) {
+    for (let i = 0; i < levels.length && diff !== 0; i++) {
+      const add = Math.sign(diff);
+      targetCounts[i] += add;
+      sum += add;
+      diff -= add;
+    }
+  }
   for (let i = 0; i < levels.length; i++) {
     const level = levels[i];
-    const count = base + (i >= levels.length - rem ? 1 : 0);
-    const items = shuffle(bank[level]).slice(0, count);
+    const items = shuffle(bank[level]).slice(0, targetCounts[i]);
     result.push(...items);
   }
   return result;

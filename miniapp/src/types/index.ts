@@ -445,6 +445,7 @@ export interface GameSession {
   created_at: string;
   updated_at: string;
   answers?: GameAnswer[];
+  level_ready?: number[]; // user IDs who pressed "Continue" for current level gate
 }
 
 // --- Меню и список покупок ---------------------------------------------------
