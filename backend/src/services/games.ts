@@ -711,7 +711,7 @@ export function buildStaticRounds(gameId: GameId, mood: Mood | null, heat: HotLe
       return shuffle(facts).map((text) => ({ text, options: ['✅ Да', '❌ Нет'] }));
     }
     case 'TRUTH_DARE': {
-      if (m === HOT_MOOD && heat === 'hard') {
+      if ((m === HOT_MOOD || m === 'погорячее') && heat === 'hard') {
         const rounds: RawRound[] = [];
         rounds.push({ text: 'Правила', options: [], rules: HARD_RULES });
         const shuffled = shuffle(TRUTH_DARE_HOT.hard).slice(0, 18);
