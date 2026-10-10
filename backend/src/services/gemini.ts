@@ -761,7 +761,7 @@ const aiRoundsSchema = z.object({
   rounds: z
     .array(
       z.object({
-        text: z.string(),
+        text: z.string().optional(),
         options: z.array(z.string()).optional(),
         truth: z.string().optional(),
         dare: z.string().optional(),
