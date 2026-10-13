@@ -760,7 +760,7 @@ function decorateRounds(gameId: GameId, raw: RawRound[]): GameRound[] {
         return { ...r, type: 'choice', category: 'fact', options: ['✅ Да', '❌ Нет'] };
 case 'TRUTH_DARE':
       // Determine round type based on content
-      let type: GameRound['type'] = 'choice';
+      let type: GameRound['type'] = 'truth_dare';
       let category: GameRound['category'] = 'truth_dare';
       let options: string[] = ['🎯 Правда', '🔥 Действие'];
       
