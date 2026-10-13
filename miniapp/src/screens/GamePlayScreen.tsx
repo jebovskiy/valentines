@@ -421,9 +421,9 @@ export function GamePlayScreen() {
   }, [rounds, myByIndex, partByIndex, isHardMode]);
   const allDone = total > 0 && bothAnsweredCount >= total && revealIdx >= total;
 
-  const round = revealIdx < total ? rounds[revealIdx] : null;
-  const mine = round ? myByIndex.get(revealIdx) : undefined;
-  const partners = round ? partByIndex.get(revealIdx) : undefined;
+const round = revealIdx < total ? rounds[revealIdx] : null;
+const mine = round ? myByIndex.get(revealIdx) : null;
+const partners = round ? partByIndex.get(revealIdx) : null;
 
   // Свой вариант правды/действия: инициатор — A (truth/dare), партнёр — B (truthB/dareB).
   const tdTextFor = (r: GameRound, byMe: boolean, answer: string): string => {
@@ -433,9 +433,9 @@ export function GamePlayScreen() {
     return (myA ? r.dare : (r.dareB ?? r.dare)) ?? '';
   };
 
-  const showReveal = !!round && bothAnsweredCount > revealIdx;
-  const showWait = !!round && !showReveal && mine !== undefined;
-  const showAnswer = !!round && !showReveal && mine === undefined;
+const showReveal = !!round && bothAnsweredCount > revealIdx;
+const showWait = !!round && !showReveal && mine != null;
+const showAnswer = !!round && !showReveal && mine == null;
 
   const submitChoice = async (answer: string) => {
     if (!round || sending) return;
@@ -602,7 +602,7 @@ export function GamePlayScreen() {
             </div>
           )}
 
-          {showReveal && round && mine !== undefined && partners !== undefined && (
+           {showReveal && round && mine != null && partners != null && (
             <div className="animate-slide-up" style={styles.card}>
               <div style={styles.cardCategory}>Ответы</div>
               <div style={styles.cardQuestion}>{round.text}</div>
@@ -699,7 +699,7 @@ function FinalCard({
   for (let i = 0; i < rounds.length; i++) {
     const mine = myByIndex.get(i);
     const partners = partByIndex.get(i);
-    if (mine === undefined || partners === undefined) continue;
+    if (mine == null || partners == null) continue;
     if (isChoiceRound(rounds[i])) {
       choiceCount++;
       if (mine === partners) matchedChoice++;
@@ -841,7 +841,7 @@ function FinalCard({
             if (gameId === 'KNOW_ME' && r.type !== 'text') return null;
             const mine = myByIndex.get(i);
             const partners = partByIndex.get(i);
-            if (mine === undefined || partners === undefined) return null;
+            if (mine == null || partners == null) return null;
             return (
               <div key={i} style={styles.finalAnswerBlock}>
                 {gameId !== 'KNOW_ME' && (

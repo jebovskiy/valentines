@@ -716,7 +716,7 @@ export function buildStaticRounds(gameId: GameId, mood: Mood | null, heat: HotLe
         rounds.push({ text: 'Правила', options: [], rules: HARD_RULES });
         const shuffled = shuffle(TRUTH_DARE_HOT.hard).slice(0, 18);
         for (const p of shuffled) {
-          rounds.push({ text: '', options: [], truth: p.truth, dare: p.dare, truthB: p.truth, dareB: p.dare, level: 'hard' });
+          rounds.push({ text: '', options: [p.truth, p.dare], truth: p.truth, dare: p.dare, truthB: p.truth, dareB: p.dare, level: 'hard' });
         }
         rounds.push({ text: HARD_FINAL_QUESTION, options: [], finalQuestion: HARD_FINAL_QUESTION });
         rounds.push({ text: '', options: [], postScene: HARD_POST_SCENE });
@@ -758,17 +758,40 @@ function decorateRounds(gameId: GameId, raw: RawRound[]): GameRound[] {
         return { ...r, type: 'text', category: 'compliment', options: [] };
       case 'SPEED_FACTS':
         return { ...r, type: 'choice', category: 'fact', options: ['✅ Да', '❌ Нет'] };
-      case 'TRUTH_DARE':
-        return {
-          ...r,
-          type: 'truth_dare',
-          category: 'truth_dare',
-          options: ['🎯 Правда', '🔥 Действие'],
-          truth: r.truth ?? '',
-          dare: r.dare ?? '',
-          truthB: r.truthB ?? r.truth ?? '',
-          dareB: r.dareB ?? r.dare ?? '',
-        };
+case 'TRUTH_DARE':
+      // Determine round type based on content
+      let type: GameRound['type'] = 'choice';
+      let category: GameRound['category'] = 'truth_dare';
+      let options: string[] = ['🎯 Правда', '🔥 Действие'];
+      
+      if (r.rules) {
+        // Rules round - show as text
+        type = 'text';
+        category = 'rules';
+        options = [];
+      } else if (r.postScene) {
+        // Post scene - show as text
+        type = 'text';
+        category = 'postScene';
+        options = [];
+      } else if (r.finalQuestion) {
+        // Final question - show as text
+        type = 'text';
+        category = 'final';
+        options = [];
+      }
+      // else: default is choice round for truth/dare
+      
+      return {
+        ...r,
+        type,
+        category,
+        options,
+        truth: r.truth ?? '',
+        dare: r.dare ?? '',
+        truthB: r.truthB ?? r.truth ?? '',
+        dareB: r.dareB ?? r.dare ?? '',
+      };
       default:
         return { ...r, type: 'choice' };
     }
