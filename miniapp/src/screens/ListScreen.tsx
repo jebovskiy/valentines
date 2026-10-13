@@ -317,17 +317,7 @@ export function ListScreen() {
     <div style={styles.container}>
       <header style={styles.feedHeader}>
         <div style={styles.feedHeaderRow}>
-          <button
-            onClick={() => {
-              hapticFeedback('impact', 'light');
-              navigate('/sky');
-            }}
-            style={styles.skyEntryBtn}
-            aria-label="Наше небо"
-            title="Наше небо"
-          >
-            ✦
-          </button>
+          <div />
           <h1 style={styles.feedTitle}>Валентинки</h1>
           <div />
         </div>
@@ -822,24 +812,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     color: '#B8C4F0',
     letterSpacing: 0.2,
-  },
-  skyEntryBtn: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '50%',
-    background: '#0F1530',
-    color: '#F2C16B',
-    border: '1px solid rgba(255,255,255,0.15)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '20px',
-    lineHeight: 1,
-    padding: 0,
-    cursor: 'pointer',
-    justifySelf: 'start',
-    WebkitAppearance: 'none' as const,
-    boxShadow: '0 6px 24px -8px rgba(242, 193, 107, 0.9)',
   },
   widgetBtn: {
     width: '40px',

@@ -40,19 +40,18 @@ interface Comet {
   width: number;
 }
 
-const ME_COLOR = '#F2C16B';
-const PARTNER_COLOR = '#F29BBD';
-const ME_GLOW = '#FFE08A';
-const PARTNER_GLOW = '#F7C5D6';
-const PHOTO_COLOR = '#E8EBFA';
-const PHOTO_GLOW = '#F5F5FF';
+const ME_COLOR = '#E60023';
+const PARTNER_COLOR = '#FFFFFF';
+const ME_GLOW = '#FF6B7A';
+const PARTNER_GLOW = '#F0F0F0';
+const PHOTO_COLOR = '#F5D6DA';
+const PHOTO_GLOW = '#FFF0F2';
 const STAR_RADIUS = [3.2, 4.4, 5.6];
 const SKY_W = 300;
 const SKY_H = 330;
 const DUST_COUNT = 54;
 const COMET_COUNT = 2;
 const LAYOUT_SEED = 7;
-const SERIES_DAYS = 7;
 const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
 function mulberry32(seed: number): () => number {
@@ -144,14 +143,6 @@ function starsWord(n: number): string {
   return 'звезд';
 }
 
-function daysWord(n: number): string {
-  const a = n % 10;
-  const b = n % 100;
-  if (a === 1 && b !== 11) return 'день';
-  if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return 'дня';
-  return 'дней';
-}
-
 export function SkyScreen() {
   const navigate = useNavigate();
   const { valentines, isLoading, error, fetchValentines, markSeen } = useValentinesStore(
@@ -166,7 +157,6 @@ export function SkyScreen() {
   );
 
   const [filter, setFilter] = useState<SkyFilter>('all');
-  const [showSeries, setShowSeries] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -183,23 +173,6 @@ export function SkyScreen() {
     [valentines],
   );
   const { stars, dust, comets } = useMemo(() => buildSky(sorted), [sorted]);
-
-  const uniqueDays = useMemo(() => {
-    const days: number[] = [];
-    stars.forEach((s) => {
-      if (!days.includes(s.dayKey)) days.push(s.dayKey);
-    });
-    return days;
-  }, [stars]);
-
-  const seriesPoints = useMemo(() => {
-    const recent = uniqueDays.slice(-SERIES_DAYS);
-    return recent
-      .map((day) => stars.find((s) => s.dayKey === day))
-      .filter((s): s is SkyStar => Boolean(s))
-      .map((s) => `${s.x.toFixed(1)},${s.y.toFixed(1)}`)
-      .join(' ');
-  }, [stars, uniqueDays]);
 
   const visible = useMemo(
     () => stars.filter((s) => filter === 'all' || s.who === filter),
@@ -300,8 +273,6 @@ export function SkyScreen() {
     );
   }
 
-  const seriesLen = Math.min(uniqueDays.length, SERIES_DAYS);
-
   return (
     <div
       style={{
@@ -323,8 +294,7 @@ export function SkyScreen() {
 
       {stars.length > 0 && (
         <div style={styles.subtitle}>
-          {stars.length} {starsWord(stars.length)} · серия {seriesLen} {daysWord(seriesLen)}
-          {' · '}свайп вниз — назад
+          {stars.length} {starsWord(stars.length)} · свайп вниз — назад
         </div>
       )}
 
@@ -367,21 +337,6 @@ export function SkyScreen() {
                   {c.label}
                 </button>
               ))}
-              <button
-                aria-pressed={showSeries}
-                onClick={() => {
-                  hapticFeedback('selection');
-                  setShowSeries((v) => !v);
-                }}
-                style={{ ...styles.chip, ...(showSeries ? styles.chipActive : {}) }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="6" cy="19" r="3" />
-                  <circle cx="18" cy="5" r="3" />
-                  <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
-                </svg>
-                Серия
-              </button>
             </div>
 
             <div style={{ flex: 1, minHeight: 240, position: 'relative' }}>
@@ -416,7 +371,7 @@ export function SkyScreen() {
               <rect width={SKY_W} height={SKY_H} fill="transparent" />
               {dust.map((d, i) => {
                 const isBright = i % 4 === 0;
-                const color = isBright ? '#B8C4F0' : '#7A86B8';
+                const color = isBright ? '#e9dfee' : '#8a7a8f';
                 const opacity = isBright ? 0.9 : 0.25;
                 return (
                   <circle
@@ -439,28 +394,17 @@ export function SkyScreen() {
                   y1={c.startY.toFixed(1)}
                   x2={c.endX.toFixed(1)}
                   y2={c.endY.toFixed(1)}
-                  stroke="#E8EBFA"
+                  stroke="#e9dfee"
                   strokeWidth={c.width.toFixed(1)}
                   strokeLinecap="round"
                   opacity={0.7}
                   style={{
                     animationDelay: `${c.delay.toFixed(1)}s`,
                     animationDuration: `${c.duration.toFixed(1)}s`,
-                    filter: 'drop-shadow(0 0 3px #E8EBFA)',
+                    filter: 'drop-shadow(0 0 3px #e9dfee)',
                   }}
                 />
               ))}
-
-              {showSeries && seriesPoints && (
-                <polyline
-                  points={seriesPoints}
-                  fill="none"
-                  stroke="#8E97C4"
-                  strokeWidth={1}
-                  strokeDasharray="3 4"
-                  opacity={0.55}
-                />
-              )}
 
               {stars.map((s) => {
                 const color = s.who === 'm' ? ME_COLOR : PARTNER_COLOR;
@@ -519,7 +463,7 @@ export function SkyScreen() {
                         cy={s.y.toFixed(1)}
                         r={r + 9}
                         fill="none"
-                        stroke="#E8EBFA"
+                        stroke="#FFFFFF"
                         strokeWidth={1.5}
                       />
                     )}
@@ -594,7 +538,7 @@ export function SkyScreen() {
                 <div
                   style={{
                     ...styles.cardText,
-                    color: selected.valentine.message ? '#E8EBFA' : selected.valentine.photo_url ? '#C9D0F0' : '#8E97C4',
+                    color: selected.valentine.message ? '#FFFFFF' : selected.valentine.photo_url ? '#CFC6D3' : '#8a7a8f',
                   }}
                 >
                   {selected.valentine.message || (selected.valentine.photo_url ? 'изображение' : 'Без текста')}
@@ -645,7 +589,7 @@ const styles: Record<string, CSSProperties> = {
     width: '100%',
     margin: '0 auto',
     boxSizing: 'border-box',
-    background: 'radial-gradient(120% 90% at 50% 0%, #111736 0%, #0B0F24 45%, #070A1C 100%)',
+    background: 'linear-gradient(180deg, #1a131b, #2c2030)',
   },
   pullHandleArea: {
     display: 'flex',
@@ -660,10 +604,10 @@ const styles: Record<string, CSSProperties> = {
     width: 40,
     height: 5,
     borderRadius: 999,
-    background: 'rgba(232,235,250,0.28)',
+    background: '#5d4d62',
   },
   mutedTextDark: {
-    color: '#C9D0F0',
+    color: '#CFC6D3',
     fontSize: 14,
     maxWidth: 280,
     lineHeight: 1.5,
@@ -678,14 +622,14 @@ const styles: Record<string, CSSProperties> = {
     textAlign: 'center',
     fontSize: 18,
     fontWeight: 800,
-    color: '#E8EBFA',
+    color: '#FFFFFF',
     fontFamily: 'var(--font-display)',
     pointerEvents: 'none',
-    textShadow: '0 0 14px rgba(184,196,240,0.35)',
+    textShadow: '0 0 14px rgba(255,255,255,0.2)',
   },
   subtitle: {
     fontSize: 12,
-    color: '#8E97C4',
+    color: '#CFC6D3',
     textAlign: 'center',
     marginTop: -2,
   },
@@ -696,9 +640,9 @@ const styles: Record<string, CSSProperties> = {
     width: 30,
     height: 30,
     borderRadius: '50%',
-    background: 'rgba(232,235,250,0.1)',
-    color: '#E8EBFA',
-    border: '1px solid rgba(232,235,250,0.2)',
+    background: 'rgba(255,255,255,0.1)',
+    color: '#FFFFFF',
+    border: '1px solid rgba(255,255,255,0.2)',
     fontSize: 16,
     lineHeight: 1,
     padding: 0,
@@ -707,8 +651,8 @@ const styles: Record<string, CSSProperties> = {
     WebkitAppearance: 'none' as const,
   },
   panel: {
-    background: '#0F1530',
-    border: '1px solid #1B1F33',
+    background: '#2e2430',
+    border: '1px solid #473a4c',
     borderRadius: 24,
     padding: '12px 0',
     overflow: 'hidden',
@@ -731,9 +675,9 @@ const styles: Record<string, CSSProperties> = {
     flexWrap: 'wrap',
   },
   chip: {
-    background: '#1A2142',
-    color: '#C9D0F0',
-    border: '0.5px solid #2B3566',
+    background: '#2e2430',
+    color: '#CFC6D3',
+    border: '0.5px solid #473a4c',
     borderRadius: 999,
     padding: '0 12px',
     height: 28,
@@ -746,9 +690,9 @@ const styles: Record<string, CSSProperties> = {
     WebkitAppearance: 'none' as const,
   },
   chipActive: {
-    background: '#2B3566',
+    background: '#E60023',
     color: '#fff',
-    borderColor: '#4A57A0',
+    borderColor: '#E60023',
   },
   legend: {
     display: 'flex',
@@ -756,7 +700,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'center',
     padding: '8px 16px',
     fontSize: 11,
-    color: '#8E97C4',
+    color: '#CFC6D3',
     flexWrap: 'wrap',
   },
   legendItem: {
@@ -774,8 +718,9 @@ const styles: Record<string, CSSProperties> = {
   },
   card: {
     margin: '4px 12px 0',
-    background: '#1A2142',
-    borderRadius: 16,
+    background: '#2e2430',
+    border: '1px solid #473a4c',
+    borderRadius: 20,
     padding: '12px 14px',
     minHeight: 116,
     display: 'flex',
@@ -786,16 +731,16 @@ const styles: Record<string, CSSProperties> = {
     alignItems: 'center',
     gap: 8,
     fontSize: 12,
-    color: '#8E97C4',
+    color: '#CFC6D3',
   },
   cardWho: {
-    color: '#E8EBFA',
+    color: '#FFFFFF',
     fontWeight: 500,
   },
   badgeNew: {
     marginLeft: 'auto',
-    background: '#3A2440',
-    color: '#F29BBD',
+    background: '#3a1a22',
+    color: '#FF6B7A',
     borderRadius: 999,
     padding: '2px 8px',
     fontSize: 11,
@@ -816,19 +761,19 @@ const styles: Record<string, CSSProperties> = {
   },
   cardHint: {
     fontSize: 12,
-    color: '#8E97C4',
+    color: '#CFC6D3',
   },
   openBtn: {
     display: 'inline-flex',
     alignItems: 'center',
     gap: 4,
-    background: '#E8EBFA',
-    color: '#0F1530',
+    background: '#E60023',
+    color: '#FFFFFF',
     border: 'none',
     borderRadius: 999,
     padding: '6px 14px',
     fontSize: 13,
-    fontWeight: 500,
+    fontWeight: 700,
     cursor: 'pointer',
     WebkitAppearance: 'none' as const,
   },
@@ -858,8 +803,8 @@ const styles: Record<string, CSSProperties> = {
   retryButton: {
     padding: '12px 14px',
     height: 40,
-    background: 'var(--primary)',
-    color: 'var(--on-primary)',
+    background: '#E60023',
+    color: '#FFFFFF',
     borderRadius: 16,
     fontWeight: 700,
     fontSize: 14,
@@ -877,22 +822,22 @@ const styles: Record<string, CSSProperties> = {
   emptyTitle: {
     fontSize: 17,
     fontWeight: 700,
-    color: '#E8EBFA',
+    color: '#FFFFFF',
   },
   emptyText: {
     fontSize: 13,
     lineHeight: 1.5,
-    color: '#8E97C4',
+    color: '#CFC6D3',
     maxWidth: 260,
   },
   emptyAction: {
     marginTop: 6,
     padding: '10px 16px',
     height: 40,
-    background: '#E8EBFA',
-    color: '#0F1530',
+    background: '#E60023',
+    color: '#FFFFFF',
     borderRadius: 999,
-    fontWeight: 600,
+    fontWeight: 700,
     fontSize: 14,
     border: 'none',
     cursor: 'pointer',
