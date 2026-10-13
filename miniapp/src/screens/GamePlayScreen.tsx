@@ -618,41 +618,35 @@ const showAnswer = !!round && !showReveal && mine == null;
                     </button>
                   </div>
                 ) : (
-                  // Handle text rounds - check if it's a display-only round
-                  const isDisplayOnlyRound = 
-                    round.category === 'rules' || 
-                    round.category === 'final' || 
-                    round.category === 'postScene';
-                  
-                  if (isDisplayOnlyRound) {
-                    // Display-only rounds (rules, final question, post scene) - just show the text
-                    <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--ink)', fontSize: 16, lineHeight: '24px' }}>
-                      {round.text}
-                    </div>
-                  } else {
-                    // Regular text rounds that require user input
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                        <textarea
-                          value={textDraft}
-                          onChange={(e) => setTextDraft(e.target.value.slice(0, 2000))}
-                          placeholder="Напишите, что бы вы хотели..."
-                          style={styles.textarea}
-                          maxLength={2000}
-                        />
-                        <span style={{ fontSize: 12, color: 'var(--ash)', whiteSpace: 'nowrap', marginBottom: 4 }}>
-                          {textDraft.length}/2000
-                        </span>
-                      </div>
-                      <button
-                        onClick={submitText}
-                        disabled={sending || textDraft.trim().length === 0}
-                        style={{ ...styles.primaryBtn, ...(sending || textDraft.trim().length === 0 ? styles.primaryBtnDisabled : {}) }}
-                      >
-                        Отправить
-                      </button>
-                    </div>
-                  }
+                   round.category === 'rules' || round.category === 'final' || round.category === 'postScene' ? (
+                     // Display-only rounds (rules, final question, post scene) - just show the text
+                     <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--ink)', fontSize: 16, lineHeight: '24px' }}>
+                       {round.text}
+                     </div>
+                   ) : (
+                     // Regular text rounds that require user input
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                         <textarea
+                           value={textDraft}
+                           onChange={(e) => setTextDraft(e.target.value.slice(0, 2000))}
+                           placeholder="Напишите, что бы вы хотели..."
+                           style={styles.textarea}
+                           maxLength={2000}
+                         />
+                         <span style={{ fontSize: 12, color: 'var(--ash)', whiteSpace: 'nowrap', marginBottom: 4 }}>
+                           {textDraft.length}/2000
+                         </span>
+                       </div>
+                       <button
+                         onClick={submitText}
+                         disabled={sending || textDraft.trim().length === 0}
+                         style={{ ...styles.primaryBtn, ...(sending || textDraft.trim().length === 0 ? styles.primaryBtnDisabled : {}) }}
+                       >
+                         Отправить
+                       </button>
+                     </div>
+                   )
                 )}
             </div>
           )}
