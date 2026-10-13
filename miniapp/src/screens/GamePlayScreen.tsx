@@ -394,11 +394,20 @@ const hardRules = allRounds.find(r => r.rules)?.rules ?? [];
 const postSceneText = allRounds.find(r => r.postScene)?.postScene ?? '';
 const finalQuestionText = allRounds.find(r => r.finalQuestion)?.finalQuestion ?? '';
 
-// Filter out special rounds that are handled separately when in hard mode
-const rounds = isHardMode 
-  ? allRounds.filter(r => !r.rules && !r.finalQuestion && !r.postScene)
-  : allRounds;
-const total = rounds.length;
+ // Indices of non-special rounds (rules, final question, postScene) in allRounds
+ const roundIndicesMap = useMemo(() => {
+   const indices: number[] = [];
+   allRounds.forEach((r, idx) => {
+     if (!(r.rules || r.finalQuestion || r.postScene)) {
+       indices.push(idx);
+     }
+   });
+   return indices;
+ }, [allRounds]);
+
+ // Non-special rounds (T/D rounds) for gameplay
+ const rounds = allRounds.filter(r => !(r.rules || r.finalQuestion || r.postScene));
+ const total = rounds.length;
   const [rulesAccepted, setRulesAccepted] = useState(false);
 
   const answers = gameSession?.answers ?? [];
@@ -411,23 +420,47 @@ const total = rounds.length;
     () => answers.filter((a) => a.user_id !== currentUser?.id),
     [answers, currentUser?.id],
   );
-  const myByIndex = useMemo(() => new Map(myAnswers.map((a) => [a.round_index, a.answer])), [myAnswers]);
-  const partByIndex = useMemo(() => new Map(partnerAnswers.map((a) => [a.round_index, a.answer])), [partnerAnswers]);
+  const myByIndexGame = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const originalIndex of roundIndicesMap) {
+      const answer = myAnswers.find(a => a.round_index === originalIndex)?.answer;
+      if (answer !== undefined) {
+        const gameIndex = roundIndicesMap.indexOf(originalIndex);
+        if (gameIndex !== -1) {
+          map.set(gameIndex, answer);
+        }
+      }
+    }
+    return map;
+  }, [myAnswers, roundIndicesMap]);
+  const partByIndexGame = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const originalIndex of roundIndicesMap) {
+      const answer = partnerAnswers.find(a => a.round_index === originalIndex)?.answer;
+      if (answer !== undefined) {
+        const gameIndex = roundIndicesMap.indexOf(originalIndex);
+        if (gameIndex !== -1) {
+          map.set(gameIndex, answer);
+        }
+      }
+    }
+    return map;
+  }, [partnerAnswers, roundIndicesMap]);
 
   const bothAnsweredCount = useMemo(() => {
     let count = 0;
-    for (let i = 0; i < rounds.length; i++) {
-      if (myByIndex.has(i) && partByIndex.has(i)) {
+    for (let gameIndex = 0; gameIndex < rounds.length; gameIndex++) {
+      if (myByIndexGame.has(gameIndex) && partByIndexGame.has(gameIndex)) {
         count++;
       }
     }
     return count;
-  }, [rounds, myByIndex, partByIndex]);
+  }, [rounds, myByIndexGame, partByIndexGame]);
   const allDone = total > 0 && bothAnsweredCount >= total && revealIdx >= total;
 
-const round = revealIdx < total ? rounds[revealIdx] : null;
-const mine = round ? myByIndex.get(revealIdx) : null;
-const partners = round ? partByIndex.get(revealIdx) : null;
+const round = rounds[revealIdx];
+const mine = myByIndexGame.get(revealIdx);
+const partners = partByIndexGame.get(revealIdx);
 
   // Свой вариант правды/действия: инициатор — A (truth/dare), партнёр — B (truthB/dareB).
   const tdTextFor = (r: GameRound, byMe: boolean, answer: string): string => {
@@ -445,7 +478,8 @@ const showAnswer = !!round && !showReveal && mine == null;
     if (!round || sending) return;
     hapticFeedback('impact', 'light');
     setSending(true);
-    await answerGame(revealIdx, answer);
+    const originalIndex = roundIndicesMap[revealIdx];
+    await answerGame(originalIndex, answer);
     setSending(false);
   };
 
@@ -453,7 +487,8 @@ const showAnswer = !!round && !showReveal && mine == null;
     if (!round || sending) return;
     hapticFeedback('selection');
     setSending(true);
-    await answerGame(revealIdx, '__SKIP__');
+    const originalIndex = roundIndicesMap[revealIdx];
+    await answerGame(originalIndex, '__SKIP__');
     setSending(false);
   };
 
@@ -461,7 +496,8 @@ const showAnswer = !!round && !showReveal && mine == null;
     if (!round || sending || textDraft.trim().length === 0) return;
     hapticFeedback('impact', 'light');
     setSending(true);
-    await answerGame(revealIdx, textDraft.trim());
+    const originalIndex = roundIndicesMap[revealIdx];
+    await answerGame(originalIndex, textDraft.trim());
     setSending(false);
     setTextDraft('');
   };
@@ -505,16 +541,16 @@ const showAnswer = !!round && !showReveal && mine == null;
       </div>
 
 {allDone ? (
-         <FinalCard
-           rounds={rounds}
-           myByIndex={myByIndex}
-           partByIndex={partByIndex}
-           gameId={gameSession.game_id}
-           mood={gameSession.mood}
-           onFinish={finish}
-           postSceneText={postSceneText}
-           finalQuestionText={finalQuestionText}
-         />
+<FinalCard
+            rounds={rounds}
+            myByIndex={myByIndexGame}
+            partByIndex={partByIndexGame}
+            gameId={gameSession.game_id}
+            mood={gameSession.mood}
+            onFinish={finish}
+            postSceneText={postSceneText}
+            finalQuestionText={finalQuestionText}
+          />
        ) : isHardMode && !rulesAccepted ? (
         <div style={styles.container}>
           <div style={styles.topBar}>
