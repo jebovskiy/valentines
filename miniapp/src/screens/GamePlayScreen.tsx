@@ -387,12 +387,18 @@ export function GamePlayScreen() {
     return () => window.clearInterval(t);
   }, [gameSession?.id, gameSession?.answers?.length, currentUser?.id, fetchGameSession]);
 
-  const rounds = gameSession?.rounds ?? [];
-  const total = rounds.length;
-  const isInitiator = gameSession?.initiator_id === currentUser?.id;
-  const isHardMode = gameSession?.heat_level_used === 'hard';
-  const hardRules = rounds.find(r => r.rules)?.rules ?? [];
-  const postSceneText = rounds.find(r => r.postScene)?.postScene ?? '';
+const allRounds = gameSession?.rounds ?? [];
+const isInitiator = gameSession?.initiator_id === currentUser?.id;
+const isHardMode = gameSession?.heat_level_used === 'hard';
+const hardRules = allRounds.find(r => r.rules)?.rules ?? [];
+const postSceneText = allRounds.find(r => r.postScene)?.postScene ?? '';
+const finalQuestionText = allRounds.find(r => r.finalQuestion)?.finalQuestion ?? '';
+
+// Filter out special rounds that are handled separately when in hard mode
+const rounds = isHardMode 
+  ? allRounds.filter(r => !r.rules && !r.finalQuestion && !r.postScene)
+  : allRounds;
+const total = rounds.length;
   const [rulesAccepted, setRulesAccepted] = useState(false);
 
   const answers = gameSession?.answers ?? [];
@@ -411,14 +417,12 @@ export function GamePlayScreen() {
   const bothAnsweredCount = useMemo(() => {
     let count = 0;
     for (let i = 0; i < rounds.length; i++) {
-      if (isHardMode && (rounds[i].rules || rounds[i].postScene)) {
-        count++;
-      } else if (myByIndex.has(i) && partByIndex.has(i)) {
+      if (myByIndex.has(i) && partByIndex.has(i)) {
         count++;
       }
     }
     return count;
-  }, [rounds, myByIndex, partByIndex, isHardMode]);
+  }, [rounds, myByIndex, partByIndex]);
   const allDone = total > 0 && bothAnsweredCount >= total && revealIdx >= total;
 
 const round = revealIdx < total ? rounds[revealIdx] : null;
@@ -500,17 +504,18 @@ const showAnswer = !!round && !showReveal && mine == null;
         {gameSession.heat_level_used && <span style={{ fontSize: 16, marginLeft: 4, color: '#ff8800' }}>{HOT_LEVEL_LABELS[gameSession.heat_level_used as HotLevel].emoji} {HOT_LEVEL_LABELS[gameSession.heat_level_used as HotLevel].label}</span>}
       </div>
 
-      {allDone ? (
-        <FinalCard
-          rounds={rounds}
-          myByIndex={myByIndex}
-          partByIndex={partByIndex}
-          gameId={gameSession.game_id}
-          mood={gameSession.mood}
-          onFinish={finish}
-          postSceneText={postSceneText}
-        />
-      ) : isHardMode && !rulesAccepted ? (
+{allDone ? (
+         <FinalCard
+           rounds={rounds}
+           myByIndex={myByIndex}
+           partByIndex={partByIndex}
+           gameId={gameSession.game_id}
+           mood={gameSession.mood}
+           onFinish={finish}
+           postSceneText={postSceneText}
+           finalQuestionText={finalQuestionText}
+         />
+       ) : isHardMode && !rulesAccepted ? (
         <div style={styles.container}>
           <div style={styles.topBar}>
             <BackButton />
@@ -556,49 +561,63 @@ const showAnswer = !!round && !showReveal && mine == null;
               </div>
               <div style={styles.cardQuestion}>{round.text}</div>
 
-              {isChoiceRound(round) ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {round.options.map((opt) => (
-                    <button key={opt} onClick={() => submitChoice(opt)} style={styles.option}>
-                      {opt}
+{isChoiceRound(round) ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {round.options.map((opt) => (
+                      <button key={opt} onClick={() => submitChoice(opt)} style={styles.option}>
+                        {opt}
+                      </button>
+                    ))}
+                    <button
+                      onClick={submitSkip}
+                      disabled={sending}
+                      style={{
+                        ...styles.option,
+                        background: 'var(--secondary-bg)',
+                        color: 'var(--ash)',
+                        borderColor: 'var(--hairline)',
+                      }}
+                    >
+                      Пропустить
                     </button>
-                  ))}
-                  <button
-                    onClick={submitSkip}
-                    disabled={sending}
-                    style={{
-                      ...styles.option,
-                      background: 'var(--secondary-bg)',
-                      color: 'var(--ash)',
-                      borderColor: 'var(--hairline)',
-                    }}
-                  >
-                    Пропустить
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                    <textarea
-                      value={textDraft}
-                      onChange={(e) => setTextDraft(e.target.value.slice(0, 2000))}
-                      placeholder="Напишите, что бы вы хотели..."
-                      style={styles.textarea}
-                      maxLength={2000}
-                    />
-                    <span style={{ fontSize: 12, color: 'var(--ash)', whiteSpace: 'nowrap', marginBottom: 4 }}>
-                      {textDraft.length}/2000
-                    </span>
                   </div>
-                  <button
-                    onClick={submitText}
-                    disabled={sending || textDraft.trim().length === 0}
-                    style={{ ...styles.primaryBtn, ...(sending || textDraft.trim().length === 0 ? styles.primaryBtnDisabled : {}) }}
-                  >
-                    Отправить
-                  </button>
-                </div>
-              )}
+                ) : (
+                  // Handle text rounds - check if it's a display-only round
+                  const isDisplayOnlyRound = 
+                    round.category === 'rules' || 
+                    round.category === 'final' || 
+                    round.category === 'postScene';
+                  
+                  if (isDisplayOnlyRound) {
+                    // Display-only rounds (rules, final question, post scene) - just show the text
+                    <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--ink)', fontSize: 16, lineHeight: '24px' }}>
+                      {round.text}
+                    </div>
+                  } else {
+                    // Regular text rounds that require user input
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                        <textarea
+                          value={textDraft}
+                          onChange={(e) => setTextDraft(e.target.value.slice(0, 2000))}
+                          placeholder="Напишите, что бы вы хотели..."
+                          style={styles.textarea}
+                          maxLength={2000}
+                        />
+                        <span style={{ fontSize: 12, color: 'var(--ash)', whiteSpace: 'nowrap', marginBottom: 4 }}>
+                          {textDraft.length}/2000
+                        </span>
+                      </div>
+                      <button
+                        onClick={submitText}
+                        disabled={sending || textDraft.trim().length === 0}
+                        style={{ ...styles.primaryBtn, ...(sending || textDraft.trim().length === 0 ? styles.primaryBtnDisabled : {}) }}
+                      >
+                        Отправить
+                      </button>
+                    </div>
+                  }
+                )}
             </div>
           )}
 
@@ -677,6 +696,7 @@ function FinalCard({
   mood,
   onFinish,
   postSceneText,
+  finalQuestionText,
 }: {
   rounds: GameRound[];
   myByIndex: Map<number, string>;
@@ -685,6 +705,7 @@ function FinalCard({
   mood: GameMood | null;
   onFinish: () => void;
   postSceneText?: string;
+  finalQuestionText?: string;
 }) {
   let matchedChoice = 0;
   let choiceCount = 0;
@@ -832,36 +853,42 @@ function FinalCard({
         )}
       </div>
 
-      {showList && (
-        <div style={styles.finalAnswers}>
-          {listTitle && (
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--mute)' }}>{listTitle}</div>
-          )}
-          {rounds.map((r, i) => {
-            if (gameId === 'KNOW_ME' && r.type !== 'text') return null;
-            const mine = myByIndex.get(i);
-            const partners = partByIndex.get(i);
-            if (mine == null || partners == null) return null;
-            return (
-              <div key={i} style={styles.finalAnswerBlock}>
-                {gameId !== 'KNOW_ME' && (
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', marginBottom: 4 }}>
-                    {r.text}
-                  </div>
-                )}
-                <div><strong>Вы:</strong> «{mine}»</div>
-                <div><strong>Партнёр:</strong> «{partners}»</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+{showList && (
+         <div style={styles.finalAnswers}>
+           {listTitle && (
+             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--mute)' }}>{listTitle}</div>
+           )}
+           {rounds.map((r, i) => {
+             if (gameId === 'KNOW_ME' && r.type !== 'text') return null;
+             const mine = myByIndex.get(i);
+             const partners = partByIndex.get(i);
+             if (mine == null || partners == null) return null;
+             return (
+               <div key={i} style={styles.finalAnswerBlock}>
+                 {gameId !== 'KNOW_ME' && (
+                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', marginBottom: 4 }}>
+                     {r.text}
+                   </div>
+                 )}
+                 <div><strong>Вы:</strong> «{mine}»</div>
+                 <div><strong>Партнёр:</strong> «{partners}»</div>
+               </div>
+             );
+           })}
+         </div>
+       )}
 
-      {postSceneText && (
-        <div style={{ marginTop: 16, padding: '16px', background: 'var(--secondary-bg)', borderRadius: 12, fontSize: 14, lineHeight: 1.6, color: 'var(--ink)', whiteSpace: 'pre-line' }}>
-          {postSceneText}
-        </div>
-      )}
+       {finalQuestionText && (
+         <div style={{ marginTop: 24, padding: '20px', background: 'var(--secondary-bg)', borderRadius: 16, fontSize: 18, fontWeight: 600, color: 'var(--ink)', lineHeight: '1.8', textAlign: 'center' }}>
+           {finalQuestionText}
+         </div>
+       )}
+
+       {postSceneText && (
+         <div style={{ marginTop: 16, padding: '16px', background: 'var(--secondary-bg)', borderRadius: 12, fontSize: 14, lineHeight: 1.6, color: 'var(--ink)', whiteSpace: 'pre-line' }}>
+           {postSceneText}
+         </div>
+       )}
 
       <button onClick={onFinish} style={{ ...styles.primaryBtn, marginTop: 8 }}>
         Спасибо ❤️
