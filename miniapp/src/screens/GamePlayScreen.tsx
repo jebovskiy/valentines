@@ -464,7 +464,7 @@ const partners = partByIndexGame.get(revealIdx);
 
   // Свой вариант правды/действия: инициатор — A (truth/dare), партнёр — B (truthB/dareB).
   const tdTextFor = (r: GameRound, byMe: boolean, answer: string): string => {
-    const pickedTruth = answer === r.options[0];
+    const pickedTruth = r.truth != null && r.truth !== '' && answer === '🎯 Правда';
     const myA = byMe === isInitiator;
     if (pickedTruth) return (myA ? r.truth : (r.truthB ?? r.truth)) ?? '';
     return (myA ? r.dare : (r.dareB ?? r.dare)) ?? '';
@@ -755,9 +755,9 @@ function FinalCard({
       choiceCount++;
       if (mine === partners) matchedChoice++;
       if (gameId === 'TRUTH_DARE') {
-        if (mine === rounds[i].options[0]) myTruths++;
+        if (rounds[i].truth != null && rounds[i].truth !== '' && mine === '🎯 Правда') myTruths++;
         else myDares++;
-        if (partners === rounds[i].options[0]) partTruths++;
+        if (rounds[i].truth != null && rounds[i].truth !== '' && partners === '🎯 Правда') partTruths++;
         else partDares++;
       }
     } else if (rounds[i].type === 'text') {
