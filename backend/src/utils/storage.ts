@@ -120,6 +120,29 @@ export async function resolvePhotoUrl(stored: string | null, ttlSeconds = 3600):
   return data.signedUrl;
 }
 
+/**
+ * Signs many references in one storage round-trip (each `createSignedUrl` is an
+ * HTTP call, so per-star signing would fan out hundreds of requests on a long
+ * streak). Duplicates share one signature; returns URLs in the input order.
+ */
+export async function resolvePhotoUrls(
+  stored: (string | null)[],
+  ttlSeconds = 3600
+): Promise<(string | null)[]> {
+  const paths = stored.map((s) => (s ? toObjectPath(s) : null));
+  const unique = Array.from(new Set(paths.filter((p): p is string => !!p)));
+  const signed = new Map<string, string>();
+  if (unique.length > 0) {
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrls(unique, ttlSeconds);
+    if (!error && data) {
+      for (const item of data) {
+        if (item.path && item.signedUrl && !item.error) signed.set(item.path, item.signedUrl);
+      }
+    }
+  }
+  return paths.map((p) => (p ? signed.get(p) ?? null : null));
+}
+
 /** Signs the `photo_url` of every item in place (returns new objects). */
 export async function withSignedPhotoUrls<T extends { photo_url: string | null }>(
   items: T[],

@@ -89,6 +89,24 @@ export interface ValentineWithSender extends Valentine {
   is_own: boolean;
 }
 
+/** Latest valentine of a day, for the sky star preview card. */
+export interface StreakDayPreview {
+  id: string;
+  sent_at: string;
+  animation_type: AnimationType;
+  message: string | null;
+  photo_url: string | null;
+  is_own: boolean;
+  seen_at: string | null;
+}
+
+/** One star on the sky screen: a pair-local day that has activity. */
+export interface StreakDay {
+  day: string;
+  count: number;
+  latest: StreakDayPreview;
+}
+
 export type RecapPeriod = '7d' | '30d' | '90d' | 'all';
 
 /** Numbers behind the recap card. Every field is a real count from the backend. */

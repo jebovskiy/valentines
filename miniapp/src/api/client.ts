@@ -46,6 +46,7 @@ import type {
   MenuLeftover,
   MenuLeftoverSuggestion,
   MenuIngredientGroup,
+  StreakDay,
 } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -151,6 +152,7 @@ export const api = {
   getPairingStatus: (token: string) =>
     fetchWithAuth<{ status: 'pending' | 'completed' | 'expired' }>(`/api/pairs/pairing/${token}/status`),
   getStreak: () => fetchWithAuth<{ streak: { current: number; max: number } }>('/api/pairs/streak'),
+  getStreakDays: () => fetchWithAuth<{ days: StreakDay[] }>('/api/pairs/streak/days'),
 
   // Pair settings
   getPairSettings: (pairId: string) =>

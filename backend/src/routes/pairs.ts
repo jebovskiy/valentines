@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getPairByUser, getDeviceByUserAndPlatform } from '../services/database';
+import { getPairByUser, getDeviceByUserAndPlatform, getValentineDays } from '../services/database';
+import { resolvePhotoUrls } from '../utils/storage';
 import { localDay, readStoredStreak, rebuildPairStreak } from '../services/streak';
 import { initiatePairing, completePairing, createPairForUsers, createInvite, joinByInvite, getPairingStatus } from '../services/pairing';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
@@ -73,6 +74,53 @@ export async function pairsRoutes(app: FastifyInstance) {
     }
 
     return { streak: { current, max } };
+  });
+
+  // One entry per pair-local day with activity -- the sky's "star = day" source.
+  // Canonical day comes from `valentines.streak_day` (sender tz at insert), not
+  // the viewer's clock, so both partners see the same sky.
+  app.get('/streak/days', { preHandler: [telegramAuthMiddleware, requireTelegramAuth, streakRateLimit] }, async (request, reply) => {
+    const pair = await getPairByUser(request.telegramUser!.id);
+    if (!pair) {
+      return reply.code(404).send({ error: 'Pair not found' });
+    }
+
+    const userId = request.telegramUser!.id;
+    const rows = await getValentineDays(pair.id);
+
+    // Newest-first: the first row seen for a day is that day's latest valentine.
+    const order: string[] = [];
+    const byDay = new Map<string, { day: string; count: number; latest: typeof rows[number] }>();
+    for (const row of rows) {
+      const day = row.streak_day;
+      if (!day) continue;
+      const existing = byDay.get(day);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        byDay.set(day, { day, count: 1, latest: row });
+        order.push(day);
+      }
+    }
+
+    const grouped = order.map((day) => byDay.get(day)!);
+    const signed = await resolvePhotoUrls(grouped.map((d) => d.latest.photo_url));
+
+    return {
+      days: grouped.map((d, i) => ({
+        day: d.day,
+        count: d.count,
+        latest: {
+          id: d.latest.id,
+          sent_at: d.latest.sent_at,
+          animation_type: d.latest.animation_type,
+          message: d.latest.message,
+          photo_url: signed[i],
+          seen_at: d.latest.seen_at,
+          is_own: d.latest.sender_telegram_id === userId,
+        },
+      })),
+    };
   });
 
   // Explicit resync: rebuilds the run from `valentines` in one SQL statement and

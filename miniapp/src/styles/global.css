@@ -55,6 +55,25 @@
   --text-secondary: var(--mute);
   --border: var(--hairline);
 
+  /* Immersive night sky (Наше небо): own dark palette, not the light app theme. */
+  --sky-bg-top: #1a131b;
+  --sky-bg-bottom: #2c2030;
+  --sky-panel: #2e2430;
+  --sky-panel-pressed: #3a2d3e;
+  --sky-border: #473a4c;
+  --sky-grip: #5d4d62;
+  --sky-text: #ffffff;
+  --sky-muted: #cfc6d3;
+  --sky-faint: #a596ac;
+  --sky-dust: #e9dfee;
+  --sky-me: #e60023;
+  --sky-me-glow: #ff6b7a;
+  --sky-partner: #ffffff;
+  --sky-partner-glow: #f0f0f0;
+  --sky-photo: #f7dde1;
+  --sky-photo-glow: #fff0f2;
+  --sky-line: rgba(230, 0, 35, 0.28);
+
   --radius-sm: 8px;
   --radius: 16px;
   --radius-lg: 32px;

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getPairByUser, getValentinesByPair, createValentine, markValentineSeen, getValentineById, getPartnerTelegramId } from '../services/database';
-import { recordValentineActivity, rebuildPairStreak } from '../services/streak';
+import { recordValentineActivity, rebuildPairStreak, localDay } from '../services/streak';
 import { telegramAuthMiddleware, requireTelegramAuth } from '../middleware/auth';
 import { userRateLimit } from '../middleware/rateLimit';
 import { isKnownAnimationType } from '../config';
@@ -112,7 +112,10 @@ export async function valentinesRoutes(app: FastifyInstance) {
       photoUrl = await photoUploadGate.run(() => uploadValentinePhoto(pair.id, body.photo_base64!));
     }
 
-    const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null, photoUrl);
+    // Canonical streak day, in the sender's timezone at insert. Same formula as
+    // register_valentine_activity, so the sky's stars line up with the streak.
+    const streakDay = localDay(new Date(), tzOffset);
+    const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null, photoUrl, streakDay);
 
     // Стрик живёт в базе: один атомарный UPDATE вместо перечитывания всей
     // истории, и порядок вызовов больше не влияет на результат.

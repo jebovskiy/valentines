@@ -50,6 +50,8 @@ export interface Valentine {
   sent_at: string;
   delivered_at: string | null;
   seen_at: string | null;
+  /** Pair-local activity day (sender tz), set at insert; NULL on pre-037 rows. */
+  streak_day?: string | null;
 }
 
 export interface PushJob {
@@ -301,7 +303,8 @@ export async function createValentine(
   senderTelegramId: number,
   animationType: AnimationType,
   message: string | null,
-  photoUrl: string | null = null
+  photoUrl: string | null = null,
+  streakDay: string | null = null
 ): Promise<Valentine> {
   const { data, error } = (await supabase
     .from('valentines')
@@ -311,6 +314,7 @@ export async function createValentine(
       animation_type: animationType,
       message,
       photo_url: photoUrl,
+      streak_day: streakDay,
       delivered_at: new Date().toISOString(),
     })
     .select()
@@ -318,6 +322,37 @@ export async function createValentine(
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Per-day rows for the sky screen (GET /api/pairs/streak/days).
+ *
+ * Returns the columns needed to draw one star per day and to preview the day's
+ * latest valentine, newest valentine first so the caller can pick each day's
+ * latest by first-seen. Rows inserted before migration 037 have a NULL
+ * `streak_day` and are skipped; the migration backfills them.
+ */
+export interface ValentineDayRow {
+  id: string;
+  streak_day: string | null;
+  sent_at: string;
+  sender_telegram_id: number;
+  animation_type: AnimationType;
+  message: string | null;
+  photo_url: string | null;
+  seen_at: string | null;
+}
+
+export async function getValentineDays(pairId: string, limit = 5000): Promise<ValentineDayRow[]> {
+  const { data, error } = await supabase
+    .from('valentines')
+    .select('id, streak_day, sent_at, sender_telegram_id, animation_type, message, photo_url, seen_at')
+    .eq('pair_id', pairId)
+    .not('streak_day', 'is', null)
+    .order('sent_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []) as ValentineDayRow[];
 }
 
 export async function getValentinesByPair(pairId: string, limit = 50): Promise<Valentine[]> {
