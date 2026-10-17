@@ -1,13 +1,42 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { updateDevicePushToken, updateDevicePushPermission, updateDeviceWidgetAdded, getDeviceById, getValentinesByPair, getValentinesSince, getValentineById, getPairById } from '../services/database';
-import type { Valentine } from '../services/database';
+import { updateDevicePushToken, updateDevicePushPermission, updateDeviceWidgetAdded, getDeviceBySecretHash, hashDeviceSecret, getValentinesByPair, getValentinesSince, getValentineById, getPairById } from '../services/database';
+import type { Device, Valentine } from '../services/database';
 import { advanceStreamCursor, cursorFromRow } from '../services/streamCursor';
+import { onCompanionValentine } from '../services/companionEvents';
 import { fetchWithTimeout } from '../utils/http';
+import { resolvePhotoUrl } from '../utils/storage';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    companionDevice?: Device;
+  }
+}
+
+/**
+ * Authenticates a companion device by its Bearer secret. The device_id alone is
+ * not a credential: it is a uuid that also travels inside push payloads and
+ * logs, so anyone who saw one could read the pair's valentines and rewrite its
+ * push token. Only the SHA-256 hash of the secret is stored server-side.
+ */
+export async function companionAuth(request: FastifyRequest, reply: FastifyReply) {
+  const header = request.headers.authorization;
+  const secret = typeof header === 'string' && header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!secret) {
+    return reply.code(401).send({ error: 'Unauthorized' });
+  }
+  const device = await getDeviceBySecretHash(hashDeviceSecret(secret));
+  if (!device) {
+    return reply.code(401).send({ error: 'Unauthorized' });
+  }
+  request.companionDevice = device;
+}
 
 const GITHUB_REPO = process.env.GITHUB_REPO || 'jebovskiy/valentines';
 const RELEASE_CACHE_TTL_MS = 10 * 60 * 1000;
-const STREAM_POLL_MS = 5000;
+// Fallback poll for streams that live in a process other than the one that
+// handled the insert; same-process delivery is event-driven (companionEvents).
+const STREAM_POLL_MS = 30_000;
 // A burst bigger than this is not dropped, it is simply drained over several
 // polls: the anchor only advances as far as the page actually returned.
 const STREAM_BATCH = 50;
@@ -76,53 +105,38 @@ async function getLatestRelease(): Promise<ReleaseInfo | null> {
 }
 
 const pushTokenSchema = z.object({
-  device_id: z.string().uuid(),
   push_token: z.string().min(10),
 });
 
 const permissionSchema = z.object({
-  device_id: z.string().uuid(),
   granted: z.boolean(),
 });
 
 const widgetSchema = z.object({
-  device_id: z.string().uuid(),
   added: z.boolean(),
 });
 
-const latestValentineSchema = z.object({
-  device_id: z.string().uuid(),
-});
-
 export async function companionRoutes(app: FastifyInstance) {
-  app.post('/push-token', async (request, reply) => {
+  app.post('/push-token', { preHandler: companionAuth }, async (request) => {
     const body = pushTokenSchema.parse(request.body);
-    const device = await getDeviceById(body.device_id);
-    if (!device) return reply.code(404).send({ error: 'Device not found' });
-    await updateDevicePushToken(body.device_id, body.push_token);
+    await updateDevicePushToken(request.companionDevice!.id, body.push_token);
     return { success: true };
   });
 
-  app.post('/permission', async (request, reply) => {
+  app.post('/permission', { preHandler: companionAuth }, async (request) => {
     const body = permissionSchema.parse(request.body);
-    const device = await getDeviceById(body.device_id);
-    if (!device) return reply.code(404).send({ error: 'Device not found' });
-    await updateDevicePushPermission(body.device_id, body.granted);
+    await updateDevicePushPermission(request.companionDevice!.id, body.granted);
     return { success: true };
   });
 
-  app.post('/widget', async (request, reply) => {
+  app.post('/widget', { preHandler: companionAuth }, async (request) => {
     const body = widgetSchema.parse(request.body);
-    const device = await getDeviceById(body.device_id);
-    if (!device) return reply.code(404).send({ error: 'Device not found' });
-    await updateDeviceWidgetAdded(body.device_id, body.added);
+    await updateDeviceWidgetAdded(request.companionDevice!.id, body.added);
     return { success: true };
   });
 
-  app.post('/latest-valentine', async (request, reply) => {
-    const body = latestValentineSchema.parse(request.body);
-    const device = await getDeviceById(body.device_id);
-    if (!device) return reply.code(404).send({ error: 'Device not found' });
+  app.post('/latest-valentine', { preHandler: companionAuth }, async (request) => {
+    const device = request.companionDevice!;
 
     const valentines = await getValentinesByPair(device.pair_id, 1);
     if (valentines.length === 0) {
@@ -140,7 +154,7 @@ export async function companionRoutes(app: FastifyInstance) {
         from_name: fromName,
         animation_type: valentine.animation_type,
         message: valentine.message,
-        photo_url: valentine.photo_url,
+        photo_url: await resolvePhotoUrl(valentine.photo_url),
         sent_at: valentine.sent_at,
       },
     };
@@ -154,17 +168,15 @@ export async function companionRoutes(app: FastifyInstance) {
     return { update: info };
   });
 
-  app.get('/stream', async (request, reply) => {
+  app.get('/stream', { preHandler: companionAuth }, async (request, reply) => {
     const query = z
       .object({
-        device_id: z.string().uuid(),
-        // Optional: browsers resubscribe through the `Last-Event-ID` header and
-        // cannot set headers with EventSource, so hand-rolled clients need a way in.
+        // Optional: hand-rolled clients that resubscribe without the
+        // `Last-Event-ID` header can pass the cursor here instead.
         last_event_id: z.string().uuid().optional(),
       })
       .parse(request.query);
-    const device = await getDeviceById(query.device_id);
-    if (!device) return reply.code(404).send({ error: 'Device not found' });
+    const device = request.companionDevice!;
 
     // Resolve the resume point before hijacking the reply: a failure here still
     // surfaces as a normal HTTP error instead of a half-open stream. An id that
@@ -233,17 +245,25 @@ export async function companionRoutes(app: FastifyInstance) {
       }
     };
 
+    // Same-process inserts are announced immediately instead of waiting for
+    // the next poll tick.
+    const off = onCompanionValentine(device.pair_id, (valentine) => {
+      announce(valentine);
+      cursor = cursorFromRow(valentine);
+    });
+
     const timer = setInterval(() => {
       void pump();
     }, STREAM_POLL_MS);
     // The first frame should not wait a full tick, and a reconnect has to be
-    // caught up with immediately rather than after 5 seconds.
+    // caught up with immediately rather than after a poll interval.
     void pump();
 
     const stop = () => {
       if (closed) return;
       closed = true;
       clearInterval(timer);
+      off();
     };
     request.raw.on('close', stop);
     raw.on('error', stop);

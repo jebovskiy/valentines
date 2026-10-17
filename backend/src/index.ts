@@ -2,6 +2,7 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import { ZodError } from 'zod';
 import { config } from './config';
 import { pairsRoutes } from './routes/pairs';
 import { valentinesRoutes } from './routes/valentines';
@@ -21,7 +22,7 @@ import { gamesRoutes } from './routes/games';
 import { menuRoutes } from './routes/menu';
 import { botRoutes } from './routes/bot';
 import { registerBot } from './services/telegramBot';
-import { ensureStorageBucket } from './utils/storage';
+import { ensureStorageBucket, PhotoValidationError } from './utils/storage';
 import { startNotificationScheduler } from './services/notificationScheduler';
 import { startUpdateBroadcast } from './services/updateBroadcaster';
 
@@ -54,9 +55,32 @@ async function start() {
   logAiConfig();
   await app.register(cors, { origin: true });
   await app.register(helmet);
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    // Telegram-authenticated requests (tma <initData>) are throttled per user
+    // id instead (see middleware/auth.ts), so a shared NAT IP no longer merges
+    // everyone's budget into one 100/min bucket.
+    allowList: (request) =>
+      typeof request.headers.authorization === 'string' && request.headers.authorization.startsWith('tma '),
+  });
 
   app.get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  // Invalid user input is a client error, not a server fault: a thrown
+  // ZodError (schema validation) or PhotoValidationError (bad image bytes)
+  // used to fall through to Fastify's default handler and surface as a 500.
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof ZodError) {
+      return reply.code(400).send({ error: 'Invalid request', details: error.issues.map((issue) => issue.message) });
+    }
+    if (error instanceof PhotoValidationError) {
+      return reply.code(400).send({ error: error.message });
+    }
+    const status = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
+    if (status >= 500) request.log.error(error);
+    return reply.code(status).send({ error: status >= 500 ? 'Internal Server Error' : error.message });
+  });
 
   await ensureStorageBucket();
 

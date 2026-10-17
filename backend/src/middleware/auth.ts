@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { TelegramInitData } from '../utils/telegram';
 import { validateTelegramInitData, extractInitDataFromHeader } from '../utils/telegram';
+import { consumeUserRateLimit } from './rateLimit';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -22,6 +23,13 @@ export async function telegramAuthMiddleware(request: FastifyRequest, reply: Fas
 
   request.telegramUser = validated.user;
   request.telegramInitData = validated;
+
+  // Per-user backstop. The global IP limit is bypassed for authenticated
+  // requests (see index.ts), so many users behind one NAT IP no longer share a
+  // single 100/min budget; each user gets their own.
+  if (!consumeUserRateLimit(validated.user.id, 'global', 600, 60_000)) {
+    return reply.code(429).send({ error: 'Too many requests' });
+  }
 }
 
 // FastifyReply is thenable (`reply.then()` exists so a handler can `return reply`),

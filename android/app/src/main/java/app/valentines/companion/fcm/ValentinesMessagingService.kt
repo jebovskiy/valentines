@@ -2,8 +2,7 @@ package app.valentines.companion.fcm
 
 import app.valentines.companion.data.NotificationHelper
 import app.valentines.companion.data.PrefsRepository
-import app.valentines.companion.widget.ValentineWidget
-import androidx.glance.appwidget.updateAll
+import app.valentines.companion.widget.refreshWidgetData
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
@@ -20,13 +19,11 @@ class ValentinesMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         scope.launch {
             val prefs = PrefsRepository(this@ValentinesMessagingService)
-            val deviceId = prefs.getDeviceId() ?: return@launch
+            val secret = prefs.getDeviceSecret() ?: return@launch
             try {
                 app.valentines.companion.data.ApiClient.api.updatePushToken(
-                    app.valentines.companion.data.DeviceStatusRequest(
-                        deviceId = deviceId,
-                        pushToken = token,
-                    )
+                    "Bearer $secret",
+                    app.valentines.companion.data.DeviceStatusRequest(pushToken = token),
                 )
             } catch (_: Exception) {
             }
@@ -89,27 +86,11 @@ class ValentinesMessagingService : FirebaseMessagingService() {
     }
 
     private suspend fun handleValentine(data: Map<String, String>) {
-        val valentineId = data["valentine_id"]
-        val fromName = data["from_name"] ?: return
-        val animationType = data["animation_type"]
-        val messageText = data["message"]
-        val sentAt = data["sent_at"]
-        val photoUrl = data["photo_url"]
-
-        // Persist latest valentine for the widget (off the main thread).
-        val prefs = PrefsRepository(this)
-        val sentAtMillis = runCatching { sentAt?.let { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() } }.getOrNull()
-        prefs.saveLastValentine(
-            from = fromName,
-            message = messageText,
-            type = animationType ?: "heart_open",
-            sentAtMillis = sentAtMillis ?: System.currentTimeMillis(),
-            photoUrl = photoUrl,
-            valentineId = valentineId,
-        )
-
-        // Update all widget instances with the latest valentine
-        ValentineWidget().updateAll(this)
+        // The push carries only the id (no message text or photo URL); the
+        // content is pulled over the authenticated API and persisted here.
+        val valentineId = data["valentine_id"] ?: return
+        val result = refreshWidgetData(this)
+        val fromName = result?.fromName
 
         // Prompt to look at the fresh widget
         NotificationHelper.notifyNewValentine(

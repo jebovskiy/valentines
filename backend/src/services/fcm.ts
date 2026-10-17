@@ -124,9 +124,10 @@ async function sendWithRetry(message: Message): Promise<string> {
 
 export interface PushPayload {
   valentine_id: string;
-  from_name: string;
-  animation_type: string;
-  sent_at: string;
+  /** Retained for callers, but no longer sent — the app fetches content itself. */
+  from_name?: string;
+  animation_type?: string;
+  sent_at?: string;
   message?: string;
   photo_url?: string;
 }
@@ -146,14 +147,12 @@ export async function sendVisiblePush(token: string, payload: PushPayload): Prom
   try {
     const message = {
       token,
+      // Only the id travels through FCM: the message text and photo URL are
+      // fetched over the authenticated companion API instead, so nothing
+      // sensitive sits on Google's servers or in notification logs.
       data: {
         event: 'valentine',
         valentine_id: payload.valentine_id,
-        from_name: payload.from_name,
-        animation_type: payload.animation_type,
-        sent_at: payload.sent_at,
-        ...(payload.message !== undefined ? { message: payload.message } : {}),
-        ...(payload.photo_url ? { photo_url: payload.photo_url } : {}),
       },
       android: {
         priority: 'high' as const,
@@ -181,11 +180,6 @@ export async function sendDataPush(token: string, payload: PushPayload): Promise
       data: {
         event: 'valentine',
         valentine_id: payload.valentine_id,
-        from_name: payload.from_name,
-        animation_type: payload.animation_type,
-        sent_at: payload.sent_at,
-        ...(payload.message !== undefined ? { message: payload.message } : {}),
-        ...(payload.photo_url ? { photo_url: payload.photo_url } : {}),
       },
       android: {
         priority: 'high' as const,

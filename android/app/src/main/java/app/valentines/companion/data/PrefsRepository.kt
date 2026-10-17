@@ -14,6 +14,7 @@ private val Context.store by preferencesDataStore(name = "valentines_prefs")
 
 object Preferences {
     val DEVICE_ID = stringPreferencesKey("device_id")
+    val DEVICE_SECRET = stringPreferencesKey("device_secret")
     val PAIR_ID = stringPreferencesKey("pair_id")
     val PARTNER_NAME = stringPreferencesKey("partner_name")
     val MY_NAME = stringPreferencesKey("my_name")
@@ -42,6 +43,7 @@ class PrefsRepository(private val context: Context) {
 
     suspend fun savePair(
         deviceId: String,
+        deviceSecret: String,
         pairId: String,
         partnerTelegramId: Long,
         partnerName: String?,
@@ -49,6 +51,7 @@ class PrefsRepository(private val context: Context) {
     ) {
         context.store.edit { prefs ->
             prefs[Preferences.DEVICE_ID] = CryptoPrefs.encrypt(deviceId)
+            prefs[Preferences.DEVICE_SECRET] = CryptoPrefs.encrypt(deviceSecret)
             prefs[Preferences.PAIR_ID] = CryptoPrefs.encrypt(pairId)
             prefs[Preferences.PARTNER_TELEGRAM_ID] = partnerTelegramId
             putNullable(prefs, Preferences.PARTNER_NAME, partnerName)
@@ -72,6 +75,8 @@ class PrefsRepository(private val context: Context) {
         context.store.data.first()[Preferences.SETUP_DONE] ?: false
 
     suspend fun getDeviceId(): String? = context.store.data.first()[Preferences.DEVICE_ID]?.let(CryptoPrefs::decrypt)
+
+    suspend fun getDeviceSecret(): String? = context.store.data.first()[Preferences.DEVICE_SECRET]?.let(CryptoPrefs::decrypt)
 
     suspend fun isPushGranted(): Boolean =
         context.store.data.first()[Preferences.PUSH_GRANTED] ?: false

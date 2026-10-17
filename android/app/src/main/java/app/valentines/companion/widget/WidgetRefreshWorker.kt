@@ -5,7 +5,6 @@ import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import app.valentines.companion.data.ApiClient
-import app.valentines.companion.data.LatestValentineRequest
 import app.valentines.companion.data.PrefsRepository
 
 class WidgetRefreshWorker(
@@ -33,10 +32,10 @@ data class WidgetRefreshResult(
 suspend fun refreshWidgetData(context: Context): WidgetRefreshResult? {
     var result: WidgetRefreshResult? = null
     val prefs = PrefsRepository(context)
-    val deviceId = prefs.getDeviceId()
-    if (deviceId != null) {
+    val secret = prefs.getDeviceSecret()
+    if (secret != null) {
         try {
-            val response = ApiClient.api.latestValentine(LatestValentineRequest(deviceId))
+            val response = ApiClient.api.latestValentine("Bearer $secret")
             val v = response.valentine
             if (v != null) {
                 val sentAtMillis = runCatching {

@@ -67,12 +67,12 @@ class WidgetSyncService : Service() {
         val prefs = PrefsRepository(this)
         while (running.get()) {
             try {
-                val deviceId = prefs.getDeviceId()
-                if (deviceId == null) {
+                val secret = prefs.getDeviceSecret()
+                if (secret == null) {
                     delay(RECONNECT_DELAY_MS)
                     continue
                 }
-                stream(deviceId)
+                stream(secret)
             } catch (_: Exception) {
                 // network error / stream closed — reconnect shortly
             }
@@ -80,7 +80,7 @@ class WidgetSyncService : Service() {
         }
     }
 
-    private suspend fun stream(deviceId: String) {
+    private suspend fun stream(secret: String) {
         val client = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             // Long-lived SSE stream: never time out at the socket level, but we
@@ -90,8 +90,9 @@ class WidgetSyncService : Service() {
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .build()
         val request = Request.Builder()
-            .url("${ApiClient.BASE_URL}/api/companion/stream?device_id=$deviceId")
+            .url("${ApiClient.BASE_URL}/api/companion/stream")
             .header("Accept", "text/event-stream")
+            .header("Authorization", "Bearer $secret")
             .build()
 
         client.newCall(request).execute().use { response ->

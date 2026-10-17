@@ -45,6 +45,8 @@ export interface CompletePairingResult {
   partnerName: string | null;
   myName: string | null;
   deviceId: string;
+  /** Per-device companion API secret. Returned exactly once, here. */
+  deviceSecret: string;
 }
 
 export async function completePairing(
@@ -62,7 +64,7 @@ export async function completePairing(
   const partnerId = await getPartnerTelegramId(pair.id, userId);
   if (!partnerId) throw new Error('Partner not found');
 
-  const device = await registerDevice(pair.id, userId, platform, pushToken);
+  const { device, secret } = await registerDevice(pair.id, userId, platform, pushToken);
 
   const myName = pair.telegram_user_a === userId ? pair.user_a_name : pair.user_b_name;
   const partnerName = pair.telegram_user_a === userId ? pair.user_b_name : pair.user_a_name;
@@ -73,6 +75,7 @@ export async function completePairing(
     partnerName,
     myName,
     deviceId: device.id,
+    deviceSecret: secret,
   };
 }
 

@@ -1,3 +1,4 @@
+import Crypto from 'node:crypto';
 import { supabase, type QueryResult } from '../utils/supabase';
 import type { AnimationType } from '../config';
 import { config } from '../config';
@@ -24,6 +25,19 @@ export interface Device {
   paired_at: string;
   push_permission_granted: boolean;
   widget_added: boolean;
+  /** SHA-256 hex of the per-device companion API secret; null for pre-036 devices. */
+  device_secret_hash?: string | null;
+}
+
+export interface DeviceRegistration {
+  device: Device;
+  /** Plaintext per-device secret — returned exactly once, at pairing time. */
+  secret: string;
+}
+
+/** SHA-256 hex digest used to look a device up by its companion secret. */
+export function hashDeviceSecret(secret: string): string {
+  return Crypto.createHash('sha256').update(secret).digest('hex');
 }
 
 export interface Valentine {
@@ -205,7 +219,10 @@ export async function registerDevice(
   telegramUserId: number,
   platform: 'ios' | 'android',
   pushToken: string
-): Promise<Device> {
+): Promise<DeviceRegistration> {
+  // Rotate the companion secret on every (re)pairing: the previous secret is
+  // invalidated the moment a new device row is written.
+  const secret = Crypto.randomBytes(32).toString('base64url');
   const { data, error } = (await supabase
     .from('devices')
     .upsert(
@@ -215,12 +232,23 @@ export async function registerDevice(
         platform,
         push_token: pushToken,
         paired_at: new Date().toISOString(),
+        device_secret_hash: hashDeviceSecret(secret),
       },
       { onConflict: 'pair_id,telegram_user_id,platform' }
     )
     .select()
     .single()) as QueryResult<Device>;
 
+  if (error) throw error;
+  return { device: data, secret };
+}
+
+export async function getDeviceBySecretHash(secretHash: string): Promise<Device | null> {
+  const { data, error } = (await supabase
+    .from('devices')
+    .select('*')
+    .eq('device_secret_hash', secretHash)
+    .maybeSingle()) as QueryResult<Device | null>;
   if (error) throw error;
   return data;
 }

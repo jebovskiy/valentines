@@ -157,6 +157,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 prefs.savePair(
                     deviceId = response.deviceId,
+                    deviceSecret = response.deviceSecret,
                     pairId = response.pairId,
                     partnerTelegramId = response.partnerTelegramId,
                     partnerName = response.partnerName,
@@ -175,18 +176,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun confirmPushPermission(granted: Boolean) {
-        val state = _state.value as? PairingState.Paired ?: return
+        if (_state.value !is PairingState.Paired) return
         viewModelScope.launch {
+            val auth = authHeader() ?: return@launch
             try {
                 if (granted) {
                     val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
-                    ApiClient.api.updatePushToken(
-                        DeviceStatusRequest(deviceId = state.deviceId, pushToken = token)
-                    )
+                    ApiClient.api.updatePushToken(auth, DeviceStatusRequest(pushToken = token))
                 }
-                ApiClient.api.updatePermission(
-                    DeviceStatusRequest(deviceId = state.deviceId, granted = granted)
-                )
+                ApiClient.api.updatePermission(auth, DeviceStatusRequest(granted = granted))
                 prefs.setPushGranted(granted)
                 _pushGranted.value = granted
             } catch (_: Exception) {
@@ -195,14 +193,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun confirmWidgetAdded(added: Boolean) {
-        val state = _state.value as? PairingState.Paired ?: return
+        if (_state.value !is PairingState.Paired) return
         viewModelScope.launch {
-            try {
-                ApiClient.api.updateWidget(
-                    DeviceStatusRequest(deviceId = state.deviceId, added = added)
-                )
-                prefs.setWidgetAdded(added)
-            } catch (_: Exception) {
+            val auth = authHeader()
+            if (auth != null) {
+                try {
+                    ApiClient.api.updateWidget(auth, DeviceStatusRequest(added = added))
+                    prefs.setWidgetAdded(added)
+                } catch (_: Exception) {
+                }
             }
             prefs.setSetupDone(true)
             _state.value = PairingState.CompletedAll
@@ -210,25 +209,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setPushEnabled(enabled: Boolean) {
-        val id = _deviceId.value ?: return
         viewModelScope.launch {
+            val auth = authHeader() ?: return@launch
             try {
                 if (enabled) {
                     // Upload a real FCM token — the server skips devices whose
                     // token is still "pending" (leftover from pairing/denial).
                     val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
-                    ApiClient.api.updatePushToken(
-                        DeviceStatusRequest(deviceId = id, pushToken = token)
-                    )
+                    ApiClient.api.updatePushToken(auth, DeviceStatusRequest(pushToken = token))
                 }
-                ApiClient.api.updatePermission(
-                    DeviceStatusRequest(deviceId = id, granted = enabled)
-                )
+                ApiClient.api.updatePermission(auth, DeviceStatusRequest(granted = enabled))
             } catch (_: Exception) {
                 return@launch
             }
             prefs.setPushGranted(enabled)
             _pushGranted.value = enabled
         }
+    }
+
+    private suspend fun authHeader(): String? {
+        val secret = prefs.getDeviceSecret() ?: return null
+        return "Bearer $secret"
     }
 }

@@ -89,22 +89,14 @@ export async function dispatchPush(payload: PushDispatchPayload): Promise<void> 
     return;
   }
 
-  const pairData = await getPairById(valentine.pair_id);
-
   if (!device.push_permission_granted) {
     console.log(`Push dispatch: permission not granted for device ${device_id}`);
     await updatePushJobStatus(job.id, 'failed', job.attempts + 1);
     return;
   }
 
-  const pushPayload: PushPayload = {
-    valentine_id: valentine.id,
-    from_name: pairData ? senderName(pairData, valentine.sender_telegram_id) : 'Партнер',
-    animation_type: valentine.animation_type,
-    sent_at: valentine.sent_at,
-    message: valentine.message || undefined,
-    photo_url: valentine.photo_url || undefined,
-  };
+  // Only the id is sent; the companion fetches the content itself.
+  const pushPayload: PushPayload = { valentine_id: valentine.id };
 
   try {
     if (channel === 'visible') {
@@ -154,14 +146,6 @@ export async function retryPendingPushJobs(): Promise<void> {
  * updates right away with the new valentine.
  */
 export async function dispatchDirectValentinePushes(valentine: Valentine): Promise<void> {
-  let fromName = 'Партнер';
-  try {
-    const pairData = await getPairById(valentine.pair_id);
-    if (pairData) fromName = senderName(pairData, valentine.sender_telegram_id);
-  } catch (error) {
-    console.error('Direct push: failed to load pair', error);
-  }
-
   let devices;
   try {
     devices = await getDevicesByPair(valentine.pair_id);
@@ -170,16 +154,12 @@ export async function dispatchDirectValentinePushes(valentine: Valentine): Promi
     return;
   }
 
-  const payload: PushPayload = {
-    valentine_id: valentine.id,
-    from_name: fromName,
-    animation_type: valentine.animation_type,
-    sent_at: valentine.sent_at,
-    message: valentine.message || undefined,
-    photo_url: valentine.photo_url || undefined,
-  };
+  // Only the id is sent; the companion fetches the content itself.
+  const payload: PushPayload = { valentine_id: valentine.id };
 
   await fanOut(devices, async (device) => {
+    // Never notify the sender about their own valentine.
+    if (device.telegram_user_id === valentine.sender_telegram_id) return;
     // The widget must update even when the user hasn't granted notification
     // permission: the data push (widget update) is processed regardless, only
     // the visible notification is suppressed by the OS. Skip only devices

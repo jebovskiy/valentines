@@ -5,6 +5,14 @@ const BUCKET_NAME = 'valentine-photos';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
+/** Raised when user-supplied photo data is invalid — maps to HTTP 400, not 500. */
+export class PhotoValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PhotoValidationError';
+  }
+}
+
 // The first few bytes of a real JPEG / PNG / WebP file. Content-type sniffing
 // alone is spoofable, so we validate magic bytes before upload.
 const MAGIC_BYTES: Record<string, { magic: number[]; mime: string }> = {
@@ -36,7 +44,9 @@ export async function ensureStorageBucket(): Promise<void> {
     const exists = buckets?.some((b) => b.name === BUCKET_NAME);
     if (!exists) {
       await supabase.storage.createBucket(BUCKET_NAME, {
-        public: true,
+        // Private: photos are couple-private and must not be readable by URL
+        // guessing. The backend hands out short-lived signed URLs instead.
+        public: false,
         fileSizeLimit: MAX_IMAGE_BYTES,
         allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
       });
@@ -46,7 +56,7 @@ export async function ensureStorageBucket(): Promise<void> {
       // without constraints — re-assert the limits so the bucket itself is the
       // first line of defense (server checks stay the second).
       const { error: updateError } = await supabase.storage.updateBucket(BUCKET_NAME, {
-        public: true,
+        public: false,
         fileSizeLimit: MAX_IMAGE_BYTES,
         allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
       });
@@ -65,15 +75,15 @@ export async function uploadValentinePhoto(
   base64Data: string
 ): Promise<string> {
   const matches = base64Data.match(/^data:image\/([a-z]+);base64,(.+)$/);
-  if (!matches) throw new Error('Invalid base64 image data');
+  if (!matches) throw new PhotoValidationError('Invalid base64 image data');
 
   const buffer = Buffer.from(matches[2], 'base64');
-  if (buffer.byteLength === 0) throw new Error('Empty image data');
-  if (buffer.byteLength > MAX_IMAGE_BYTES) throw new Error('Image too large');
+  if (buffer.byteLength === 0) throw new PhotoValidationError('Empty image data');
+  if (buffer.byteLength > MAX_IMAGE_BYTES) throw new PhotoValidationError('Image too large');
 
   // Trust the magic bytes, not the declared MIME in the data URL.
   const detected = detectImageType(buffer);
-  if (!detected) throw new Error('Unsupported image format');
+  if (!detected) throw new PhotoValidationError('Unsupported image format');
 
   const fileName = `${pairId}/${Crypto.randomUUID()}.${detected.ext}`;
 
@@ -83,6 +93,39 @@ export async function uploadValentinePhoto(
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(fileName);
-  return data.publicUrl;
+  // Store the object path, not a URL: the bucket is private and the URL is
+  // signed on read with a short TTL.
+  return fileName;
+}
+
+/**
+ * Normalises a stored photo reference (object path, or a legacy public URL
+ * written before the bucket was made private) to an object path.
+ */
+function toObjectPath(stored: string): string | null {
+  const marker = `/object/public/${BUCKET_NAME}/`;
+  const idx = stored.indexOf(marker);
+  if (idx >= 0) return decodeURIComponent(stored.slice(idx + marker.length).split('?')[0]);
+  if (/^https?:\/\//i.test(stored)) return null; // unknown external URL
+  return stored;
+}
+
+/** Returns a short-lived signed URL for a stored photo reference. */
+export async function resolvePhotoUrl(stored: string | null, ttlSeconds = 3600): Promise<string | null> {
+  if (!stored) return null;
+  const path = toObjectPath(stored);
+  if (!path) return null;
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(path, ttlSeconds);
+  if (error || !data) return null;
+  return data.signedUrl;
+}
+
+/** Signs the `photo_url` of every item in place (returns new objects). */
+export async function withSignedPhotoUrls<T extends { photo_url: string | null }>(
+  items: T[],
+  ttlSeconds = 3600
+): Promise<T[]> {
+  return Promise.all(
+    items.map(async (item) => ({ ...item, photo_url: await resolvePhotoUrl(item.photo_url, ttlSeconds) }))
+  );
 }

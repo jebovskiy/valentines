@@ -11,6 +11,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
 
@@ -26,10 +27,10 @@ data class CompletePairingResponse(
     @Json(name = "partnerName") val partnerName: String?,
     @Json(name = "myName") val myName: String?,
     @Json(name = "deviceId") val deviceId: String,
+    @Json(name = "deviceSecret") val deviceSecret: String,
 )
 
 data class DeviceStatusRequest(
-    @Json(name = "device_id") val deviceId: String,
     @Json(name = "push_token") val pushToken: String? = null,
     @Json(name = "granted") val granted: Boolean? = null,
     @Json(name = "added") val added: Boolean? = null,
@@ -37,10 +38,6 @@ data class DeviceStatusRequest(
 
 data class SimpleResponse(
     @Json(name = "success") val success: Boolean = false,
-)
-
-data class LatestValentineRequest(
-    @Json(name = "device_id") val deviceId: String,
 )
 
 data class LatestValentineData(
@@ -71,16 +68,16 @@ interface ValentinesApi {
     suspend fun completePairing(@Body body: CompletePairingRequest): CompletePairingResponse
 
     @POST("/api/companion/push-token")
-    suspend fun updatePushToken(@Body body: DeviceStatusRequest): SimpleResponse
+    suspend fun updatePushToken(@Header("Authorization") auth: String, @Body body: DeviceStatusRequest): SimpleResponse
 
     @POST("/api/companion/permission")
-    suspend fun updatePermission(@Body body: DeviceStatusRequest): SimpleResponse
+    suspend fun updatePermission(@Header("Authorization") auth: String, @Body body: DeviceStatusRequest): SimpleResponse
 
     @POST("/api/companion/widget")
-    suspend fun updateWidget(@Body body: DeviceStatusRequest): SimpleResponse
+    suspend fun updateWidget(@Header("Authorization") auth: String, @Body body: DeviceStatusRequest): SimpleResponse
 
     @POST("/api/companion/latest-valentine")
-    suspend fun latestValentine(@Body body: LatestValentineRequest): LatestValentineResponse
+    suspend fun latestValentine(@Header("Authorization") auth: String): LatestValentineResponse
 
     @GET("/api/companion/update")
     suspend fun getUpdate(): UpdateResponse

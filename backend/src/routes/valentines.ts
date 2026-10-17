@@ -7,7 +7,8 @@ import { userRateLimit } from '../middleware/rateLimit';
 import { isKnownAnimationType } from '../config';
 import { sendNewValentineNotification } from '../services/telegramNotifier';
 import { dispatchDirectValentinePushes, dispatchStreakPushes } from '../services/pushDispatcher';
-import { uploadValentinePhoto } from '../utils/storage';
+import { emitCompanionValentine } from '../services/companionEvents';
+import { uploadValentinePhoto, resolvePhotoUrl, withSignedPhotoUrls } from '../utils/storage';
 import { Semaphore } from '../utils/concurrency';
 
 const MAX_PHOTO_BODY_BYTES = 10 * 1024 * 1024;
@@ -45,7 +46,7 @@ export async function valentinesRoutes(app: FastifyInstance) {
       return reply.code(404).send({ error: 'Pair not found' });
     }
 
-    const valentines = await getValentinesByPair(pair.id);
+    const valentines = await withSignedPhotoUrls(await getValentinesByPair(pair.id));
     return { valentines };
   });
 
@@ -63,7 +64,14 @@ export async function valentinesRoutes(app: FastifyInstance) {
     const senderName = isOwn
       ? (pair.telegram_user_a === request.telegramUser!.id ? pair.user_a_name ?? 'Вы' : pair.user_b_name ?? 'Вы')
       : (pair.telegram_user_a === valentine.sender_telegram_id ? pair.user_a_name ?? 'Партнер' : pair.user_b_name ?? 'Партнер');
-    return { valentine: { ...valentine, sender_name: senderName, is_own: isOwn } };
+    return {
+      valentine: {
+        ...valentine,
+        photo_url: await resolvePhotoUrl(valentine.photo_url),
+        sender_name: senderName,
+        is_own: isOwn,
+      },
+    };
   });
 
   app.post('/', { preHandler: [requireTelegramAuth, photoUserRateLimit], bodyLimit: MAX_PHOTO_BODY_BYTES, config: { rateLimit: photoRateLimit } }, async (request, reply) => {
@@ -77,11 +85,6 @@ export async function valentinesRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair) {
       return reply.code(404).send({ error: 'Pair not found' });
-    }
-
-    let photoUrl: string | null = null;
-    if (body.photo_base64) {
-      photoUrl = await photoUploadGate.run(() => uploadValentinePhoto(pair.id, body.photo_base64!));
     }
 
     const lockedRequirement = STREAK_LOCKED_ANIMATIONS[body.animation_type];
@@ -100,6 +103,13 @@ export async function valentinesRoutes(app: FastifyInstance) {
           .code(403)
           .send({ error: `Эта анимация откроется на ${lockedRequirement}-й день стрика` });
       }
+    }
+
+    // Upload only after the animation has passed the streak lock: uploading
+    // first left an orphan object in storage for every rejected request.
+    let photoUrl: string | null = null;
+    if (body.photo_base64) {
+      photoUrl = await photoUploadGate.run(() => uploadValentinePhoto(pair.id, body.photo_base64!));
     }
 
     const valentine = await createValentine(pair.id, request.telegramUser!.id, body.animation_type, body.message ?? null, photoUrl);
@@ -123,6 +133,9 @@ export async function valentinesRoutes(app: FastifyInstance) {
       app.log.error('Streak update failed: %s', e instanceof Error ? e.message : String(e));
     }
 
+    // Wake up any open companion SSE stream in this process immediately.
+    emitCompanionValentine(pair.id, valentine);
+
     // Notify the companion widget right away: pushes are dispatched inline
     // (independent of the DB trigger / push_jobs pipeline).
     void dispatchDirectValentinePushes(valentine).catch((e: unknown) => {
@@ -137,13 +150,14 @@ export async function valentinesRoutes(app: FastifyInstance) {
       const senderName = recipientId === userId
         ? (userId === pair.telegram_user_a ? pair.user_a_name : pair.user_b_name)
         : (pair.telegram_user_a === userId ? pair.user_a_name : pair.user_b_name);
-      // Non-blocking: valentine is already saved
-      await sendNewValentineNotification(recipientId, valentine.id, senderName).catch((e: unknown) => {
+      // Non-blocking: valentine is already saved, so the response must not wait
+      // on the Telegram Bot API round-trip.
+      void sendNewValentineNotification(recipientId, valentine.id, senderName).catch((e: unknown) => {
         app.log.error(`Telegram notification failed: %s`, e);
       });
     }
 
-    return { valentine };
+    return { valentine: { ...valentine, photo_url: await resolvePhotoUrl(valentine.photo_url) } };
   });
 
   app.post('/:id/seen', { preHandler: requireTelegramAuth }, async (request, reply) => {
@@ -155,6 +169,11 @@ export async function valentinesRoutes(app: FastifyInstance) {
     const pair = await getPairByUser(request.telegramUser!.id);
     if (!pair || pair.id !== valentine.pair_id) {
       return reply.code(403).send({ error: 'Forbidden' });
+    }
+    // Only the recipient may mark a valentine as read. Otherwise the sender
+    // could forge the "✓ прочитано" state the partner sees.
+    if (valentine.sender_telegram_id === request.telegramUser!.id) {
+      return { success: true };
     }
     await markValentineSeen(id);
     return { success: true };

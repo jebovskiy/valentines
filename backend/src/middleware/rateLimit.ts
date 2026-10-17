@@ -24,6 +24,24 @@ function pruneWindow(key: string): void {
  * to the client IP when the user id is unavailable. In-memory only — fine for
  * a single Railway instance; for multiple instances prefer Redis-backed limits.
  */
+/**
+ * Same fixed-window limiter as `userRateLimit`, but callable directly (e.g.
+ * from the auth middleware, once a telegram user id is known). Returns false
+ * when the caller is over the limit.
+ */
+export function consumeUserRateLimit(userId: number, key: string, max: number, timeWindowMs: number): boolean {
+  if (windows.size > 10_000) {
+    windows.clear();
+  }
+  const fullKey = `u:${userId}:${key}`;
+  pruneWindow(fullKey);
+  const bucket = windows.get(fullKey) ?? [];
+  if (bucket.length >= max) return false;
+  bucket.push(Date.now());
+  windows.set(fullKey, bucket);
+  return true;
+}
+
 export function userRateLimit(options: RateLimitWindow) {
   return async function userRateLimitMiddleware(request: FastifyRequest, reply: FastifyReply) {
     if (windows.size > 10_000) {
