@@ -181,7 +181,6 @@ export function SkyScreen() {
   const selected = visible.find((s) => s.id === selectedId) ?? visible[visible.length - 1] ?? null;
 
   const [scale, setScale] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [lastTouchDist, setLastTouchDist] = useState(0);
 
   const openValentine = (v: ValentineWithSender) => {
@@ -216,14 +215,12 @@ export function SkyScreen() {
     setLastTouchDist(0);
     if (scale < 0.8) {
       setScale(1);
-      setPan({ x: 0, y: 0 });
     }
   };
 
   const handleDoubleClick = () => {
     hapticFeedback('selection');
     setScale(1);
-    setPan({ x: 0, y: 0 });
   };
 
   // Свайп вниз за верхнюю ручку — закрыть небо.
@@ -347,7 +344,7 @@ export function SkyScreen() {
                 preserveAspectRatio="xMidYMid meet"
                 style={{
                   display: 'block',
-                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+                  transform: `scale(${scale})`,
                   transformOrigin: 'center center',
                   willChange: 'transform',
                   touchAction: 'none',
@@ -359,15 +356,6 @@ export function SkyScreen() {
                 role="img"
                 aria-label="Звёздное небо валентинок"
               >
-              <defs>
-                <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="2" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
               <rect width={SKY_W} height={SKY_H} fill="transparent" />
               {dust.map((d, i) => {
                 const isBright = i % 4 === 0;

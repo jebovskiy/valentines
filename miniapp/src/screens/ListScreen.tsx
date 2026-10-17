@@ -406,7 +406,7 @@ export function ListScreen() {
                   isTall={colIndex % 2 === 0}
                   onPress={() => {
                     hapticFeedback('impact', 'light');
-                    if (!valentine.seen_at) markSeen(valentine.id);
+                    if (!valentine.is_own && !valentine.seen_at) markSeen(valentine.id);
                     navigate(`/valentine/${valentine.id}`);
                   }}
                 />
@@ -422,7 +422,7 @@ export function ListScreen() {
                   isTall={colIndex % 2 === 0}
                   onPress={() => {
                     hapticFeedback('impact', 'light');
-                    if (!valentine.seen_at) markSeen(valentine.id);
+                    if (!valentine.is_own && !valentine.seen_at) markSeen(valentine.id);
                     navigate(`/valentine/${valentine.id}`);
                   }}
                 />

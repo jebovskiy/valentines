@@ -87,7 +87,10 @@ function App() {
       <BackCloseHandler />
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<ListScreen />} />
+          {/* Telegram opens the Mini App at "/" and passes the deep link in
+              initData.start_param, so the index route — not just the catch-all
+              — has to honour initialPath. */}
+          <Route index element={initialPath ? <Navigate to={initialPath} replace /> : <ListScreen />} />
           <Route path="send" element={<SendScreen />} />
           <Route path="valentine/:id" element={<DetailScreen />} />
           <Route path="pairing" element={<PairingScreen />} />
