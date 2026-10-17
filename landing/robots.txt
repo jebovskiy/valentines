@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://valentines.app/sitemap.xml
